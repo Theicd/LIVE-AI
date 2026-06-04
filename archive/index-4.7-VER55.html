@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS - Future OS & Command Center</title>
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --alert: #ff003c;
+            --bg-dark: #050a10;
+            --glass: rgba(10, 20, 30, 0.85);
+            --border: 1px solid rgba(0, 243, 255, 0.3);
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: var(--primary);
+            font-family: var(--font-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 243, 255, 0.1) 0%, transparent 50%),
+                linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(10,20,30,1) 100%);
+        }
+
+        /* --- CRT Scanline Effect --- */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.6;
+        }
+
+        /* --- Intro Screen --- */
+        #intro {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: black;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1s ease-out;
+        }
+        
+        .loader-ring {
+            width: 80px; height: 80px;
+            border: 4px solid var(--primary);
+            border-top: 4px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .intro-text {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* --- Desktop --- */
+        #desktop {
+            position: relative;
+            width: 100%; height: 100%;
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .desktop-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            background: rgba(0,0,0,0.5);
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 5px;
+        }
+
+        .desktop-icon:hover { border-color: var(--primary); background: rgba(0, 243, 255, 0.1); }
+        .icon-img { font-size: 2rem; margin-bottom: 5px; text-shadow: 0 0 10px var(--primary); }
+        .icon-label { font-size: 0.8rem; text-align: center; }
+
+        /* --- Windows --- */
+        .window {
+            position: absolute;
+            background: var(--glass);
+            border: var(--border);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            backdrop-filter: blur(5px);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .window-header {
+            background: rgba(0, 243, 255, 0.1);
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: var(--border);
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .window-body {
+            flex: 1;
+            padding: 15px;
+            overflow: auto;
+            position: relative;
+        }
+
+        .close-btn {
+            cursor: pointer;
+            color: var(--alert);
+            font-weight: bold;
+        }
+        .close-btn:hover { text-shadow: 0 0 5px var(--alert); }
+
+        /* --- Specific App Styles --- */
+
+        /* Terminal */
+        #term-window {
+            width: 400px; height: 300px;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #term-input-line { display: flex; align-items: center; margin-top: 10px; }
+        #term-input { background: transparent; border: none; color: var(--primary); outline: none; font-family: inherit; flex: 1; margin-left: 5px; }
+        .output-line { margin-bottom: 5px; font-size: 0.9rem; text-shadow: 0 0 2px var(--primary); }
+
+        /* Map */
+        #map-window {
+            width: 500px; height: 350px;
+            top: 20%; left: 20%;
+        }
+        .map-container {
+            width: 100%; height: 100%;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(0, 243, 255, 0.2);
+        }
+        .world-grid {
+            width: 200%; height: 200%;
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.3) 1px, transparent 1px);
+            background-size: 50px 50px;
+            transform-origin: center;
+            /* Animation handled by JS for demo */
+        }
+        .ping-point {
+            position: absolute;
+            width: 10px; height: 10px;
+            background: var(--alert);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--alert);
+            animation: pingAnim 2s infinite linear;
+        }
+        @keyframes pingAnim {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(4); opacity: 0; }
+        }
+
+        /* Holo Model */
+        #holo-window {
+            width: 350px; height: 300px;
+            top: 30%; right: 10%;
+        }
+        .scene-3d {
+            width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            perspective: 800px;
+        }
+        .cube {
+            width: 100px; height: 100px;
+            position: relative;
+            transform-style: preserve-3d;
+            animation: rotateCube 10s infinite linear;
+        }
+        .cube-face {
+            position: absolute;
+            width: 100px; height: 100px;
+            border: 2px solid var(--secondary);
+            background: rgba(188, 19, 254, 0.1);
+            display: flex; justify-content: center; align-items: center;
+            font-size: 0.8rem;
+        }
+        .face-front { transform: rotateY(0deg) translateZ(50px); }
+        .face-back { transform: rotateY(180deg) translateZ(50px); }
+        .face-right { transform: rotateY(90deg) translateZ(50px); }
+        .face-left { transform: rotateY(-90deg) translateZ(50px); }
+        .face-top { transform: rotateX(90deg) translateZ(50px); }
+        .face-bottom { transform: rotateX(-90deg) translateZ(50px); }
+
+        @keyframes rotateCube {
+            0% { transform: rotateX(-20deg) rotateY(0deg); }
+            100% { transform: rotateX(-20deg) rotateY(360deg); }
+        }
+
+        /* AI Waveform */
+        #ai-window {
+            width: 350px; height: 300px;
+            bottom: 20%; left: 30%;
+        }
+        canvas { width: 100%; height: 100px; border-bottom: 1px solid var(--secondary); margin-bottom: 10px; }
+        .ai-text { font-size: 0.85rem; color: #fff; min-height: 40px; }
+
+        /* Status Board */
+        #status-window {
+            width: 200px; height: 150px;
+            top: 20%; right: 10%;
+        }
+        .status-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.75rem; }
+        .bar-bg { width: 100px; height: 5px; background: #333; margin-top: 2px; }
+        .bar-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.5s; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #desktop { grid-template-columns: 2fr 2fr; grid-template-rows: repeat(4, 1fr); }
+            .window { 
+                top: 50% !important; left: 10% !important; right: 10% !important; 
+                width: 80% !important; height: 60% !important;
+                transform: none !important;
+                z-index: 100;
+            }
+            #status-window { top: 10% !important; right: 10% !important; width: 80% !important; }
+            #holo-window { right: 10% !important; top: 50% !important; }
+            #ai-window { left: 10% !important; bottom: 10% !important; width: 80% !important; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+
+    <!-- Intro Screen -->
+    <div id="intro">
+        <div class="loader-ring"></div>
+        <div class="intro-text">INITIALIZING NEXUS OS...</div>
+    </div>
+
+    <!-- Desktop Area -->
+    <main id="desktop">
+        <!-- Icons -->
+        <div class="desktop-icon" onclick="openApp('term-window')">
+            <div class="icon-img">>_</div>
+            <div class="icon-label">TERMINAL</div>
+        </div>
+        <div class="desktop-icon" onclick="openApp('map-window')">
+            <div class="icon-img">◎</div>
+            <div class="icon-label">GLOBAL SEC</div>
+        </div>
+        <div class="desktop-icon" onclick="openApp('holo-window')">
+            <div class="icon-img">◆</div>
+            <div class="icon-label">HOLO-LAB</div>
+        </div>
+        <div class="desktop-icon" onclick="openApp('ai-window')">
+            <div class="icon-img">♫</div>
+            <div class="icon-label">AI CORE</div>
+        </div>
+    </main>
+
+    <!-- Windows -->
+    
+    <!-- Terminal Window -->
+    <div id="term-window" class="window">
+        <div class="window-header">
+            <span>root@nexus:~/terminal</span>
+            <span class="close-btn" onclick="closeApp('term-window')">X</span>
+        </div>
+        <div class="window-body" id="term-output">
+            <div class="output-line">NEXUS OS v9.2 loaded.</div>
+            <div class="output-line">Kernel integrity: 100%</div>
+            <div class="output-line">Awaiting command...</div>
+        </div>
+        <div class="window-header" style="border-top: var(--border); border-bottom: none;">
+            <span id="term-input-line">
+                <span style="color: #0f0">guest@nexus</span>:
+                <input type="text" id="term-input" value="" readonly>
+            </span>
+        </div>
+    </div>
+
+    <!-- Map Window -->
+    <div id="map-window" class="window">
+        <div class="window-header">
+            <span>GEO-SATELLITE LINK</span>
+            <span class="close-btn" onclick="closeApp('map-window')">X</span>
+        </div>
+        <div class="window-body" style="padding: 0; display: flex; flex-direction: column;">
+            <div style="padding: 5px; font-size: 0.7rem; background: rgba(0,0,0,0.5); color: #aaa;">LIVE FEED :: PACIFIC REGION</div>
+            <div class="map-container" id="map-view">
+                <div class="world-grid" id="map-grid">
+                    <!-- Pings injected via JS -->
+                </div>
+            </div>
+            <div id="map-alert" style="padding: 5px; font-size: 0.7rem; background: rgba(255,0,60,0.1); color: var(--alert); text-align: center; display: none;">
+                ⚠ THREAT DETECTED AT SECTOR 7
+            </div>
+        </div>
+    </div>
+
+    <!-- Holo Model Window -->
+    <div id="holo-window" class="window">
+        <div class="window-header">
+            <span>PROJECT: PROTO-X</span>
+            <span class="close-btn" onclick="closeApp('holo-window')">X</span>
+        </div>
+        <div class="window-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div class="scene-3d">
+                <div class="cube">
+                    <div class="cube-face face-front">DATA_01</div>
+                    <div class="cube-face face-back">DATA_02</div>
+                    <div class="cube-face face-right">DATA_03</div>
+                    <div class="cube-face face-left">DATA_04</div>
+                    <div class="cube-face face-top">SYS</div>
+                    <div class="cube-face face-bottom">CORE</div>
+                </div>
+            </div>
+            <div id="holo-status" style="margin-top: 20px; font-size: 0.8rem; color: var(--secondary); text-align: center;">
+                Analyzing Layer 1...
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Window -->
+    <div id="ai-window" class="window">
+        <div class="window-header">
+            <span>NEXUS AI INTERFACE</span>
+            <span class="close-btn" onclick="closeApp('ai-window')">X</span>
+        </div>
+        <div class="window-body">
+            <canvas id="waveform-canvas"></canvas>
+            <div id="ai-reply" class="ai-text">Waiting for input...</div>
+        </div>
+    </div>
+
+    <!-- Status Board -->
+    <div id="status-window" class="window">
+        <div class="window-header">
+            <span>SYSTEM STATS</span>
+        </div>
+        <div class="window-body" style="padding: 10px;">
+            <div class="status-row"><span>CPU LOAD</span> <span id="cpu-val">0%</span></div>
+            <div class="bar-bg"><div class="bar-fill" id="cpu-bar"></div></div>
+            
+            <div class="status-row" style="margin-top: 10px;"><span>MEM USAGE</span> <span id="mem-val">0%</span></div>
+            <div class="bar-bg"><div class="bar-fill" id="mem-bar" style="background: var(--secondary);"></div></div>
+
+            <div class="status-row" style="margin-top: 10px;"><span>NETWORK</span> <span>SECURE</span></div>
+            <div class="bar-bg"><div class="bar-fill" id="net-bar" style="background: #0f0;"></div></div>
+        </div>
+    </div>
+
+    <script>
+        // --- System State & Utilities ---
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        const getEl = (id) => document.getElementById(id);
+        
+        let zIndexCounter = 100;
+
+        function bringToFront(el) {
+            zIndexCounter++;
+            el.style.zIndex = zIndexCounter;
+        }
+
+        function openApp(id) {
+            const win = getEl(id);
+            if (win.style.display === 'none' || win.style.display === '') {
+                win.style.display = 'flex';
+                win.style.opacity = '0';
+                setTimeout(() => win.style.opacity = '1', 50);
+            }
+            bringToFront(win);
+        }
+
+        function closeApp(id) {
+            getEl(id).style.display = 'none';
+        }
+
+        // --- Terminal Logic ---
+        const termOutput = getEl('term-output');
+        const termInput = getEl('term-input');
+        let termHistory = "";
+
+        function typeTerm(text, append = false) {
+            if (!append) termOutput.innerHTML = '';
+            const div = document.createElement('div');
+            div.className = 'output-line';
+            termOutput.appendChild(div);
+            div.textContent = '> ' + text;
+            termOutput.scrollTop = termOutput.scrollHeight;
+            termHistory += '> ' + text + '\n';
+        }
+
+        function triggerCommand(cmd) {
+            typeTerm(cmd);
+            sleep(300);
+            typeTerm(`Processing: ${cmd}...`);
+            sleep(800);
+            typeTerm(`System check complete. No anomalies found.`);
+            sleep(300);
+            typeTerm(`> _`, false);
+            termInput.value = '';
+        }
+
+        // --- Map Logic ---
+        function spawnPing() {
+            const mapContainer = getEl('map-view');
+            const ping = document.createElement('div');
+            ping.className = 'ping-point';
+            
+            // Random position inside the map
+            const top = Math.random() * 80 + 10;
+            const left = Math.random() * 80 + 10;
+            
+            ping.style.top = top + '%';
+            ping.style.left = left + '%';
+            
+            mapContainer.appendChild(ping);
+            
+            setTimeout(() => { ping.remove(); }, 2000);
+        }
+
+        // --- AI Logic (Canvas Waveform) ---
+        const canvas = getEl('waveform-canvas');
+        const ctx = canvas.getContext('2d');
+        let audioContext, analyser, dataArray;
+        let isDrawing = false;
+
+        function initAudio() {
+            // Simulate audio context visual only
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = canvas.offsetHeight;
+            dataArray = new Uint8Array(50);
+            isDrawing = true;
+            drawWave();
+        }
+
+        function drawWave() {
+            if (!isDrawing) return;
+            requestAnimationFrame(drawWave);
+            
+            // Clear but leave trails
+            ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#bc13fe';
+            ctx.beginPath();
+
+            const sliceWidth = canvas.width * 1.0 / dataArray.length;
+            let x = 0;
+
+            for (let i = 0; i < dataArray.length; i++) {
+                // Random height generation for demo visual
+                const v = (dataArray[i] / 128.0) * 50 + (Math.random() * 20 - 10); 
+                const y = (canvas.height - h) / 2 + (Math.random() * 20 - 10) + (canvas.height / 2) - v;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+
+                x += sliceWidth;
+            }
+            ctx.stroke();
+        }
+
+        function typeAi(text) {
+            const el = getEl('ai-reply');
+            el.innerHTML = '';
+            let i = 0;
+            const interval = setInterval(() => {
+                el.textContent += text.charAt(i);
+                i++;
+                if (i >= text.length) clearInterval(interval);
+            }, 30);
+        }
+
+        // --- The Scripted Demo (The Core Request) ---
+        async function runDemo() {
+            // 1. Intro handled by CSS/Timeout, but let's ensure setup happens
+            await sleep(100); 
+            getEl('intro').style.opacity = '0';
+            setTimeout(() => getEl('intro').style.display = 'none', 1000);
+
+            // 2. Open Terminal
+            openApp('term-window');
+            triggerCommand('sys_check');
+            await sleep(2500);
+
+            // 3. Switch to Map
+            closeApp('term-window');
+            openApp('map-window');
+            
+            // Animate Pan
+            const grid = getEl('map-grid');
+            grid.style.transition = 'transform 4s ease-in-out';
+            grid.style.transform = 'scale(1.5) translate(-20%, -20%)'; // Pan effect
+            
+            // Spawn pings
+            setTimeout(() => spawnPing(), 500);
+            setTimeout(() => spawnPing(), 1200);
+            
+            // Alert
+            setTimeout(() => {
+                getEl('map-alert').style.display = 'block';
+            }, 2500);
+
+            await sleep(5500); // Wait for map sequence
+
+            // 4. Switch to Holo
+            closeApp('map-window');
+            openApp('holo-window');
+            
+            // Animate Holo Status text
+            const holoStatus = getEl('holo-status');
+            holoStatus.textContent = "Scanning Layers...";
+            setTimeout(() => holoStatus.textContent = "Layer 1: Structure OK", 1500);
+            setTimeout(() => holoStatus.textContent = "Layer 2: Energy Shield", 3000);
+            setTimeout(() => holoStatus.textContent = "Layer 3: Firewall Active", 4500);
+            
+            await sleep(6000);
+
+            // 5. Switch to AI
+            closeApp('holo-window');
+            openApp('ai-window');
+            initAudio(); // Start visualizer
+            
+            typeAi("System nominal. All sectors green. User, your command has been executed.");
+            
+            // Update stats board randomly
+            for(let i=0; i<5; i++) {
+                getEl('cpu-bar').style.width = Math.random() * 100 + '%';
+                getEl('mem-bar').style.width = Math.random() * 100 + '%';
+                await sleep(200);
+            }
+        }
+
+        // Start system
+        window.addEventListener('load', () => {
+            setTimeout(runDemo, 5500); // 5s intro delay
+        });
+
+    </script>
+</body>
+</html>

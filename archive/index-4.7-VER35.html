@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS | Future Command Center</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-dark: #05050a;
+            --bg-panel: rgba(16, 20, 35, 0.7);
+            --neon-blue: #00f3ff;
+            --neon-purple: #bc13fe;
+            --neon-green: #0aff0a;
+            --text-main: #e0e6ed;
+            --text-muted: #94a3b8;
+            --border-color: rgba(0, 243, 255, 0.2);
+            --font-display: 'Orbitron', sans-serif;
+            --font-body: 'Rajdhani', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-blue) var(--bg-dark);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(188, 19, 254, 0.05) 0%, transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(0, 243, 255, 0.05) 0%, transparent 25%),
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+            color: var(--text-main);
+            font-family: var(--font-body);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* --- Scrollbar --- */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--neon-blue);
+            border-radius: 3px;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            transition: transform 0.3s ease;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .brand {
+            font-family: var(--font-display);
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--neon-blue);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-links {
+            list-style: none;
+            flex: 1;
+        }
+
+        .nav-item {
+            margin-bottom: 10px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 15px;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: rgba(0, 243, 255, 0.1);
+            color: var(--neon-blue);
+            border-color: rgba(0, 243, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+        }
+
+        .nav-link i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .user-profile {
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid var(--neon-purple);
+            object-fit: cover;
+        }
+
+        .user-info h4 {
+            font-size: 0.9rem;
+            font-family: var(--font-display);
+        }
+
+        .user-info span {
+            font-size: 0.75rem;
+            color: var(--neon-green);
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* --- Header --- */
+        header {
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, transparent 100%);
+        }
+
+        .header-left h2 {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 8px 15px 8px 35px;
+            border-radius: 20px;
+            color: var(--text-main);
+            font-family: var(--font-body);
+            outline: none;
+            transition: 0.3s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .btn-action {
+            background: transparent;
+            border: 1px solid var(--neon-purple);
+            color: var(--neon-purple);
+            padding: 8px 20px;
+            border-radius: 5px;
+            font-family: var(--font-display);
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        .btn-action:hover {
+            background: var(--neon-purple);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(188, 19, 254, 0.4);
+        }
+
+        /* --- Dashboard Grid --- */
+        .dashboard-grid {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto auto;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* --- Cards --- */
+        .card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(5px);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-color: rgba(0, 243, 255, 0.4);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+            opacity: 0.5;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card-icon {
+            color: var(--neon-blue);
+            font-size: 1.2rem;
+        }
+
+        /* --- Stats Widgets --- */
+        .stat-card {
+            grid-column: span 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 140px;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .stat-trend {
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .trend-up { color: var(--neon-green); }
+        .trend-down { color: #ff2a2a; }
+
+        /* --- Main Chart --- */
+        .chart-card {
+            grid-column: span 3;
+            height: 350px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- Server Status --- */
+        .server-card {
+            grid-column: span 1;
+            height: 350px;
+        }
+
+        .server-row {
+            margin-bottom: 15px;
+        }
+
+        .server-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            color: var(--text-muted);
+        }
+
+        .progress-bg {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--neon-blue);
+            width: 0%;
+            transition: width 0.5s ease-out, box-shadow 0.3s;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .progress-bar.warning { background: var(--neon-purple); box-shadow: 0 0 10px var(--neon-purple); }
+        .progress-bar.danger { background: #ff2a2a; box-shadow: 0 0 10px #ff2a2a; }
+
+        /* --- Activity Log --- */
+        .log-card {
+            grid-column: span 2;
+            height: 300px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-list {
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            gap: 10px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .log-time { color: var(--neon-blue); opacity: 0.7; }
+        .log-msg { color: var(--text-muted); }
+        .log-msg.success { color: var(--neon-green); }
+        .log-msg.warn { color: var(--neon-purple); }
+
+        /* --- Target Lock (Visual) --- */
+        .target-card {
+            grid-column: span 1;
+            height: 300px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .radar-scan {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 243, 255, 0.3);
+            position: relative;
+        }
+
+        .radar-scan::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, transparent 0deg, rgba(0, 243, 255, 0.2) 60deg, transparent 60deg);
+            animation: radarSpin 2s linear infinite;
+        }
+
+        .radar-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background: var(--neon-blue);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .target-dot {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: var(--neon-purple);
+            border-radius: 50%;
+            box-shadow: 0 0 5px var(--neon-purple);
+        }
+
+        /* --- Footer --- */
+        footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            margin-top: auto;
+        }
+
+        /* --- Animations --- */
+        @keyframes radarSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 243, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0); }
+        }
+
+        /* --- Responsive --- */
+        .mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--neon-blue);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .chart-card { grid-column: span 2; }
+            .server-card { grid-column: span 2; }
+            .log-card { grid-column: span 2; }
+            .target-card { grid-column: span 2; }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -260px;
+                height: 100%;
+                box-shadow: 5px 0 20px rgba(0,0,0,0.5);
+            }
+            
+            .sidebar.active {
+                transform: translateX(260px);
+            }
+
+            .mobile-toggle {
+                display: block;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                padding: 15px;
+                gap: 15px;
+            }
+
+            .stat-card, .chart-card, .server-card, .log-card, .target-card {
+                grid-column: span 1;
+            }
+            
+            .header-left h2 { font-size: 1.2rem; }
+            .btn-action span { display: none; } /* Hide text on small screens */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="brand">
+            <i class="fa-solid fa-cube"></i> NEXUS
+        </div>
+        <ul class="nav-links">
+            <li class="nav-item">
+                <a href="#" class="nav-link active"><i class="fa-solid fa-chart-line"></i> Overview</a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link"><i class="fa-solid fa-network-wired"></i> Network</a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link"><i class="fa-solid fa-shield-halved"></i> Security</a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link"><i class="fa-solid fa-database"></i> Database</a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link"><i class="fa-solid fa-users"></i> Personnel</a>
+            </li>
+        </ul>
+        <div class="user-profile">
+            <img src="https://picsum.photos/seed/cyber/100/100" alt="User" class="avatar">
+            <div class="user-info">
+                <h4>Cmdr. Shepard</h4>
+                <span>Online</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header>
+            <div class="header-left">
+                <button class="mobile-toggle" id="menuToggle">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <h2>DASHBOARD <span style="color:var(--neon-blue)">v.2.0.4</span></h2>
+            </div>
+            <div class="header-right">
+                <div class="search-box">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" placeholder="System Search...">
+                </div>
+                <button class="btn-action" id="scanBtn">
+                    <i class="fa-solid fa-radar"></i> <span>System Scan</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+            
+            <!-- Metric 1 -->
+            <div class="card stat-card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-title">Total Traffic</span>
+                        <i class="fa-solid fa-globe card-icon"></i>
+                    </div>
+                    <div class="stat-value" id="trafficVal">8.4 TB</div>
+                </div>
+                <div class="stat-trend trend-up">
+                    <i class="fa-solid fa-arrow-trend-up"></i> +12.5% <span style="color:var(--text-muted)">vs last hour</span>
+                </div>
+            </div>
+
+            <!-- Metric 2 -->
+            <div class="card stat-card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-title">Threat Level</span>
+                        <i class="fa-solid fa-triangle-exclamation card-icon" style="color: var(--neon-purple)"></i>
+                    </div>
+                    <div class="stat-value" style="color: var(--neon-purple)">LOW</div>
+                </div>
+                <div class="stat-trend trend-up">
+                    <i class="fa-solid fa-check"></i> Secure
+                </div>
+            </div>
+
+            <!-- Metric 3 -->
+            <div class="card stat-card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-title">Active Nodes</span>
+                        <i class="fa-solid fa-server card-icon"></i>
+                    </div>
+                    <div class="stat-value">1,024</div>
+                </div>
+                <div class="stat-trend trend-down">
+                    <i class="fa-solid fa-minus"></i> Stable
+                </div>
+            </div>
+
+            <!-- Metric 4 -->
+            <div class="card stat-card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-title">Power Usage</span>
+                        <i class="fa-solid fa-bolt card-icon"></i>
+                    </div>
+                    <div class="stat-value">4.2 GW</div>
+                </div>
+                <div class="stat-trend trend-up">
+                    <i class="fa-solid fa-arrow-up"></i> +2.1%
+                </div>
+            </div>
+
+            <!-- Main Chart -->
+            <div class="card chart-card">
+                <div class="card-header">
+                    <span class="card-title">Network Throughput</span>
+                    <div style="display:flex; gap:10px">
+                        <span style="font-size:0.8rem; color:var(--neon-blue)">LIVE</span>
+                        <div style="width:10px; height:10px; background:var(--neon-blue); border-radius:50%; animation: pulse 1.5s infinite;"></div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Server Status -->
+            <div class="card server-card">
+                <div class="card-header">
+                    <span class="card-title">System Resources</span>
+                </div>
+                
+                <div class="server-row">
+                    <div class="server-label">
+                        <span>CPU Core 01</span>
+                        <span id="cpuVal">45%</span>
+                    </div>
+                    <div class="progress-bg">
+                        <div class="progress-bar" id="cpuBar"></div>
+                    </div>
+                </div>
+
+                <div class="server-row">
+                    <div class="server-label">
+                        <span>Memory (RAM)</span>
+                        <span id="ramVal">62%</span>
+                    </div>
+                    <div class="progress-bg">
+                        <div class="progress-bar warning" id="ramBar"></div>
+                    </div>
+                </div>
+
+                <div class="server-row">
+                    <div class="server-label">
+                        <span>Storage (SSD)</span>
+                        <span id="ssdVal">78%</span>
+                    </div>
+                    <div class="progress-bg">
+                        <div class="progress-bar danger" id="ssdBar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Log -->
+            <div class="card log-card">
+                <div class="card-header">
+                    <span class="card-title">Security Log</span>
+                </div>
+                <div class="log-list" id="logList">
+                    <!-- JS will populate this -->
+                </div>
+            </div>
+
+            <!-- Target Lock -->
+            <div class="card target-card">
+                <div class="card-header" style="position:absolute; top:20px; left:20px; width:calc(100% - 40px)">
+                    <span class="card-title">Target Lock</span>
+                </div>
+                <div class="radar-scan">
+                    <div class="radar-center"></div>
+                    <div class="target-dot" style="top: 40%; left: 60%;"></div>
+                    <div class="target-dot" style="top: 70%; left: 30%; background: var(--neon-green);"></div>
+                </div>
+                <div style="position: absolute; bottom: 20px; text-align: center;">
+                    <h3 style="font-family: var(--font-display); font-size: 1.2rem;">ALPHA-7</h3>
+                    <p style="font-size: 0.8rem; color: var(--neon-blue)">DIST: 4,200 KM</p>
+                </div>
+            </div>
+
+        </div>
+
+        <footer>
+            NEXUS SYSTEMS INC. &copy; 2077. SECURE CONNECTION ESTABLISHED.
+        </footer>
+    </main>
+
+    <script>
+        // --- 1. Sidebar Logic ---
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebar = document.getElementById('sidebar');
+
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('active');
+        });
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(e.target) && 
+                !menuToggle.contains(e.target) && 
+                sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+            }
+        });
+
+        // --- 2. Canvas Chart Animation ---
+        const canvas = document.getElementById('mainChart');
+        const ctx = canvas.getContext('2d');
+        let dataPoints = [];
+        const maxPoints = 50;
+
+        // Resize canvas to fit container
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Initialize data
+        for(let i=0; i<maxPoints; i++) {
+            dataPoints.push(Math.random() * 0.5 + 0.25); // Random values between 0.25 and 0.75
+        }
+
+        function drawChart() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update data (simulate incoming traffic)
+            dataPoints.shift();
+            // Random walk
+            let last = dataPoints[dataPoints.length - 1];
+            let next = last + (Math.random() - 0.5) * 0.1;
+            if (next < 0.1) next = 0.1;
+            if (next > 0.9) next = 0.9;
+            dataPoints.push(next);
+
+            // Draw Grid
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let i=0; i<canvas.width; i+=40) {
+                ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height);
+            }
+            for(let i=0; i<canvas.height; i+=40) {
+                ctx.moveTo(0, i); ctx.lineTo(canvas.width, i);
+            }
+            ctx.stroke();
+
+            // Draw Line
+            ctx.strokeStyle = '#00f3ff';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00f3ff';
+            
+            ctx.beginPath();
+            const stepX = canvas.width / (maxPoints - 1);
+            
+            for(let i=0; i<maxPoints; i++) {
+                const x = i * stepX;
+                const y = canvas.height - (dataPoints[i] * canvas.height * 0.8) - 20; // Padding
+                if(i===0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Fill Gradient Area
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.closePath();
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, 'rgba(0, 243, 255, 0.2)');
+            gradient.addColorStop(1, 'rgba(0, 243, 255, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            ctx.shadowBlur = 0; // Reset shadow
+
+            requestAnimationFrame(drawChart);
+        }
+
+        drawChart();
+
+        // --- 3. System Stats Simulation ---
+        function updateStats() {
+            // CPU
+            const cpu = Math.floor(Math.random() * 30) + 30; // 30-60%
+            document.getElementById('cpuVal').innerText = cpu + '%';
+            document.getElementById('cpuBar').style.width = cpu + '%';
+            
+            // RAM
+            const ram = Math.floor(Math.random() * 20) + 50; // 50-70%
+            document.getElementById('ramVal').innerText = ram + '%';
+            document.getElementById('ramBar').style.width = ram + '%';
+
+            // SSD
+            const ssd = Math.floor(Math.random() * 10) + 75; // 75-85%
+            document.getElementById('ssdVal').innerText = ssd + '%';
+            document.getElementById('ssdBar').style.width = ssd + '%';
+        }
+
+        setInterval(updateStats, 2000);
+
+        // --- 4. Log Simulation ---
+        const logList = document.getElementById('logList');
+        const messages = [
+            { msg: "Packet intercepted from Sector 7", type: "warn" },
+            { msg: "Firewall integrity: 99.9%", type: "success" },
+            { msg: "Syncing database shards...", type: "normal" },
+            { msg: "New user login: admin_01", type: "normal" },
+            { msg: "Temperature optimization complete", type: "success" },
+            { msg: "Unauthorized access attempt blocked", type: "warn" }
+        ];
+
+        function addLogEntry() {
+            const item = messages[Math.floor(Math.random() * messages.length)];
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { hour12: false });
+            
+            const div = document.createElement('div');
+            div.className = 'log-item';
+            div.innerHTML = `
+                <span class="log-time">[${timeString}]</span>
+                <span class="log-msg ${item.type}">${item.msg}</span>
+            `;
+            
+            logList.prepend(div);
+            
+            // Keep list short
+            if(logList.children.length > 20) {
+                logList.removeChild(logList.lastChild);
+            }
+        }
+
+        setInterval(addLogEntry, 3500);
+        
+        // Initial population
+        for(let i=0; i<5; i++) addLogEntry();
+
+        // --- 5. Interaction Logic ---
+        document.getElementById('scanBtn').addEventListener('click', function() {
+            const btn = this;
+            const originalText = btn.innerHTML;
+            
+            // Visual feedback
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Scanning...</span>`;
+            btn.style.borderColor = '#0aff0a';
+            btn.style.color = '#0aff0a';
+
+            // Simulate processing
+            setTimeout(() => {
+                btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Complete</span>`;
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                    
+                    // Add a success log
+                    const now = new Date();
+                    const div = document.createElement('div');
+                    div.className = 'log-item';
+                    div.innerHTML = `<span class="log-time">[${now.toLocaleTimeString()}]</span><span class="log-msg success">System scan completed. No threats found.</span>`;
+                    logList.prepend(div);
+                }, 1000);
+            }, 1500);
+        });
+
+    </script>
+</body>
+</html>

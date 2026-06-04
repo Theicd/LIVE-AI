@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Flux | Interactive Particle System</title>
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg-color: #050505;
+            --glass-bg: rgba(20, 20, 20, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-muted: #888888;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Canvas Layer */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* UI Overlay Layer */
+        #ui-layer {
+            position: relative;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to canvas where UI isn't */
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            pointer-events: auto;
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            background: linear-gradient(90deg, var(--primary), #ffffff, var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+
+        /* Control Panel (Glassmorphism) */
+        .controls {
+            pointer-events: auto;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            width: 320px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .controls:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .control-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .value-display {
+            color: var(--primary);
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -6px;
+            box-shadow: 0 0 10px var(--primary);
+            transition: transform 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #00a8ff);
+            color: #000;
+            box-shadow: 0 4px 15px rgba(0, 243, 255, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            border: 1px solid var(--glass-border);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Instructions Overlay */
+        .instruction {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            text-align: center;
+            opacity: 1;
+            transition: opacity 0.5s;
+        }
+
+        .instruction.hidden {
+            opacity: 0;
+        }
+
+        .instruction h2 {
+            font-size: 3rem;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+
+        /* Stats */
+        .stats {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            text-align: right;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .stat-item {
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            color: var(--secondary);
+        }
+
+        @media (max-width: 768px) {
+            #ui-layer {
+                padding: 1rem;
+            }
+            .controls {
+                width: 100%;
+                margin-bottom: 1rem;
+            }
+            h1 { font-size: 1.8rem; }
+            .instruction h2 { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Canvas Background -->
+    <div id="canvas-container">
+        <canvas id="fluxCanvas"></canvas>
+    </div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <header>
+            <h1>Neon Flux</h1>
+            <p class="subtitle">Interactive Generative System. Move your mouse to interact with the particle field.</p>
+        </header>
+
+        <div class="instruction" id="instruction-overlay">
+            <h2>Click & Drag</h2>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">FPS: <span id="fps-counter" class="stat-value">60</span></div>
+            <div class="stat-item">Particles: <span id="particle-counter" class="stat-value">0</span></div>
+        </div>
+
+        <aside class="controls">
+            <div class="control-group">
+                <div class="label-row">
+                    <span>Particle Count</span>
+                    <span id="val-count" class="value-display">150</span>
+                </div>
+                <input type="range" id="input-count" min="50" max="400" value="150">
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <span>Speed</span>
+                    <span id="val-speed" class="value-display">1.0x</span>
+                </div>
+                <input type="range" id="input-speed" min="0.1" max="3.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <span>Trail Length</span>
+                    <span id="val-trail" class="value-display">20%</span>
+                </div>
+                <input type="range" id="input-trail" min="5" max="90" value="20">
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-primary" id="btn-explode">Explode</button>
+                <button class="btn-secondary" id="btn-reset">Reset</button>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        /**
+         * NEON FLUX ENGINE
+         * High-performance particle system using vanilla JS and Canvas API.
+         */
+        
+        const canvas = document.getElementById('fluxCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on base canvas
+        
+        // UI Elements
+        const ui = {
+            fps: document.getElementById('fps-counter'),
+            count: document.getElementById('particle-counter'),
+            overlay: document.getElementById('instruction-overlay'),
+            inputs: {
+                count: document.getElementById('input-count'),
+                speed: document.getElementById('input-speed'),
+                trail: document.getElementById('input-trail')
+            },
+            displays: {
+                count: document.getElementById('val-count'),
+                speed: document.getElementById('val-speed'),
+                trail: document.getElementById('val-trail')
+            },
+            btns: {
+                explode: document.getElementById('btn-explode'),
+                reset: document.getElementById('btn-reset')
+            }
+        };
+
+        // Configuration State
+        const config = {
+            particleCount: 150,
+            baseSpeed: 1.0,
+            trailFade: 0.2, // 1 - (trail% / 100)
+            colors: ['#00f3ff', '#bc13fe', '#ffffff', '#ff0055'],
+            mouseInteractionRadius: 150,
+            friction: 0.96
+        };
+
+        let particles = [];
+        let animationId;
+        let mouse = { x: null, y: null, isDown: false };
+        let width, height;
+
+        // --- Particle Class ---
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * config.baseSpeed;
+                this.vy = (Math.random() - 0.5) * config.baseSpeed;
+                this.size = Math.random() * 3 + 1;
+                this.color = config.colors[Math.floor(Math.random() * config.colors.length)];
+                this.life = Math.random() * 100;
+                this.decay = Math.random() * 0.5 + 0.1;
+            }
+
+            update() {
+                // Base Movement
+                this.x += this.vx * config.baseSpeed;
+                this.y += this.vy * config.baseSpeed;
+
+                // Mouse Interaction (Repulsion/Attraction)
+                if (mouse.x != null) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < config.mouseInteractionRadius) {
+                        const forceDirectionX = dx / distance;
+                        const forceDirectionY = dy / distance;
+                        const force = (config.mouseInteractionRadius - distance) / config.mouseInteractionRadius;
+                        
+                        // If mouse is held down, attract; otherwise repel
+                        const dir = mouse.isDown ? 1 : -1; 
+                        const strength = mouse.isDown ? 5 : 2;
+
+                        this.vx += forceDirectionX * force * strength * dir;
+                        this.vy += forceDirectionY * force * strength * dir;
+                    }
+                }
+
+                // Friction to stabilize speed
+                this.vx *= config.friction;
+                this.vy *= config.friction;
+
+                // Keep moving slightly so they don't stop completely
+                if (Math.abs(this.vx) < 0.1) this.vx += (Math.random() - 0.5) * 0.1;
+                if (Math.abs(this.vy) < 0.1) this.vy += (Math.random() - 0.5) * 0.1;
+
+                // Screen Wrap
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                
+                // Add a glow effect
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                
+                ctx.fill();
+                ctx.shadowBlur = 0; // Reset for performance
+            }
+
+            explode() {
+                const angle = Math.random() * Math.PI * 2;
+                const force = Math.random() * 15 + 5;
+                this.vx = Math.cos(angle) * force;
+                this.vy = Math.sin(angle) * force;
+            }
+        }
+
+        // --- System Functions ---
+
+        function init() {
+            resize();
+            createParticles();
+            animate();
+            setupEvents();
+        }
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        function createParticles() {
+            particles = [];
+            for (let i = 0; i < config.particleCount; i++) {
+                particles.push(new Particle());
+            }
+            ui.count.innerText = particles.length;
+        }
+
+        function updateParticleCount() {
+            const diff = config.particleCount - particles.length;
+            if (diff > 0) {
+                for (let i = 0; i < diff; i++) particles.push(new Particle());
+            } else if (diff < 0) {
+                particles.splice(0, Math.abs(diff));
+            }
+            ui.count.innerText = particles.length;
+        }
+
+        // --- Animation Loop ---
+        let lastTime = 0;
+        let frameCount = 0;
+        let fpsTimer = 0;
+
+        function animate(timestamp) {
+            // Calculate FPS
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            
+            frameCount++;
+            fpsTimer += deltaTime;
+            if (fpsTimer >= 1000) {
+                ui.fps.innerText = frameCount;
+                frameCount = 0;
+                fpsTimer = 0;
+            }
+
+            // Create Trails
+            // Instead of clearing the canvas completely, we draw a semi-transparent black rectangle.
+            // This creates the "trails" effect.
+            ctx.fillStyle = `rgba(5, 5, 5, ${config.trailFade})`;
+            ctx.fillRect(0, 0, width, height);
+
+            // Set blend mode for neon effect (additive color mixing)
+            ctx.globalCompositeOperation = 'lighter';
+
+            // Update and Draw Particles
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
+
+            // Reset blend mode for the background fade next frame
+            ctx.globalCompositeOperation = 'source-over';
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners ---
+
+        function setupEvents() {
+            window.addEventListener('resize', resize);
+
+            // Mouse Tracking
+            window.addEventListener('mousemove', e => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+
+            window.addEventListener('mousedown', () => {
+                mouse.isDown = true;
+                ui.overlay.classList.add('hidden');
+            });
+
+            window.addEventListener('mouseup', () => {
+                mouse.isDown = false;
+            });
+
+            // Touch Support
+            window.addEventListener('touchmove', e => {
+                e.preventDefault();
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+            }, { passive: false });
+
+            window.addEventListener('touchstart', (e) => {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+                mouse.isDown = true;
+                ui.overlay.classList.add('hidden');
+            }, { passive: false });
+
+            window.addEventListener('touchend', () => {
+                mouse.isDown = false;
+            });
+
+            // UI Controls
+            ui.inputs.count.addEventListener('input', (e) => {
+                config.particleCount = parseInt(e.target.value);
+                ui.displays.count.innerText = config.particleCount;
+                updateParticleCount();
+            });
+
+            ui.inputs.speed.addEventListener('input', (e) => {
+                config.baseSpeed = parseFloat(e.target.value);
+                ui.displays.speed.innerText = config.baseSpeed.toFixed(1) + 'x';
+            });
+
+            ui.inputs.trail.addEventListener('input', (e) => {
+                // Slider 5-90. Invert logic: Higher slider = Longer trail = Lower opacity
+                // 5 -> Fade 0.95, 90 -> Fade 0.1
+                const val = parseInt(e.target.value);
+                ui.displays.trail.innerText = val + '%';
+                config.trailFade = 0.95 - ((val - 5) / 85) * 0.9;
+            });
+
+            ui.btns.explode.addEventListener('click', () => {
+                particles.forEach(p => p.explode());
+            });
+
+            ui.btns.reset.addEventListener('click', () => {
+                createParticles();
+            });
+        }
+
+        // Boot
+        init();
+
+    </script>
+</body>
+</html>

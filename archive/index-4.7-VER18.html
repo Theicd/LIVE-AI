@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Chromatic Void | Generative Visual Experience</title>
+    <style>
+        :root {
+            --ui-bg: rgba(10, 10, 15, 0.6);
+            --ui-border: rgba(255, 255, 255, 0.1);
+            --ui-text: #ffffff;
+            --accent: #00f2ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        /* Header Info */
+        .info-panel {
+            pointer-events: auto;
+            background: var(--ui-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--ui-border);
+            border-radius: 12px;
+            padding: 15px;
+            max-width: 300px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            transition: opacity 0.5s ease;
+        }
+
+        .info-panel h1 {
+            margin: 0 0 5px 0;
+            font-size: 1.2rem;
+            font-weight: 300;
+            letter-spacing: 1px;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .info-panel p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #ccc;
+            line-height: 1.4;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .tag {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        /* Controls */
+        .controls {
+            pointer-events: auto;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-border);
+            color: var(--ui-text);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border-color: var(--accent);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        /* Icon styling */
+        .icon {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        /* Loading/Transition Overlay */
+        #transition-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #transition-overlay.active {
+            opacity: 1;
+        }
+
+        .loader {
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--accent);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            .info-panel {
+                max-width: 100%;
+            }
+            .controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+            button {
+                padding: 10px 16px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="info-panel">
+            <h1 id="theme-title">Loading...</h1>
+            <p id="theme-desc">Initializing the visual engine.</p>
+            <div class="tags" id="theme-tags">
+                <!-- Tags injected via JS -->
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="btn-regen">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                New World
+            </button>
+            <button id="btn-pause">
+                <svg class="icon" id="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                <svg class="icon" id="icon-play" viewBox="0 0 24 24" style="display:none;"><path d="M8 5v14l11-7z"/></svg>
+                <span id="txt-pause">Pause</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="transition-overlay">
+        <div class="loader"></div>
+    </div>
+
+    <script>
+        /**
+         * THE CHROMATIC VOID ENGINE
+         * A procedural visualizer that generates unique worlds.
+         */
+
+        // --- Configuration Data ---
+        const THEMES = [
+            {
+                name: "Neon Jellyfish Drift",
+                desc: "Bioluminescent creatures floating in a deep ocean current.",
+                tags: ["Ocean", "Organic", "Flowing"],
+                colors: ["#00f2ff", "#0044ff", "#ffffff", "#001133"],
+                bg: "#000510",
+                particleShape: "circle",
+                behavior: "float",
+                sizeRange: [2, 8],
+                speed: 0.5
+            },
+            {
+                name: "Cyberpunk Rain",
+                desc: "A rainy metropolis at night, reflections on wet pavement.",
+                tags: ["City", "Rain", "Neon"],
+                colors: ["#ff0055", "#00ffaa", "#ffff00", "#220011"],
+                bg: "#0a0010",
+                particleShape: "line",
+                behavior: "fall",
+                sizeRange: [1, 4],
+                speed: 2.0
+            },
+            {
+                name: "Solar Flare Storm",
+                desc: "Chaotic plasma and fire in a dying star's atmosphere.",
+                tags: ["Cosmic", "Fire", "Chaotic"],
+                colors: ["#ff4400", "#ffcc00", "#ff0000", "#330000"],
+                bg: "#1a0000",
+                particleShape: "glow",
+                behavior: "vortex",
+                sizeRange: [5, 20],
+                speed: 1.5
+            },
+            {
+                name: "Quantum Entanglement",
+                desc: "Abstract mathematical connections vibrating in a void.",
+                tags: ["Abstract", "Math", "Geometric"],
+                colors: ["#a000ff", "#ffffff", "#00ffaa", "#0000aa"],
+                bg: "#050005",
+                particleShape: "square",
+                behavior: "pulse",
+                sizeRange: [3, 6],
+                speed: 0.2
+            },
+            {
+                name: "Golden Dust Storm",
+                desc: "Desert sands caught in a surreal, high-speed wind tunnel.",
+                tags: ["Desert", "Dust", "Fast"],
+                colors: ["#ffcc00", "#d4af37", "#8b4513", "#fff5e6"],
+                bg: "#1a1200",
+                particleShape: "circle",
+                behavior: "turbulent",
+                sizeRange: [2, 5],
+                speed: 3.0
+            }
+        ];
+
+        const WEATHERS = ["Clear", "Rain", "Snow", "Fog", "Starfield"];
+        
+        // --- State Management ---
+        const state = {
+            themeIndex: 0,
+            weather: WEATHERS[Math.floor(Math.random() * WEATHERS.length)],
+            timeScale: 1,
+            paused: false,
+            width: 0,
+            height: 0,
+            mouseX: 0,
+            mouseY: 0,
+            isMouseDown: false
+        };
+
+        // --- Setup Canvas ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on base canvas
+        
+        // --- Particle System ---
+        let particles = [];
+        const PARTICLE_COUNT = 800;
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                const theme = THEMES[state.themeIndex];
+                
+                this.x = Math.random() * state.width;
+                this.y = Math.random() * state.height;
+                this.size = Math.random() * (theme.sizeRange[1] - theme.sizeRange[0]) + theme.sizeRange[0];
+                this.color = theme.colors[Math.floor(Math.random() * theme.colors.length)];
+                
+                // Physics properties
+                this.vx = (Math.random() - 0.5) * theme.speed * 2;
+                this.vy = (Math.random() - 0.5) * theme.speed * 2;
+                
+                this.life = Math.random() * 100 + 50;
+                this.maxLife = this.life;
+                
+                // Specific behavior modifiers
+                this.angle = Math.random() * Math.PI * 2;
+                this.spin = (Math.random() - 0.5) * 0.1;
+            }
+
+            update() {
+                const theme = THEMES[state.themeIndex];
+                
+                // Base movement based on behavior
+                if (theme.behavior === 'float') {
+                    // Gentle sine wave motion
+                    this.x += Math.sin(this.angle) * 0.5 + this.vx;
+                    this.y += Math.cos(this.angle) * 0.5 + this.vy;
+                    this.angle += 0.01;
+                } else if (theme.behavior === 'fall') {
+                    this.y += this.size * theme.speed * 0.5;
+                    this.x += Math.sin(this.y * 0.01) * 0.5; // Slight wind
+                    if (this.y > state.height) this.y = -10;
+                } else if (theme.behavior === 'vortex') {
+                    const dx = this.x - state.width / 2;
+                    const dy = this.y - state.height / 2;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const force = 500 / (dist + 1);
+                    this.vx += (dx / dist) * 0.1;
+                    this.vy += (dy / dist) * 0.1;
+                    this.vx *= 0.95; // Drag
+                    this.vy *= 0.95;
+                    this.x += this.vx;
+                    this.y += this.vy;
+                } else if (theme.behavior === 'turbulent') {
+                    this.vx += (Math.random() - 0.5) * 0.2;
+                    this.vy += (Math.random() - 0.5) * 0.2;
+                    this.x += this.vx;
+                    this.y += this.vy;
+                }
+
+                // Mouse/Touch Interaction
+                const dx = state.mouseX - this.x;
+                const dy = state.mouseY - this.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const interactionRadius = 200;
+
+                if (dist < interactionRadius) {
+                    const force = (interactionRadius - dist) / interactionRadius;
+                    const dirX = dx / dist;
+                    const dirY = dy / dist;
+                    
+                    if (state.isMouseDown) {
+                        // Repel on click
+                        this.vx -= dirX * force * 2;
+                        this.vy -= dirY * force * 2;
+                    } else {
+                        // Gentle swirl
+                        this.vx += dirY * force * 0.5;
+                        this.vy -= dirX * force * 0.5;
+                    }
+                }
+
+                // Bounds
+                if (this.x < -50) this.x = state.width + 50;
+                if (this.x > state.width + 50) this.x = -50;
+                if (this.y < -50) this.y = state.height + 50;
+                if (this.y > state.height + 50) this.y = -50;
+
+                this.life--;
+                if (this.life <= 0) this.reset();
+            }
+
+            draw() {
+                const theme = THEMES[state.themeIndex];
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = (this.life / this.maxLife) * 0.8;
+
+                if (theme.particleShape === 'circle') {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (theme.particleShape === 'square') {
+                    ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+                } else if (theme.particleShape === 'line') {
+                    // Rain effect
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = this.size * 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x, this.y + this.size * 5);
+                    ctx.stroke();
+                } else {
+                    // Glow
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // --- Core Engine Functions ---
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function resize() {
+            state.width = window.innerWidth;
+            state.height = window.innerHeight;
+            canvas.width = state.width;
+            canvas.height = state.height;
+            // Re-init on drastic resize to avoid stretching
+            initParticles();
+        }
+
+        function drawBackground() {
+            const theme = THEMES[state.themeIndex];
+            // Create trails
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = theme.bg;
+            // Lower opacity creates trail effect
+            ctx.globalAlpha = 0.2; 
+            ctx.fillRect(0, 0, state.width, state.height);
+            ctx.globalAlpha = 1.0;
+        }
+
+        function animate() {
+            if (!state.paused) {
+                drawBackground();
+
+                // Use 'lighter' for glowing additive blending
+                ctx.globalCompositeOperation = 'lighter';
+
+                particles.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+
+                ctx.globalCompositeOperation = 'source-over';
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function updateUI() {
+            const theme = THEMES[state.themeIndex];
+            document.getElementById('theme-title').innerText = theme.name;
+            document.getElementById('theme-desc').innerText = theme.desc;
+            
+            const tagsContainer = document.getElementById('theme-tags');
+            tagsContainer.innerHTML = '';
+            theme.tags.forEach(tag => {
+                const span = document.createElement('span');
+                span.className = 'tag';
+                span.innerText = tag;
+                tagsContainer.appendChild(span);
+            });
+        }
+
+        function regenerateWorld() {
+            // Show overlay
+            const overlay = document.getElementById('transition-overlay');
+            overlay.classList.add('active');
+
+            // Random Logic
+            let newIndex = Math.floor(Math.random() * THEMES.length);
+            // Ensure we don't pick the same theme twice immediately
+            if (newIndex === state.themeIndex && THEMES.length > 1) {
+                newIndex = (newIndex + 1) % THEMES.length;
+            }
+            state.themeIndex = newIndex;
+
+            // Small delay for visual effect
+            setTimeout(() => {
+                initParticles();
+                updateUI();
+                overlay.classList.remove('active');
+            }, 500);
+        }
+
+        // --- Event Listeners ---
+
+        window.addEventListener('resize', resize);
+        
+        // Mouse Interaction
+        window.addEventListener('mousemove', (e) => {
+            state.mouseX = e.clientX;
+            state.mouseY = e.clientY;
+        });
+
+        window.addEventListener('mousedown', () => state.isMouseDown = true);
+        window.addEventListener('mouseup', () => state.isMouseDown = false);
+
+        // Touch Interaction
+        window.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevent scrolling
+            state.mouseX = e.touches[0].clientX;
+            state.mouseY = e.touches[0].clientY;
+        }, { passive: false });
+
+        window.addEventListener('touchstart', (e) => {
+            state.isMouseDown = true;
+            state.mouseX = e.touches[0].clientX;
+            state.mouseY = e.touches[0].clientY;
+        }, { passive: false });
+
+        window.addEventListener('touchend', () => state.isMouseDown = false);
+
+        // UI Buttons
+        document.getElementById('btn-regen').addEventListener('click', regenerateWorld);
+
+        const btnPause = document.getElementById('btn-pause');
+        btnPause.addEventListener('click', () => {
+            state.paused = !state.paused;
+            document.getElementById('icon-pause').style.display = state.paused ? 'none' : 'block';
+            document.getElementById('icon-play').style.display = state.paused ? 'block' : 'none';
+            document.getElementById('txt-pause').innerText = state.paused ? 'Play' : 'Pause';
+        });
+
+        // --- Initialization ---
+        resize();
+        updateUI();
+        animate();
+
+    </script>
+</body>
+</html>

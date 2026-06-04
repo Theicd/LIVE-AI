@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Midnight Saxophone | Interactive Jazz Visuals</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --ui-glass: rgba(255, 255, 255, 0.05);
+            --ui-border: rgba(255, 255, 255, 0.1);
+            --accent: #d4af37; /* Gold */
+            --text-main: #ffffff;
+            --font-serif: 'Georgia', 'Times New Roman', serif;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: var(--font-sans);
+            color: var(--text-main);
+        }
+
+        /* Canvas Container */
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            opacity: 0;
+            animation: fadeIn 2s ease-out forwards 0.5s;
+        }
+
+        h1 {
+            font-family: var(--font-serif);
+            font-weight: 300;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        p.subtitle {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            font-style: italic;
+            letter-spacing: 0.1em;
+        }
+
+        /* Controls */
+        .controls {
+            pointer-events: auto;
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            padding-bottom: 2rem;
+        }
+
+        .btn {
+            background: var(--ui-glass);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--ui-border);
+            color: var(--text-main);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            outline: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-serif);
+            letter-spacing: 0.05em;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border-color: var(--accent);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-icon {
+            font-size: 1.2em;
+        }
+
+        /* Status Indicator */
+        .status-bar {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            text-align: right;
+            opacity: 0;
+            animation: fadeIn 2s ease-out forwards 1s;
+        }
+
+        .track-name {
+            font-family: var(--font-serif);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .track-status {
+            font-size: 0.75rem;
+            opacity: 0.6;
+            text-transform: uppercase;
+        }
+
+        /* Toast Notification */
+        #toast {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--accent);
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 20;
+        }
+
+        #toast.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.2rem; }
+            .controls { gap: 0.8rem; padding-bottom: 1rem; }
+            .btn { padding: 10px 16px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <canvas id="stage"></canvas>
+    </div>
+
+    <div id="ui-layer">
+        <header>
+            <h1>Midnight Saxophone</h1>
+            <p class="subtitle">Improvisational Fluid Dynamics</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="track-name" id="track-display">Smooth Flow</div>
+            <div class="track-status" id="status-display">Rhythm Section</div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="btn-play" aria-label="Toggle Play/Pause">
+                <span class="btn-icon">⏸</span> <span>Pause</span>
+            </button>
+            <button class="btn" id="btn-mood" aria-label="Change Mood">
+                <span class="btn-icon">♫</span> <span>New Chord</span>
+            </button>
+            <button class="btn" id="btn-solo" aria-label="Trigger Solo">
+                <span class="btn-icon">◉</span> <span>Solo</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="toast">Chord Change</div>
+
+    <script>
+        /**
+         * Midnight Saxophone - Interactive Visual Experience
+         * 
+         * Logic:
+         * 1. Particle System: Thousands of particles follow a flow field.
+         * 2. Flow Field: Generated using sine/cosine waves combined with time to simulate organic motion.
+         * 3. Jazz Rhythm: A state machine controls "Rhythm Section" (calm, looping) vs "Solo" (chaotic, spiraling).
+         * 4. Color Theory: HSLA colors shift over time to mimic a changing musical key.
+         */
+
+        const canvas = document.getElementById('stage');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimization
+        const btnPlay = document.getElementById('btn-play');
+        const btnMood = document.getElementById('btn-mood');
+        const btnSolo = document.getElementById('btn-solo');
+        const trackDisplay = document.getElementById('track-display');
+        const statusDisplay = document.getElementById('status-display');
+        const toast = document.getElementById('toast');
+
+        // Configuration
+        let config = {
+            particleCount: 2000, // Will be adjusted for mobile
+            baseSpeed: 1.5,
+            trailOpacity: 0.08, // Lower = longer trails
+            gridSize: 30, // Size of flow field vectors
+            soloIntensity: 0
+        };
+
+        let state = {
+            isPlaying: true,
+            frame: 0,
+            width: 0,
+            height: 0,
+            mouseX: 0,
+            mouseY: 0,
+            colorBaseHue: 240, // Blue start
+            colorBaseSat: 60,
+            colorBaseLight: 50,
+            mode: 'RHYTHM', // 'RHYTHM' or 'SOLO'
+            time: 0
+        };
+
+        let particles = [];
+
+        // Resize Handling
+        function resize() {
+            state.width = window.innerWidth;
+            state.height = window.innerHeight;
+            canvas.width = state.width;
+            canvas.height = state.height;
+            
+            // Adjust particle count for performance on mobile
+            if (state.width < 600) {
+                config.particleCount = 800;
+                config.gridSize = 40;
+            } else {
+                config.particleCount = 2500;
+                config.gridSize = 25;
+            }
+            
+            initParticles();
+        }
+
+        // Particle Class
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * state.width;
+                this.y = Math.random() * state.height;
+                this.vx = 0;
+                this.vy = 0;
+                this.size = Math.random() * 2 + 0.5;
+                this.life = Math.random() * 100 + 100;
+                this.age = 0;
+                this.friction = 0.96;
+            }
+
+            update(flowAngle) {
+                // Apply flow field force
+                this.vx += Math.cos(flowAngle) * 0.2;
+                this.vy += Math.sin(flowAngle) * 0.2;
+
+                // Apply Solo Intensity (Chaotic movement)
+                if (state.mode === 'SOLO') {
+                    this.vx += (Math.random() - 0.5) * config.soloIntensity;
+                    this.vy += (Math.random() - 0.5) * config.soloIntensity;
+                }
+
+                // Mouse Interaction (Subtle repulsion/attraction)
+                const dx = this.x - state.mouseX;
+                const dy = this.y - state.mouseY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 200) {
+                    const force = (200 - dist) / 200;
+                    this.vx += (dx / dist) * force * 0.5;
+                    this.vy += (dy / dist) * force * 0.5;
+                }
+
+                // Physics
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.x += this.vx * config.baseSpeed;
+                this.y += this.vy * config.baseSpeed;
+                this.age++;
+
+                // Boundary Wrap
+                if (this.x < 0) this.x = state.width;
+                if (this.x > state.width) this.x = 0;
+                if (this.y < 0) this.y = state.height;
+                if (this.y > state.height) this.y = 0;
+
+                // Respawn if too old (in solo mode) or just to keep density
+                if (this.age > this.life) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                // Calculate color based on speed and position
+                const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+                const hue = (state.colorBaseHue + (this.x / state.width) * 60) % 360;
+                const light = state.colorBaseLight + (speed * 10);
+                
+                ctx.fillStyle = `hsla(${hue}, ${state.colorBaseSat}%, ${Math.min(light, 80)}%, 0.8)`;
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < config.particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        // Flow Field Math
+        function getFlowAngle(x, y, time) {
+            // Create a complex, organic flow using sine waves
+            // Base Jazz feel: Smooth curves
+            
+            let angle = 0;
+            
+            // Layer 1: Large slow movement (The Beat)
+            angle += Math.sin(x * 0.005 + time * 0.5) * Math.PI;
+            angle += Math.cos(y * 0.005 + time * 0.3) * Math.PI;
+
+            // Layer 2: Medium movement (The Melody)
+            angle += Math.sin((x + y) * 0.01 + time * 1.5) * 2;
+
+            // Layer 3: Noise-like detail (The Improvisation)
+            angle += Math.sin(x * 0.05 - time) * 0.5;
+
+            return angle;
+        }
+
+        // Animation Loop
+        function animate() {
+            if (!state.isPlaying) return;
+
+            // Create trails by drawing semi-transparent background
+            ctx.fillStyle = `rgba(5, 5, 10, ${config.trailOpacity})`;
+            ctx.fillRect(0, 0, state.width, state.height);
+
+            state.time += 0.01;
+            state.frame++;
+
+            // Manage Rhythm (Solos)
+            if (state.mode === 'SOLO') {
+                // Fade out solo intensity
+                config.soloIntensity *= 0.98;
+                if (config.soloIntensity < 0.5) {
+                    state.mode = 'RHYTHM';
+                    statusDisplay.textContent = "Rhythm Section";
+                    statusDisplay.style.color = "#888";
+                }
+            }
+
+            // Update and Draw Particles
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                const angle = getFlowAngle(p.x, p.y, state.time);
+                p.update(angle);
+                p.draw();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Interaction Handlers
+        function triggerSolo() {
+            if (state.mode === 'SOLO') return;
+            state.mode = 'SOLO';
+            config.soloIntensity = 8; // High chaotic energy
+            statusDisplay.textContent = "SOLO IMPROV";
+            statusDisplay.style.color = "var(--accent)";
+            showToast("SOLO STARTED");
+        }
+
+        function changeMood() {
+            // Randomize color palette
+            const hues = [200, 280, 320, 180, 40]; // Blue, Purple, Pink, Cyan, Gold
+            state.colorBaseHue = hues[Math.floor(Math.random() * hues.length)];
+            
+            // Randomize speeds
+            config.baseSpeed = 0.8 + Math.random() * 1.5;
+            
+            // Randomize track name
+            const tracks = ["Smooth Flow", "Midnight Blues", "Electric Soul", "Deep Dive", "Golden Hour"];
+            trackDisplay.textContent = tracks[Math.floor(Math.random() * tracks.length)];
+            
+            showToast("New Chord Progression");
+        }
+
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            const btnIcon = btnPlay.querySelector('.btn-icon');
+            const btnText = btnPlay.querySelector('span:last-child');
+            
+            if (state.isPlaying) {
+                btnIcon.textContent = "⏸";
+                btnText.textContent = "Pause";
+                animate();
+            } else {
+                btnIcon.textContent = "▶";
+                btnText.textContent = "Play";
+            }
+        }
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2000);
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', resize);
+        
+        window.addEventListener('mousemove', (e) => {
+            state.mouseX = e.clientX;
+            state.mouseY = e.clientY;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            state.mouseX = e.touches[0].clientX;
+            state.mouseY = e.touches[0].clientY;
+        }, { passive: true });
+
+        btnPlay.addEventListener('click', togglePlay);
+        btnMood.addEventListener('click', changeMood);
+        btnSolo.addEventListener('click', triggerSolo);
+
+        // Initialize
+        resize();
+        animate();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS | Cyberpunk Digital Marketplace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --neon-pink: #ff00ff;
+            --neon-blue: #00ffff;
+            --neon-yellow: #fcee0a;
+            --bg-dark: #050505;
+            --bg-panel: rgba(10, 10, 16, 0.85);
+            --border-color: #333;
+            --font-display: 'Orbitron', sans-serif;
+            --font-mono: 'Share Tech Mono', monospace;
+            --glass-blur: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-green) var(--bg-dark);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #eee;
+            font-family: var(--font-mono);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* CRT Scanline Effect Overlay */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0),
+                rgba(255, 255, 255, 0) 50%,
+                rgba(0, 0, 0, 0.2) 50%,
+                rgba(0, 0, 0, 0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.6;
+        }
+
+        /* Canvas Background */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        /* Layout Containers */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Typography & Utilities */
+        h1, h2, h3 {
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .text-neon-green { color: var(--neon-green); text-shadow: 0 0 5px var(--neon-green); }
+        .text-neon-pink { color: var(--neon-pink); text-shadow: 0 0 5px var(--neon-pink); }
+        .text-neon-blue { color: var(--neon-blue); text-shadow: 0 0 5px var(--neon-blue); }
+        
+        .btn {
+            background: transparent;
+            border: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            padding: 10px 20px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+        }
+
+        .btn:hover {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+
+        .btn-pink {
+            border-color: var(--neon-pink);
+            color: var(--neon-pink);
+        }
+        .btn-pink:hover {
+            background: var(--neon-pink);
+            color: #000;
+            box-shadow: 0 0 15px var(--neon-pink);
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: 900;
+            position: relative;
+        }
+
+        .logo::after {
+            content: 'NEXUS';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            color: #333;
+            z-index: -1;
+            transform: skew(-10deg);
+        }
+
+        .user-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 1.2rem;
+        }
+
+        .stat-box {
+            border: 1px solid var(--neon-green);
+            padding: 5px 15px;
+            background: rgba(0, 255, 65, 0.1);
+            clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            margin-bottom: 60px;
+            padding: 60px 0;
+            border: 1px solid var(--neon-green);
+            background: rgba(0, 20, 0, 0.3);
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.2);
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: #aaa;
+            margin-bottom: 30px;
+        }
+
+        /* Marketplace Grid */
+        .market-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            position: relative;
+            transition: transform 0.3s, border-color 0.3s;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--neon-blue);
+        }
+
+        .card-img-wrapper {
+            width: 100%;
+            height: 200px;
+            overflow: hidden;
+            position: relative;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: grayscale(100%) contrast(1.2) brightness(0.8);
+            transition: filter 0.3s;
+        }
+
+        .card:hover .card-img {
+            filter: grayscale(0%) contrast(1.1) brightness(1);
+        }
+
+        .rarity-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #fff;
+            color: #fff;
+        }
+
+        .card-content {
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .card-desc {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 15px;
+        }
+
+        .price {
+            font-size: 1.2rem;
+            color: var(--neon-green);
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .card-actions button {
+            flex: 1;
+            font-size: 0.8rem;
+            padding: 8px;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 80px;
+            padding: 40px 0;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        /* Modal / Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid var(--neon-green);
+            color: #fff;
+            padding: 15px 25px;
+            min-width: 300px;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        }
+
+        .toast.active {
+            transform: translateX(0);
+        }
+
+        .toast-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            font-family: var(--font-display);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background-color: var(--neon-green);
+            border-radius: 50%;
+            box-shadow: 0 0 5px var(--neon-green);
+        }
+
+        .hidden { display: none !important; }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2rem; }
+            .user-stats { font-size: 0.9rem; }
+            .container { padding: 10px; }
+        }
+
+        /* Animation Keyframes */
+        @keyframes glitch {
+            0% { transform: translate(0) }
+            20% { transform: translate(-2px, 2px) }
+            40% { transform: translate(-2px, -2px) }
+            60% { transform: translate(2px, 2px) }
+            80% { transform: translate(2px, -2px) }
+            100% { transform: translate(0) }
+        }
+
+        .glitch-text:hover {
+            animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+            color: var(--neon-pink);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="container">
+        <header>
+            <div class="logo glitch-text">NEXUS</div>
+            <div class="user-stats">
+                <div class="stat-box">
+                    <span>CREDITS:</span>
+                    <span id="user-balance" class="text-neon-green">0.00</span>
+                </div>
+                <div class="stat-box" style="border-color: var(--neon-blue); background: rgba(0, 255, 255, 0.1);">
+                    <span id="inventory-count">0</span> / <span id="total-items">0</span>
+                </div>
+            </div>
+        </header>
+
+        <section class="hero">
+            <h1 class="text-neon-green glitch-text">Digitized Reality</h1>
+            <p>Access the black market for high-end cyber-decks, neural implants, and rare assets.</p>
+            <button class="btn btn-pink" onclick="scrollToMarket()">Browse Catalog</button>
+        </section>
+
+        <main id="marketplace" class="market-grid">
+            <!-- Items will be injected here via JS -->
+        </main>
+
+        <footer>
+            <p>SYSTEM STATUS: ONLINE // ENCRYPTION: AES-4096 // © 2077 NEXUS CORP</p>
+        </footer>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // --- Data & State ---
+        const initialCredits = 5000;
+        let credits = initialCredits;
+        let ownedItems = [];
+
+        // Mock Data for Products
+        const products = [
+            { id: 1, name: "Neural Link v4.0", price: 1200, rarity: "Legendary", img: "https://picsum.photos/seed/cyber1/400/300" },
+            { id: 2, name: "Optical Camo Cloak", price: 850, rarity: "Rare", img: "https://picsum.photos/seed/cyber2/400/300" },
+            { id: 3, name: "Data Shard (Encrypted)", price: 150, rarity: "Common", img: "https://picsum.photos/seed/cyber3/400/300" },
+            { id: 4, name: "Titanium Arm Prosthetic", price: 3400, rarity: "Legendary", img: "https://picsum.photos/seed/cyber4/400/300" },
+            { id: 5, name: "Synth-Eye (Night Vision)", price: 450, rarity: "Rare", img: "https://picsum.photos/seed/cyber5/400/300" },
+            { id: 6, name: "Firewall Virus Kit", price: 80, rarity: "Common", img: "https://picsum.photos/seed/cyber6/400/300" },
+            { id: 7, name: "Holographic Emitter", price: 600, rarity: "Uncommon", img: "https://picsum.photos/seed/cyber7/400/300" },
+            { id: 8, name: "Quantum Chipset", price: 2100, rarity: "Legendary", img: "https://picsum.photos/seed/cyber8/400/300" },
+        ];
+
+        // --- DOM Elements ---
+        const balanceEl = document.getElementById('user-balance');
+        const inventoryEl = document.getElementById('inventory-count');
+        const totalItemsEl = document.getElementById('total-items');
+        const marketplaceEl = document.getElementById('marketplace');
+        const toastContainer = document.getElementById('toast-container');
+
+        // --- Initialization ---
+        function init() {
+            updateUI();
+            renderProducts();
+            initCanvas();
+        }
+
+        // --- Core Functions ---
+
+        function updateUI() {
+            balanceEl.innerText = credits.toLocaleString('en-US', { minimumFractionDigits: 2 });
+            inventoryEl.innerText = ownedItems.length;
+            totalItemsEl.innerText = products.length;
+        }
+
+        function renderProducts() {
+            marketplaceEl.innerHTML = '';
+            products.forEach(item => {
+                const isOwned = ownedItems.includes(item.id);
+                const card = document.createElement('article');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-img-wrapper">
+                        <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
+                        <img src="${item.img}" alt="${item.name}" class="card-img" loading="lazy">
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">${item.name}</h3>
+                        <p class="card-desc">${getRarityDesc(item.rarity)}</p>
+                        <div class="card-footer">
+                            <div class="price" data-price="${item.price}">${item.price} CR</div>
+                            <div class="card-actions">
+                                <button class="btn btn-pink" onclick="sellItem(${item.id}, ${item.price})" ${isOwned ? 'disabled style="opacity:0.5; cursor:not-allowed; border-color:#555; color:#555"' : ''}>SELL</button>
+                                <button class="btn" onclick="buyItem(${item.id}, ${item.price})" ${isOwned ? 'disabled' : ''}>BUY</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                marketplaceEl.appendChild(card);
+            });
+        }
+
+        function getRarityDesc(rarity) {
+            switch(rarity) {
+                case 'Legendary': return "Standard issue for netrunners.";
+                case 'Rare': return "Enhanced durability.";
+                case 'Uncommon': return "Standard issue.";
+                case 'Common': return "Basic utility item.";
+                default: return "Unknown origin.";
+            }
+        }
+
+        function buyItem(id, price) {
+            if (credits >= price) {
+                // Simulate processing time
+                const btn = event.target;
+                const originalText = btn.innerText;
+                btn.innerText = "PROCESSING...";
+                btn.disabled = true;
+
+                setTimeout(() => {
+                    credits -= price;
+                    ownedItems.push(id);
+                    showToast(`SUCCESS: Acquired ${products.find(p => p.id === id).name}`, 'success');
+                    updateUI();
+                    renderProducts();
+                }, 800);
+            } else {
+                showToast(`ERROR: Insufficient Credits. Need ${price - credits} CR.`, 'error');
+            }
+        }
+
+        function sellItem(id, price) {
+            ownedItems = ownedItems.filter(itemId => itemId !== id);
+            credits += price;
+            showToast(`PROFIT: Sold item for ${price} CR.`, 'success');
+            updateUI();
+            renderProducts();
+        }
+
+        function scrollToMarket() {
+            document.getElementById('marketplace').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            
+            const header = document.createElement('div');
+            header.className = 'toast-header';
+            header.innerHTML = `
+                <div class="status-dot"></div>
+                <span>${type === 'success' ? 'SYSTEM_OK' : 'SYSTEM_FAIL'}</span>
+            `;
+
+            const text = document.createElement('span');
+            text.innerText = message;
+
+            toast.appendChild(header);
+            toast.appendChild(text);
+
+            toastContainer.appendChild(toast);
+
+            // Trigger animation
+            requestAnimationFrame(() => {
+                toast.classList.add('active');
+            });
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('active');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        }
+
+        // --- Canvas Animation (Network Nodes) ---
+        function initCanvas() {
+            const canvas = document.getElementById('bg-canvas');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let particles = [];
+
+            function resize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() * height;
+                    this.vx = (Math.random() - 0.5) * 0.5;
+                    this.vy = (Math.random() - 0.5) * 0.5;
+                    this.size = Math.random() * 2 + 1;
+                }
+
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+
+                    if (this.x < 0 || this.x > width) this.vx *= -1;
+                    if (this.y < 0 || this.y > height) this.vy *= -1;
+                }
+
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = '#00ff41';
+                    ctx.fill();
+                }
+            }
+
+            function initParticles() {
+                particles = [];
+                const particleCount = Math.min(window.innerWidth / 10, 100); // Responsive count
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push(new Particle());
+                }
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, width, height);
+                
+                // Update and draw particles
+                particles.forEach((p, index) => {
+                    p.update();
+                    p.draw();
+
+                    // Draw connections
+                    for (let j = index + 1; j < particles.length; j++) {
+                        const p2 = particles[j];
+                        const dx = p.x - p2.x;
+                        const dy = p.y - p2.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < 150) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = `rgba(0, 255, 65, ${1 - dist / 150})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.stroke();
+                        }
+                    }
+                });
+
+                requestAnimationFrame(animate);
+            }
+
+            window.addEventListener('resize', () => {
+                resize();
+                initParticles();
+            });
+
+            resize();
+            initParticles();
+            animate();
+        }
+
+        // Run
+        document.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>

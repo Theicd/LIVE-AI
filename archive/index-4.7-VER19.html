@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mountain Slope Physics</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        canvas {
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="800" height="800"></canvas>
+
+<script>
+    /**
+     * Mountain Slope Physics & Rendering Engine
+     * Implements 2D physics with fake 3D perspective, collision detection,
+     * and dynamic lighting effects.
+     */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- Configuration ---
+    const CONFIG = {
+        gravity: 0.6,
+        friction: 0.98,
+        restitution: 0.4, // Bounciness
+        roadY: 650,       // Y position of the road
+        carSpeed: 6,
+        subSteps: 8,      // Physics steps per frame for stability
+        dangerDistance: 100
+    };
+
+    // --- State Management ---
+    let rocks = [];
+    let car = null;
+    let frameCount = 0;
+    let gameActive = true;
+
+    // --- Math Helpers ---
+    function lerp(start, end, t) {
+        return start * (1 - t) + end * t;
+    }
+
+    function distance(x1, y1, x2, y2) {
+        return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+    }
+
+    // --- Classes ---
+
+    class Car {
+        constructor() {
+            this.reset();
+        }
+
+        reset() {
+            this.x = -150;
+            this.y = CONFIG.roadY - 30; // Slightly above road
+            this.width = 60;
+            this.height = 35;
+            this.dangerTimer = 0;
+        }
+
+        update() {
+            this.x += CONFIG.carSpeed;
+            
+            // Loop logic: Reset when car exits right side
+            if (this.x > 850) {
+                this.reset();
+                resetRocks(); // Clear rocks for next loop
+            }
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+
+            // Shadow on the road (perspective fake)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.beginPath();
+            ctx.ellipse(0, 30, 30, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Car Body (3D looking gradient)
+            const bodyGrad = ctx.createLinearGradient(-this.width/2, -this.height, this.width/2, 0);
+            bodyGrad.addColorStop(0, '#e74c3c');
+            bodyGrad.addColorStop(1, '#c0392b');
+            
+            ctx.fillStyle = bodyGrad;
+            // Draw a trapezoid for perspective
+            ctx.beginPath();
+            ctx.moveTo(-this.width/2, 0);
+            ctx.lineTo(this.width/2, 0);
+            ctx.lineTo(this.width/2 - 5, -this.height);
+            ctx.lineTo(-this.width/2 + 5, -this.height);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Roof/Window
+            ctx.fillStyle = '#34495e';
+            ctx.beginPath();
+            ctx.moveTo(-this.width/4, -this.height + 5);
+            ctx.lineTo(this.width/4, -this.height + 5);
+            ctx.lineTo(this.width/4 - 5, -this.height + 20);
+            ctx.lineTo(-this.width/4 + 5, -this.height + 20);
+            ctx.fill();
+
+            // Wheels
+            ctx.fillStyle = '#2c3e50';
+            ctx.beginPath();
+            ctx.arc(-20, 0, 10, 0, Math.PI * 2); // Front
+            ctx.arc(20, 0, 10, 0, Math.PI * 2);  // Back
+            ctx.fill();
+            // Wheel rims
+            ctx.fillStyle = '#95a5a6';
+            ctx.beginPath();
+            ctx.arc(-20, 0, 4, 0, Math.PI * 2);
+            ctx.arc(20, 0, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Danger Effects
+            if (this.dangerTimer > 0) {
+                this.dangerTimer--;
+                this.drawWarning();
+                this.drawHeadlights();
+            } else {
+                // Normal headlights
+                this.drawHeadlights(false);
+            }
+
+            ctx.restore();
+        }
+
+        drawWarning() {
+            // Flashing Red Icon
+            const alpha = Math.sin(frameCount * 0.5) > 0 ? 1 : 0.3;
+            ctx.fillStyle = `rgba(231, 76, 60, ${alpha})`;
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('⚠️ DANGER', 0, -this.height - 20);
+            
+            // Warning Triangle
+            ctx.beginPath();
+            ctx.moveTo(0, -this.height - 45);
+            ctx.lineTo(-10, -this.height - 35);
+            ctx.lineTo(10, -this.height - 35);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        drawHeadlights(isBlinking) {
+            const blinkSpeed = isBlinking ? 0.4 : 0.02; // Fast blink vs slow dim
+            const opacity = (Math.sin(frameCount * blinkSpeed) + 1) / 2;
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen'; // Additive blending for light
+            
+            // Left Headlight
+            const leftLight = ctx.createRadialGradient(-30, -10, 2, -30, -10, 200);
+            leftLight.addColorStop(0, `rgba(255, 255, 200, ${opacity})`);
+            leftLight.addColorStop(1, 'rgba(255, 255, 200, 0)');
+            ctx.fillStyle = leftLight;
+            ctx.beginPath();
+            ctx.moveTo(-30, -10);
+            ctx.lineTo(-100, -150);
+            ctx.lineTo(-100, 50);
+            ctx.closePath();
+            ctx.fill();
+
+            // Right Headlight
+            const rightLight = ctx.createRadialGradient(30, -10, 2, 30, -10, 200);
+            rightLight.addColorStop(0, `rgba(255, 255, 200, ${opacity})`);
+            rightLight.addColorStop(1, 'rgba(255, 255, 200, 0)');
+            ctx.fillStyle = rightLight;
+            ctx.beginPath();
+            ctx.moveTo(30, -10);
+            ctx.lineTo(100, -150);
+            ctx.lineTo(100, 50);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+    }
+
+    class Rock {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.radius = 15 + Math.random() * 10;
+            this.vx = (Math.random() - 0.5) * 5; // Initial random horizontal velocity
+            this.vy = 0;
+            this.rotation = Math.random() * Math.PI * 2;
+            this.vr = (Math.random() - 0.5) * 0.2;
+            
+            // Generate a rough polygon shape for the rock
+            this.points = [];
+            const numPoints = 6 + Math.floor(Math.random() * 4);
+            for (let i = 0; i < numPoints; i++) {
+                const angle = (i / numPoints) * Math.PI * 2;
+                const r = this.radius * (0.8 + Math.random() * 0.4);
+                this.points.push({
+                    dx: Math.cos(angle) * r,
+                    dy: Math.sin(angle) * r
+                });
+            }
+            
+            this.color = `hsl(${Math.random() * 40 + 20}, 20%, ${40 + Math.random() * 20}%)`; // Browns/Greys
+            this.isResting = false;
+        }
+
+        update(slopePoints) {
+            if (this.isResting) return;
+
+            // Apply Gravity
+            this.vy += CONFIG.gravity;
+            
+            // Apply Velocity
+            this.x += this.vx;
+            this.y += this.vy;
+            this.rotation += this.vr;
+
+            // Ground Collision (Road)
+            if (this.y + this.radius > CONFIG.roadY) {
+                this.y = CONFIG.roadY - this.radius;
+                this.vy *= -CONFIG.restitution;
+                this.vx *= CONFIG.friction; // Friction on road
+                this.vr *= 0.9;
+                
+                // Stop if slow
+                if (Math.abs(this.vy) < 0.5) this.vy = 0;
+                if (Math.abs(this.vx) < 0.1) this.vx = 0;
+                if (Math.abs(this.vr) < 0.01) this.vr = 0;
+            }
+
+            // Slope Collision
+            // We check against the line segments of the slope
+            for (let i = 0; i < slopePoints.length - 1; i++) {
+                const p1 = slopePoints[i];
+                const p2 = slopePoints[i+1];
+
+                // Vector from p1 to p2
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const lenSq = dx*dx + dy*dy;
+                
+                // Vector from p1 to rock
+                const px = this.x - p1.x;
+                const py = this.y - p1.y;
+
+                // Project rock onto line segment
+                let t = (px * dx + py * dy) / lenSq;
+                t = Math.max(0, Math.min(1, t)); // Clamp to segment
+
+                // Closest point on segment
+                const cx = p1.x + t * dx;
+                const cy = p1.y + t * dy;
+
+                // Distance to closest point
+                const distX = this.x - cx;
+                const distY = this.y - cy;
+                const dist = Math.sqrt(distX*distX + distY*distY);
+
+                // Collision detected
+                if (dist < this.radius) {
+                    // Normal vector
+                    let nx = distX / dist;
+                    let ny = distY / dist;
+                    
+                    // If center is exactly on line, push up
+                    if (dist === 0) { nx = 0; ny = -1; }
+
+                    // Push out
+                    const overlap = this.radius - dist;
+                    this.x += nx * overlap;
+                    this.y += ny * overlap;
+
+                    // Reflect velocity vector
+                    // v' = v - 2 * (v . n) * n
+                    const dot = this.vx * nx + this.vy * ny;
+                    this.vx = (this.vx - 2 * dot * nx) * CONFIG.restitution;
+                    this.vy = (this.vy - 2 * dot * ny) * CONFIG.restitution;
+                    
+                    // Add some rotation based on x velocity
+                    this.vr += this.vx * 0.01;
+                }
+            }
+
+            // Stop resting check
+            if (Math.abs(this.vx) < 0.05 && Math.abs(this.vy) < 0.05 && Math.abs(this.vr) < 0.01) {
+                this.isResting = true;
+            }
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rotation);
+
+            // Shadow (scale based on Y to fake depth, though here Y is fixed mostly)
+            // Since this is a 2D side view, the shadow is just below the rock
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.beginPath();
+            ctx.ellipse(0, this.radius * 0.8, this.radius * 0.6, this.radius * 0.2, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rock Body (3D shading)
+            const grad = ctx.createLinearGradient(-this.radius, -this.radius, this.radius, this.radius);
+            grad.addColorStop(0, '#555');
+            grad.addColorStop(0.5, '#333');
+            grad.addColorStop(1, '#222');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            this.points.forEach((p, i) => {
+                if (i === 0) ctx.moveTo(p.dx, p.dy);
+                else ctx.lineTo(p.dx, p.dy);
+            });
+            ctx.closePath();
+            ctx.fill();
+            
+            // Highlight (fake 3D specular)
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.beginPath();
+            ctx.arc(-this.radius * 0.3, -this.radius * 0.3, this.radius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+    }
+
+    // --- Scene Setup ---
+
+    // Define the mountain slope as a series of points
+    // This creates the steep face
+    const slopePoints = [];
+    for (let i = 0; i <= 20; i++) {
+        const x = i * 40;
+        // Curve: Steep at left, flattening out slightly
+        const y = 100 + Math.sin(i * 0.2) * 50 + (i * 12); 
+        slopePoints.push({x, y});
+    }
+
+    function init() {
+        car = new Car();
+        resetRocks();
+        loop();
+    }
+
+    function resetRocks() {
+        rocks = [];
+        // Spawn rocks at random x positions on the slope
+        for (let i = 0; i < 8; i++) {
+            const x = 50 + Math.random() * 300;
+            // Calculate Y at that X using a simple approximation or just random height
+            const y = 100 + Math.random() * 200; 
+            rocks.push(new Rock(x, y));
+        }
+    }
+
+    // --- Main Loop ---
+
+    function loop() {
+        frameCount++;
+
+        // 1. Clear Canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 2. Draw Background (Sky is CSS, but let's add distant mountains)
+        ctx.fillStyle = '#aaddff';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(800, 0);
+        ctx.lineTo(800, 600);
+        ctx.lineTo(0, 600);
+        ctx.fill();
+
+        // 3. Draw Slope
+        ctx.beginPath();
+        ctx.moveTo(slopePoints[0].x, slopePoints[0].y);
+        for (let i = 1; i < slopePoints.length; i++) {
+            ctx.lineTo(slopePoints[i].x, slopePoints[i].y);
+        }
+        // Close the shape to the bottom
+        ctx.lineTo(800, 800);
+        ctx.lineTo(0, 800);
+        ctx.closePath();
+        
+        const slopeGrad = ctx.createLinearGradient(0, 0, 800, 800);
+        slopeGrad.addColorStop(0, '#7f8c8d');
+        slopeGrad.addColorStop(1, '#2c3e50');
+        ctx.fillStyle = slopeGrad;
+        ctx.fill();
+        
+        // Slope Edge Highlight
+        ctx.strokeStyle = '#95a5a6';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 4. Draw Road
+        ctx.fillStyle = '#34495e';
+        ctx.fillRect(0, CONFIG.roadY, 800, 800 - CONFIG.roadY);
+        
+        // Road Markings
+        ctx.strokeStyle = '#ecf0f1';
+        ctx.setLineDash([30, 30]);
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(0, CONFIG.roadY + 20);
+        ctx.lineTo(800, CONFIG.roadY + 20);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset
+
+        // 5. Update & Draw Rocks
+        // Sort by Y so lower rocks draw on top (Z-buffer simulation)
+        rocks.sort((a, b) => a.y - b.y);
+
+        rocks.forEach(rock => {
+            // Sub-stepping for physics stability
+            for(let s=0; s<CONFIG.subSteps; s++) {
+                rock.update(slopePoints);
+            }
+            rock.draw();
+        });
+
+        // 6. Update & Draw Car
+        car.update();
+        car.draw();
+
+        // 7. Check Danger Logic
+        checkDanger();
+
+        // 8. Check Reset Condition
+        // If car is gone and all rocks are resting
+        if (car.x > 850 && rocks.every(r => r.isResting)) {
+            // Optional: slight delay or immediate reset? 
+            // Immediate is smoother for the "loop" effect requested.
+            // But let's keep it running for the visual satisfaction.
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    function checkDanger() {
+        let dangerActive = false;
+
+        rocks.forEach(rock => {
+            // Check if rock is in front of car
+            // Danger zone: Car X +/- 50, Car Y - 100 (above car)
+            const distX = Math.abs(rock.x - car.x);
+            const distY = car.y - rock.y; // Positive means rock is above car
+
+            // Simple rectangular danger zone check
+            if (distX < 60 && distY > 0 && distY < 120) {
+                dangerActive = true;
+            }
+        });
+
+        if (dangerActive) {
+            car.dangerTimer = 30; // Frames to stay in danger state
+        }
+    }
+
+    // Start
+    init();
+
+</script>
+</body>
+</html>

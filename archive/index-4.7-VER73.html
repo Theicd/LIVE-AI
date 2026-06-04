@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Field & Form — Independent Creative Agency</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap">
+
+<style>
+:root{
+  --bg:        #0a0908;
+  --bg-soft:   #131110;
+  --text:      #f4f1ea;
+  --text-soft: #8a857d;
+  --accent:    #ff4d1c;
+  --line:      rgba(244,241,234,0.12);
+  --ease-q:    cubic-bezier(.22,1,.36,1);
+  --ease-p:    cubic-bezier(.4,0,.2,1);
+  --ease-e:    cubic-bezier(.16,1,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-weight:400;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{cursor:none}
+a{color:inherit;text-decoration:none;cursor:none}
+img{display:block;max-width:100%}
+::selection{background:var(--accent);color:var(--bg)}
+
+.mono{font-family:'IBM Plex Mono',monospace;font-weight:500;text-transform:uppercase;letter-spacing:0.18em;font-size:11px}
+.display{font-family:'Montserrat',sans-serif;font-weight:900;letter-spacing:-0.025em;line-height:0.88}
+.h-display{font-size:clamp(3rem,9.5vw,11rem)}
+.h-mid{font-size:clamp(2.4rem,5.5vw,5.2rem)}
+.h-small{font-size:clamp(1.6rem,2.6vw,2.4rem)}
+
+/* ── custom cursor ─────────────────────────────────────── */
+#cursor{
+  position:fixed;top:0;left:0;width:14px;height:14px;border-radius:50%;
+  background:var(--text);mix-blend-mode:difference;pointer-events:none;z-index:9999;
+  will-change:transform;transition:width .35s var(--ease-q),height .35s var(--ease-q),opacity .3s var(--ease-q);
+}
+@media (hover:none),(pointer:coarse){
+  body,a{cursor:auto}
+  #cursor{display:none!important}
+}
+
+/* ── nav ──────────────────────────────────────────────── */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1.6rem 2rem;mix-blend-mode:difference;color:#fff;
+}
+.nav .brand{font-family:'Montserrat',sans-serif;font-weight:900;letter-spacing:-0.02em;font-size:1.05rem}
+.nav .brand span{color:var(--accent)}
+.nav-links{display:flex;gap:2.2rem}
+.nav-links a{position:relative;font-size:0.82rem;letter-spacing:0.04em}
+.nav-links a::after{content:"";position:absolute;left:0;bottom:-4px;width:0;height:1px;background:#fff;transition:width .5s var(--ease-q)}
+.nav-links a:hover::after{width:100%}
+.nav .clock{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;opacity:0.7}
+@media(max-width:760px){.nav-links{display:none}}
+
+/* ── hero ─────────────────────────────────────────────── */
+.hero{
+  position:relative;min-height:100vh;padding:8rem 2rem 4rem;
+  display:flex;flex-direction:column;justify-content:space-between;
+  overflow:hidden;
+}
+#fluid-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.hero::after{
+  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 60%, transparent 0%, rgba(10,9,8,0.55) 70%, rgba(10,9,8,0.85) 100%);
+}
+.hero > *{position:relative;z-index:2}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:2rem;padding-top:2rem}
+.hero-top .label{max-width:280px}
+.hero-top .label p{margin-top:0.8rem;color:var(--text-soft);font-size:0.85rem;line-height:1.5;letter-spacing:0.01em;text-transform:none}
+.hero-headline{margin:3rem 0}
+.hero-headline h1{font-size:clamp(3.4rem,11vw,13rem)}
+.hero-headline .accent{color:var(--accent);font-style:italic;font-family:'Inter',serif;font-weight:500;letter-spacing:-0.04em}
+.hero-headline .outline{
+  -webkit-text-stroke:1.5px var(--text);color:transparent;
+}
+.hero-bottom{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2rem;align-items:end;padding-top:3rem;border-top:1px solid var(--line)}
+.hero-bottom .col p{font-size:0.92rem;line-height:1.55;color:var(--text);max-width:300px}
+.hero-bottom .col .mono{display:block;margin-bottom:0.8rem;color:var(--text-soft)}
+.scroll-cue{display:flex;align-items:center;gap:0.6rem;justify-self:end}
+.scroll-cue .line{width:50px;height:1px;background:var(--text);position:relative;overflow:hidden}
+.scroll-cue .line::after{content:"";position:absolute;inset:0;background:var(--accent);transform:translateX(-100%);animation:cueSlide 2.4s var(--ease-q) infinite}
+@keyframes cueSlide{0%{transform:translateX(-100%)}60%{transform:translateX(100%)}100%{transform:translateX(100%)}}
+@media(max-width:760px){
+  .hero-bottom{grid-template-columns:1fr;gap:2rem}
+  .scroll-cue{justify-self:start}
+}
+
+/* ── marquee ──────────────────────────────────────────── */
+.marquee{
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  overflow:hidden;padding:1.4rem 0;background:var(--bg);
+}
+.marquee-track{display:flex;gap:3rem;white-space:nowrap;animation:marq 40s linear infinite;width:max-content}
+.marquee-track span{font-family:'Montserrat',sans-serif;font-weight:900;font-size:2.2rem;letter-spacing:-0.02em}
+.marquee-track .dot{color:var(--accent)}
+@keyframes marq{to{transform:translateX(-50%)}}
+
+/* ── section frame ────────────────────────────────────── */
+section{padding:8rem 2rem;position:relative}
+.container{max-width:1400px;margin:0 auto}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;margin-bottom:5rem;border-bottom:1px solid var(--line);padding-bottom:1.4rem}
+.section-head .mono{color:var(--text-soft)}
+.section-head h2{max-width:780px}
+
+/* ── manifesto / scrub words ──────────────────────────── */
+.manifesto{padding:10rem 2rem}
+.manifesto .container{max-width:1100px}
+.manifesto-text{
+  font-family:'Montserrat',sans-serif;font-weight:800;
+  font-size:clamp(1.6rem,3.4vw,3.2rem);line-height:1.18;letter-spacing:-0.02em;
+}
+.manifesto-text .word{display:inline-block;opacity:0;filter:blur(12px) brightness(35%);will-change:filter,opacity;margin-right:0.18em}
+.manifesto-text .accent{color:var(--accent)}
+.manifesto-meta{display:flex;justify-content:space-between;margin-top:5rem;padding-top:1.4rem;border-top:1px solid var(--line);color:var(--text-soft);font-size:0.85rem}
+
+/* ── work grid ───────────────────────────────────────── */
+.work-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:1.6rem}
+.work-card{position:relative;overflow:hidden;background:var(--bg-soft)}
+.work-card .media{position:relative;overflow:hidden;aspect-ratio:4/5;background:#1a1816}
+.work-card .media img{width:100%;height:100%;object-fit:cover;transition:transform 1.2s var(--ease-q);will-change:transform}
+.work-card:hover .media img{transform:scale(1.06)}
+.work-card.wide{grid-column:span 6}
+.work-card.tall{grid-column:span 6}
+.work-card.small{grid-column:span 4}
+.work-card.full{grid-column:span 12}
+.work-card.full .media{aspect-ratio:21/9}
+.work-card.small .media{aspect-ratio:3/4}
+.work-info{display:flex;justify-content:space-between;align-items:flex-end;padding:1.4rem 0.2rem 0.4rem}
+.work-info h3{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.4rem;letter-spacing:-0.02em;line-height:1}
+.work-info .tag{color:var(--text-soft);font-size:0.78rem;letter-spacing:0.06em}
+.work-card .num{position:absolute;top:1rem;left:1rem;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;z-index:3;mix-blend-mode:difference}
+.work-card .badge{position:absolute;top:1rem;right:1rem;background:var(--accent);color:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;padding:0.35rem 0.6rem;z-index:3;text-transform:uppercase}
+@media(max-width:900px){
+  .work-card.wide,.work-card.tall,.work-card.small,.work-card.full{grid-column:span 12}
+}
+
+/* ── philosophy sticky two-column ─────────────────────── */
+.philosophy{padding:10rem 2rem}
+.sticky-pair{display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:start}
+.sticky-pair .left{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;justify-content:center}
+.sticky-pair .left h2{font-size:clamp(2.4rem,5vw,4.6rem);margin:1.2rem 0 2rem}
+.sticky-pair .left .lead{color:var(--text-soft);font-size:1rem;line-height:1.6;max-width:380px}
+.sticky-pair .right > *{margin-bottom:8rem}
+.sticky-pair .right > *:last-child{margin-bottom:0}
+.principle .mono{color:var(--accent);margin-bottom:1rem;display:block}
+.principle h3{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.8rem;letter-spacing:-0.02em;margin-bottom:1rem;line-height:1.05}
+.principle p{color:var(--text-soft);font-size:0.98rem;line-height:1.65;max-width:440px}
+.principle .figure{margin-top:1.6rem;aspect-ratio:5/4;overflow:hidden;background:var(--bg-soft)}
+.principle .figure img{width:100%;height:100%;object-fit:cover;filter:grayscale(0.4) contrast(1.05)}
+@media(max-width:900px){
+  .sticky-pair{grid-template-columns:1fr;gap:3rem}
+  .sticky-pair .left{position:static;height:auto}
+}
+
+/* ── services ────────────────────────────────────────── */
+.services{padding:10rem 2rem;background:var(--bg-soft)}
+.svc-list{border-top:1px solid var(--line)}
+.svc-row{
+  display:grid;grid-template-columns:80px 1fr 1.4fr 80px;gap:2rem;
+  padding:2.4rem 0;border-bottom:1px solid var(--line);
+  align-items:center;cursor:none;
+  transition:padding .6s var(--ease-q);
+  position:relative;
+}
+.svc-row::before{
+  content:"";position:absolute;left:0;top:0;height:100%;width:0;background:var(--accent);
+  transition:width .6s var(--ease-q);z-index:0;
+}
+.svc-row:hover::before{width:6px}
+.svc-row:hover{padding-left:1.4rem}
+.svc-row > *{position:relative;z-index:1}
+.svc-num{font-family:'IBM Plex Mono',monospace;color:var(--text-soft);font-size:0.85rem;letter-spacing:0.1em}
+.svc-title{font-family:'Montserrat',sans-serif;font-weight:900;font-size:clamp(1.6rem,3vw,2.6rem);letter-spacing:-0.02em;line-height:1}
+.svc-desc{color:var(--text-soft);font-size:0.95rem;line-height:1.55;max-width:440px}
+.svc-arrow{font-family:'IBM Plex Mono',monospace;justify-self:end;font-size:1.4rem;transition:transform .5s var(--ease-q),color .5s var(--ease-q)}
+.svc-row:hover .svc-arrow{transform:translateX(8px);color:var(--accent)}
+@media(max-width:760px){
+  .svc-row{grid-template-columns:50px 1fr 40px;gap:1rem}
+  .svc-desc{grid-column:1/-1;grid-row:2;padding-left:50px}
+}
+
+/* ── stats ──────────────────────────────────────────── */
+.stats{padding:8rem 2rem;border-bottom:1px solid var(--line)}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2rem}
+.stat .num{font-family:'Montserrat',sans-serif;font-weight:900;font-size:clamp(3rem,6vw,5.5rem);letter-spacing:-0.04em;line-height:1}
+.stat .num sup{font-size:0.4em;color:var(--accent);vertical-align:super;margin-left:0.1em}
+.stat .lbl{margin-top:0.8rem;color:var(--text-soft);font-size:0.85rem;line-height:1.5;max-width:200px}
+@media(max-width:760px){.stats-grid{grid-template-columns:1fr 1fr}}
+
+/* ── clients ────────────────────────────────────────── */
+.clients{padding:8rem 2rem}
+.client-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.client{
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  padding:3rem 2rem;display:flex;align-items:center;justify-content:center;
+  min-height:160px;font-family:'Montserrat',sans-serif;font-weight:900;
+  font-size:1.2rem;letter-spacing:-0.02em;color:var(--text);
+  transition:background .5s var(--ease-q),color .5s var(--ease-q);
+}
+.client:hover{background:var(--accent);color:var(--bg)}
+.client small{display:block;font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:10px;letter-spacing:0.16em;margin-top:0.4rem;opacity:0.6}
+@media(max-width:760px){.client-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ── team ───────────────────────────────────────────── */
+.team{padding:10rem 2rem;background:var(--bg-soft)}
+.team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2.4rem}
+.member{position:relative}
+.member .photo{aspect-ratio:4/5;overflow:hidden;background:#1a1816;margin-bottom:1.2rem;position:relative}
+.member .photo img{width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.05);transition:filter .8s var(--ease-q),transform 1s var(--ease-q)}
+.member:hover .photo img{filter:grayscale(0);transform:scale(1.04)}
+.member .photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 60%,rgba(10,9,8,0.7));pointer-events:none}
+.member h3{font-family:'Montserrat',sans-serif;font-weight:900;font-size:1.3rem;letter-spacing:-0.02em}
+.member .role{color:var(--text-soft);font-size:0.85rem;margin-top:0.3rem}
+.member .bio{margin-top:0.8rem;color:var(--text-soft);font-size:0.88rem;line-height:1.55;max-width:280px}
+@media(max-width:760px){.team-grid{grid-template-columns:1fr}}
+
+/* ── contact ────────────────────────────────────────── */
+.contact{padding:10rem 2rem 6rem;position:relative;overflow:hidden}
+.contact .container{position:relative;z-index:2}
+.contact h2{font-size:clamp(3rem,9vw,10rem);line-height:0.9}
+.contact h2 .accent{color:var(--accent);font-style:italic;font-family:'Inter',serif;font-weight:500;letter-spacing:-0.04em}
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:4rem;margin-top:5rem;align-items:end}
+.contact-info .row{padding:1.6rem 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.contact-info .row .mono{color:var(--text-soft)}
+.contact-info .row .val{font-size:1rem}
+.cta-button{
+  display:inline-flex;align-items:center;gap:1rem;
+  background:var(--accent);color:var(--bg);
+  padding:1.6rem 2.4rem;font-family:'Montserrat',sans-serif;font-weight:900;
+  font-size:1.1rem;letter-spacing:-0.01em;
+  border-radius:60px;margin-top:2rem;
+  transition:padding .5s var(--ease-q);
+}
+.cta-button:hover{padding-right:3.2rem}
+.cta-button .arrow{transition:transform .5s var(--ease-q)}
+.cta-button:hover .arrow{transform:translateX(6px)}
+@media(max-width:760px){.contact-grid{grid-template-columns:1fr}}
+
+/* ── footer ─────────────────────────────────────────── */
+footer{padding:3rem 2rem;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;color:var(--text-soft);font-size:0.82rem;flex-wrap:wrap;gap:1rem}
+footer .links{display:flex;gap:1.6rem}
+footer .links a:hover{color:var(--accent)}
+
+/* ── reveal helpers ─────────────────────────────────── */
+.headline-enter{opacity:0;transform:translateY(40px);transition:opacity 1.2s var(--ease-q),transform 1.2s var(--ease-q)}
+.headline-enter.is-in{opacity:1;transform:none}
+.headline-enter.d1{transition-delay:0.1s}
+.headline-enter.d2{transition-delay:0.2s}
+.headline-enter.d3{transition-delay:0.3s}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}
+  .manifesto-text .word{opacity:1!important;filter:none!important}
+}
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+
+<nav class="nav">
+  <a href="#" class="brand">Field<span>&</span>Form</a>
+  <div class="nav-links">
+    <a href="#work">Work</a>
+    <a href="#studio">Studio</a>
+    <a href="#services">Services</a>
+    <a href="#journal">Journal</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <div class="clock" id="clock">— : —</div>
+</nav>
+
+<!-- ─────────────────────── HERO ─────────────────────── -->
+<header class="hero">
+  <canvas id="fluid-canvas"></canvas>
+
+  <div class="hero-top">
+    <div class="label">
+      <span class="mono">Independent Studio · Est. 2014</span>
+      <p>A design and technology practice working at the intersection of brand, product, and spatial experience.</p>
+    </div>
+    <div class="label" style="text-align:right">
+      <span class="mono">N 40°44′ · W 73°59′</span>
+      <p>Brooklyn · New York · Available for projects in Europe and the Americas, Q2 2025 onward.</p>
+    </div>
+  </div>
+
+  <div class="hero-headline">
+    <h1 class="display">
+      We design<br>
+      <span class="outline">brands that</span><br>
+      refuse to be <span class="accent">forgotten.</span>
+    </h1>
+  </div>
+
+  <div class="hero-bottom">
+    <div class="col">
+      <span class="mono">01 — Approach</span>
+      <p>Long-form collaboration with founders, curators and operators who treat craft as strategy, not decoration.</p>
+    </div>
+    <div class="col">
+      <span class="mono">02 — Discipline</span>
+      <p>Identity systems, digital products, editorial, motion and spatial — built by one team, end to end.</p>
+    </div>
+    <div class="col">
+      <span class="mono">03 — Recognition</span>
+      <p>D&AD · ADC · Brand New · Type Directors Club · Awwwards · It's Nice That.</p>
+    </div>
+    <div class="scroll-cue">
+      <span class="mono">Scroll</span>
+      <span class="line"></span>
+    </div>
+  </div>
+</header>
+
+<!-- ─────────────────────── MARQUEE ─────────────────────── -->
+<div class="marquee">
+  <div class="marquee-track">
+    <span>Brand Systems</span><span class="dot">●</span>
+    <span>Digital Products</span><span class="dot">●</span>
+    <span>Editorial Design</span><span class="dot">●</span>
+    <span>Motion & Film</span><span class="dot">●</span>
+    <span>Spatial & Retail</span><span class="dot">●</span>
+    <span>Type Design</span><span class="dot">●</span>
+    <span>Brand Systems</span><span class="dot">●</span>
+    <span>Digital Products</span><span class="dot">●</span>
+    <span>Editorial Design</span><span class="dot">●</span>
+    <span>Motion & Film</span><span class="dot">●</span>
+    <span>Spatial & Retail</span><span class="dot">●</span>
+    <span>Type Design</span><span class="dot">●</span>
+  </div>
+</div>
+
+<!-- ─────────────────────── MANIFESTO ─────────────────────── -->
+<section class="manifesto" id="studio">
+  <div class="container">
+    <div class="section-head">
+      <span class="mono">A — Manifesto / 2025</span>
+      <span class="mono">Reading time · 38 sec</span>
+    </div>
+    <p class="manifesto-text" id="manifesto-text">We do not believe in neutral design. Every surface, every line of copy, every millisecond of load time is a decision about what kind of future a brand is choosing to build. Our work is slow on purpose — we read the brief twice, we walk the factory floor, we redraw the wordmark forty times before we show it. The result is not louder. It is <span class="accent">more precise</span>, and therefore harder to imitate, and therefore — finally — worth remembering.</p>
+    <div class="manifesto-meta">
+      <span>— The Studio, Brooklyn</span>
+      <span>Document 001 / Rev. 14</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── WORK ─────────────────────── -->
+<section id="work">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="mono">B — Selected Work / 2022—2025</span>
+        <h2 class="display h-mid headline-enter" style="margin-top:1.2rem">Twelve projects,<br>one consistent voice.</h2>
+      </div>
+      <a href="#" class="mono" style="color:var(--accent)">Full Archive →</a>
+    </div>
+
+    <div class="work-grid">
+      <article class="work-card wide">
+        <span class="num">001</span>
+        <span class="badge">New</span>
+        <div class="media"><img src="https://picsum.photos/seed/agency-meridian-coffee/900/1100" alt=""></div>
+        <div class="work-info">
+          <h3>Meridian Coffee Co.</h3>
+          <span class="tag">Brand System · Packaging · 2024</span>
+        </div>
+      </article>
+
+      <article class="work-card tall">
+        <span class="num">002</span>
+        <div class="media"><img src="https://picsum.photos/seed/agency-halden-museum/900/1100" alt=""></div>
+        <div class="work-info">
+          <h3>Halden Maritime Museum</h3>
+          <span class="tag">Identity · Wayfinding · 2024</span>
+        </div>
+      </article>
+
+      <article class="work-card small">
+        <span class="num">003</span>
+        <div class="media"><img src="https://picsum.photos/seed/agency-orbis-finance/700/900" alt=""></div>
+        <div class="work-info">
+          <h3>Orbis Capital</h3>
+          <span class="tag">Digital Product · 2024</span>
+        </div>
+      </article>
+
+      <article class="work-card small">
+        <span class="num">004</span>
+        <div class="media"><img src="https://picsum.photos/seed/agency-vera-magazine/700/900" alt=""></div>
+        <div class="work-info">
+          <h3>Vera Quarterly</h3>
+          <span class="tag">Editorial · Type · 2023</span>
+        </div>
+      </article>
+
+      <article class="work-card small">
+        <span class="num">005</span>
+        <div class="media"><img src="https://picsum.photos/seed/agency-atelier-nord/700/900" alt=""></div>
+        <div class="work-info">
+          <h3>Atelier Nord</h3>
+          <span class="tag">Fashion · E-commerce · 2023</span>
+        </div>
+      </article>
+
+      <article class="work-card full">
+        <span class="num">006</span>
+        <div class="media"><img src="https://picsum.photos/seed/agency-fieldnotes-film/1600/700" alt=""></div>
+        <div class="work-info">
+          <h3>Field Notes — A Film for Patagonia Provisions</h3>
+          <span class="tag">Motion · Direction · 2023</span>
+        </div>
+      </article>
+
+      <article class="work-card tall">
+        <span class="num">007</span>
+        <div class="media"><img src="https://picsum.photos/seed/agency-kiosk-retail/900/1100" alt=""></div>
+        <div class="work-info">
+          <h3>Kiosk — Rockefeller Center</h3>
+          <span class="tag">Spatial · Retail · 2022</span>
+        </div>
+      </article>
+
+      <article class="work-card wide">
+        <span class="num">008</span>
+        <div class="media"><img src="https://picsum.photos/seed/agency-lumen-lighting/900/1100" alt=""></div>
+        <div class="work-info">
+          <h3>Lumen Lighting</h3>
+          <span class="tag">Brand · Product Configurator · 2022</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── PHILOSOPHY ─────────────────────── -->
+<section class="philosophy">
+  <div class="container">
+    <div class="sticky-pair">
+      <div class="left">
+        <span class="mono">C — Principles of Practice</span>
+        <h2 class="display">Six commitments<br>we will not<br>negotiate.</h2>
+        <p class="lead">These are not slogans. They are the operating constraints that have kept the studio intact through fourteen years, three recessions, and one pandemic.</p>
+      </div>
+
+      <div class="right">
+        <div class="principle">
+          <span class="mono">01 — Slowness</span>
+          <h3>We work in weeks, not sprints.</h3>
+          <p>The most valuable brand decisions are the ones a founder has to sit with for seven days before approving. We structure our process to protect that silence.</p>
+        </div>
+        <div class="principle">
+          <span class="mono">02 — Material</span>
+          <h3>Every output is a real object.</h3>
+          <p>A logo is printed on a box. A website is rendered on a 2017 phone in a subway tunnel. We test every system against the worst-case physical context before we ship it.</p>
+          <div class="figure"><img src="https://picsum.photos/seed/agency-principle-material/800/640" alt=""></div>
+        </div>
+        <div class="principle">
+          <span class="mono">03 — Authorship</span>
+          <h3>One team. One room. One name on the work.</h3>
+          <p>We do not subcontract. We do not white-label. The four people in the kickoff meeting are the four people who hand you the final files.</p>
+        </div>
+        <div class="principle">
+          <span class="mono">04 — Restraint</span>
+          <h3>Subtract until it sings.</h3>
+          <p>If a layout still works in greyscale, with all the imagery removed, on a 320px viewport — it is ready to receive colour and photography.</p>
+          <div class="figure"><img src="https://picsum.photos/seed/agency-principle-restraint/800/640" alt=""></div>
+        </div>
+        <div class="principle">
+          <span class="mono">05 — Money</span>
+          <h3>Fixed fee. No surprises.</h3>
+          <p>We quote a single number for the entire engagement, broken into four milestones. If we underestimate the work, that is our problem, not yours.</p>
+        </div>
+        <div class="principle">
+          <span class="mono">06 — Refusal</span>
+          <h3>We turn down most projects.</h3>
+          <p>Last year we accepted eleven of the ninety-four enquiries we received. The ones we decline get a personal note explaining why, and a recommendation of who would do it better.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── SERVICES ─────────────────────── -->
+<section class="services" id="services">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="mono">D — Capabilities</span>
+        <h2 class="display h-mid headline-enter" style="margin-top:1.2rem">Six disciplines.<br>One studio.</h2>
+      </div>
+      <span class="mono" style="color:var(--text-soft)">Engagements from 6 weeks to 14 months</span>
+    </div>
+
+    <div class="svc-list">
+      <div class="svc-row">
+        <span class="svc-num">/ 01</span>
+        <span class="svc-title display">Brand Identity & Systems</span>
+        <span class="svc-desc">Naming, wordmark, typographic system, color architecture, voice guidelines, application library.</span>
+        <span class="svc-arrow">→</span>
+      </div>
+      <div class="svc-row">
+        <span class="svc-num">/ 02</span>
+        <span class="svc-title display">Digital Product Design</span>
+        <span class="svc-desc">Research, IA, interaction design, prototype, design system handoff to your engineering team.</span>
+        <span class="svc-arrow">→</span>
+      </div>
+      <div class="svc-row">
+        <span class="svc-num">/ 03</span>
+        <span class="svc-title display">Editorial & Publication</span>
+        <span class="svc-desc">Books, magazines, annual reports, catalogues — printed in Belgium, Japan or Minnesota depending on the paper.</span>
+        <span class="svc-arrow">→</span>
+      </div>
+      <div class="svc-row">
+        <span class="svc-num">/ 04</span>
+        <span class="svc-title display">Motion & Film</span>
+        <span class="svc-desc">Brand films, product launch sequences, title design, generative motion identity systems.</span>
+        <span class="svc-arrow">→</span>
+      </div>
+      <div class="svc-row">
+        <span class="svc-num">/ 05</span>
+        <span class="svc-title display">Spatial & Retail</span>
+        <span class="svc-desc">Store concept, exhibition design, wayfinding, environmental graphics — in partnership with our architect collaborators.</span>
+        <span class="svc-arrow">→</span>
+      </div>
+      <div class="svc-row">
+        <span class="svc-num">/ 06</span>
+        <span class="svc-title display">Custom Type Design</span>
+        <span class="svc-desc">Bespoke display and text typefaces, drawn for a single brand and licensed in perpetuity. Latin, Cyrillic, Greek.</span>
+        <span class="svc-arrow">→</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── STATS ─────────────────────── -->
+<section class="stats">
+  <div class="container">
+    <div class="section-head">
+      <span class="mono">E — By the Numbers</span>
+      <span class="mono">As of Q1 2025</span>
+    </div>
+    <div class="stats-grid">
+      <div class="stat headline-enter">
+        <div class="num">11<sup>yr</sup></div>
+        <p class="lbl">Years in continuous practice — same studio, same address, same phone number.</p>
+      </div>
+      <div class="stat headline-enter d1">
+        <div class="num">147</div>
+        <p class="lbl">Projects shipped to clients across 24 countries and 6 continents.</p>
+      </div>
+      <div class="stat headline-enter d2">
+        <div class="num">38<sup>★</sup></div>
+        <p class="lbl">International awards including 4 D&AD pencils and 7 ADC cubes.</p>
+      </div>
+      <div class="stat headline-enter d3">
+        <div class="num">9</div>
+        <p class="lbl">Permanent members of staff. No freelancers, no offshore, no exceptions.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── CLIENTS ─────────────────────── -->
+<section class="clients">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="mono">F — In Partnership With</span>
+        <h2 class="display h-mid headline-enter" style="margin-top:1.2rem">Trusted by people<br>who measure twice.</h2>
+      </div>
+    </div>
+    <div class="client-grid">
+      <div class="client">MoMA<small>NEW YORK</small></div>
+      <div class="client">Patagonia<small>VENTURA</small></div>
+      <div class="client">Aesop<small>MELBOURNE</small></div>
+      <div class="client">Frieze<small>LONDON</small></div>
+      <div class="client">Ace Hotel<small>NEW YORK</small></div>
+      <div class="client">Soho House<small>GLOBAL</small></div>
+      <div class="client">MIT Press<small>CAMBRIDGE</small></div>
+      <div class="client">Penguin<small>LONDON</small></div>
+      <div class="client">Hermès<small>PARIS</small></div>
+      <div class="client">Bandcamp<small>NEW YORK</small></div>
+      <div class="client">Are.na<small>NEW YORK</small></div>
+      <div class="client">Knoll<small>EAST GREENVILLE</small></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── TEAM ─────────────────────── -->
+<section class="team">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="mono">G — The Studio</span>
+        <h2 class="display h-mid headline-enter" style="margin-top:1.2rem">Nine people<br>in a converted<br>warehouse.</h2>
+      </div>
+    </div>
+    <div class="team-grid">
+      <div class="member">
+        <div class="photo"><img src="https://picsum.photos/seed/agency-portrait-elena/600/750" alt=""></div>
+        <h3>Elena Marsh</h3>
+        <div class="role">Founder · Creative Director</div>
+        <p class="bio">Previously Wieden+Kennedy, Pentagram. Teaches a graduate seminar at Yale School of Art.</p>
+      </div>
+      <div class="member">
+        <div class="photo"><img src="https://picsum.photos/seed/agency-portrait-tomas/600/750" alt=""></div>
+        <h3>Tomás Reyes</h3>
+        <div class="role">Design Director · Type</div>
+        <p class="bio">Type designer behind four retail families and seventeen custom commissions. Royal Designer for Industry, 2023.</p>
+      </div>
+      <div class="member">
+        <div class="photo"><img src="https://picsum.photos/seed/agency-portrait-mira/600/750" alt=""></div>
+        <h3>Mira Okafor</h3>
+        <div class="role">Head of Strategy</div>
+        <p class="bio">Brand strategist and former journalist. Writes the studio journal and most of our client briefs.</p>
+      </div>
+      <div class="member">
+        <div class="photo"><img src="https://picsum.photos/seed/agency-portrait-jonas/600/750" alt=""></div>
+        <h3>Jonas Vogel</h3>
+        <div class="role">Technology Lead</div>
+        <p class="bio">Engineer, motion designer, occasional cinematographer. Builds the tools the rest of us use.</p>
+      </div>
+      <div class="member">
+        <div class="photo"><img src="https://picsum.photos/seed/agency-portrait-ayako/600/750" alt=""></div>
+        <h3>Ayako Sato</h3>
+        <div class="role">Senior Designer · Editorial</div>
+        <p class="bio">Book design and publication. Has shipped thirty-one titles in five years, three of them award-winning.</p>
+      </div>
+      <div class="member">
+        <div class="photo"><img src="https://picsum.photos/seed/agency-portrait-rafe/600/750" alt=""></div>
+        <h3>Rafe Coleman</h3>
+        <div class="role">Producer · Operations</div>
+        <p class="bio">Keeps the trains running. The reason your project ships on the date we promised in the proposal.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────── CONTACT ─────────────────────── -->
+<section class="contact" id="contact">
+  <div class="container">
+    <span class="mono">H — Begin a Project</span>
+    <h2 class="display" style="margin-top:1.6rem">
+      Have something<br>
+      <span class="accent">worth building</span><br>
+      properly?
+    </h2>
+
+    <div class="contact-grid">
+      <div class="contact-info">
+        <div class="row">
+          <span class="mono">New Business</span>
+          <span class="val">hello@fieldandform.studio</span>
+        </div>
+        <div class="row">
+          <span class="mono">Press</span>
+          <span class="val">press@fieldandform.studio</span>
+        </div>
+        <div class="row">
+          <span class="mono">Studio</span>
+          <span class="val">+1 718 555 0142</span>
+        </div>
+        <div class="row">
+          <span class="mono">Address</span>
+          <span class="val">92 Wythe Ave, Brooklyn NY 11211</span>
+        </div>
+        <div class="row">
+          <span class="mono">Hours</span>
+          <span class="val">Mon–Thu · 09:30 — 18:30 EST</span>
+        </div>
+      </div>
+
+      <div>
+        <p style="color:var(--text-soft);font-size:1.05rem;line-height:1.6;max-width:380px">
+          We accept new engagements in February and September. The next available start date is <strong style="color:var(--text)">September 16, 2025</strong>.
+        </p>
+        <a href="mailto:hello@fieldandform.studio" class="cta-button">
+          Start a conversation
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>© 2014—2025 Field & Form Studio LLC · All work made by hand in Brooklyn</div>
+  <div class="links">
+    <a href="#">Instagram</a>
+    <a href="#">Are.na</a>
+    <a href="#">LinkedIn</a>
+    <a href="#">Imprint</a>
+  </div>
+</footer>
+
+<!-- ─────────────────────── SCRIPTS ─────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.3.13/dist/lenis.min.js"></script>
+
+<script>
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isTouch = matchMedia('(pointer: coarse)').matches;
+
+/* ── Lenis smooth scroll ─────────────────────────────── */
+gsap.registerPlugin(ScrollTrigger);
+if (!reduceMotion) {
+  const lenis = new Lenis({ duration: 1.15, easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)) });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add(t => lenis.raf(t * 1000));
+  gsap.ticker.lagSmoothing(0);
+}
+
+/* ── Custom cursor ───────────────────────────────────── */
+if (!isTouch) {
+  const cur = document.getElementById('cursor');
+  const t = { x: innerWidth/2, y: innerHeight/2 }, p = { x: innerWidth/2, y: innerHeight/2 };
+  let hover = false;
+  addEventListener('mousemove', e => { t.x = e.clientX; t.y = e.clientY; });
+  addEventListener('mouseover', e => {
+    const el = e.target;
+    hover = !!(el.closest('a,button,.work-card,.svc-row,.client,.member,[data-cursor]'));
+  });
+  (function loop(){
+    p.x += (t.x - p.x) * 0.18;
+    p.y += (t.y - p.y) * 0.18;
+    const s = hover ? 56 : 14;
+    cur.style.transform = `translate(${p.x - s/2}px, ${p.y - s/2}px)`;
+    cur.style.width = cur.style.height = s + 'px';
+    cur.style.opacity = hover ? 0.55 : 1;
+    requestAnimationFrame(loop);
+  })();
+}
+
+/* ── Clock ───────────────────────────────────────────── */
+const clock = document.getElementById('clock');
+function tick(){
+  const d = new Date();
+  const opts = { hour:'2-digit', minute:'2-digit', timeZone:'America/New_York', hour12:false };
+  clock.textContent = 'BKLN ' + d.toLocaleTimeString('en-US', opts);
+}
+tick(); setInterval(tick, 30000);
+
+/* ── Hero fluid shader (FBM + mouse displacement) ───── */
+(function fluid(){
+  const canvas = document.getElementById('fluid-canvas');
+  const gl = canvas.getContext('webgl', { antialias:false, alpha:true, premultipliedAlpha:false });
+  if (!gl) return;
+
+  const vs = `attribute vec2 p; varying vec2 v_uv; void main(){ v_uv = p*0.5+0.5; gl_Position = vec4(p,0.,1.); }`;
+  const fs = `
+    precision highp float;
+    varying vec2 v_uv;
+    uniform vec2 u_res;
+    uniform vec2 u_mouse;
+    uniform vec2 u_mouseSmooth;
+    uniform float u_time;
+
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+    float noise(vec2 p){
+      vec2 i = floor(p), f = fract(p);
+      float a = hash(i), b = hash(i+vec2(1.,0.)), c = hash(i+vec2(0.,1.)), d = hash(i+vec2(1.,1.));
+      vec2 u = f*f*(3.-2.*f);
+      return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+    }
+    float fbm(vec2 p){
+      float s = 0., a = 0.5, f = 1.;
+      for(int i=0;i<6;i++){ s += noise(p*f)*a; a *= 0.5; f *= 2.; }
+      return s;
+    }
+
+    void main(){
+      vec2 uv = v_uv;
+      float aspect = u_res.x / u_res.y;
+      vec2 p = (uv * 2. - 1.);
+      p.x *= aspect;
+
+      // mouse displacement field
+      vec2 m = (u_mouseSmooth / u_res) * 2. - 1.;
+      m.x *= aspect;
+      float md = distance(p, m);
+      vec2 dir = (p - m) / max(md, 0.0001);
+      float influence = exp(-md * 2.2) * 0.45;
+
+      // animated fbm uv
+      vec2 q = p + vec2(u_time*0.04, u_time*0.02);
+      q += dir * influence * 0.6;
+      q += vec2(fbm(q + u_time*0.05), fbm(q - u_time*0.04)) * 0.7;
+
+      float n = fbm(q);
+      n = smoothstep(0.15, 0.95, n);
+
+      // 3-color lerp: deep -> mid -> accent
+      vec3 c1 = vec3(0.040, 0.030, 0.025);   // near black
+      vec3 c2 = vec3(0.18, 0.10, 0.07);      // warm umber
+      vec3 c3 = vec3(1.0, 0.30, 0.11);       // accent amber-red
+
+      vec3 col = mix(c1, c2, n);
+      col = mix(col, c3, pow(n, 3.5) * (0.55 + influence * 1.2));
+
+      // subtle vignette
+      float vig = smoothstep(1.4, 0.3, length(uv*2.-1.));
+      col *= mix(0.6, 1.0, vig);
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  function compile(type, src){
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(sh));
+    return sh;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog); gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'p');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  const uRes = gl.getUniformLocation(prog, 'u_res');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+  const uMouseS = gl.getUniformLocation(prog, 'u_mouseSmooth');
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+
+  let mouse = [innerWidth/2, innerHeight/2];
+  let smooth = [innerWidth/2, innerHeight/2];
+  addEventListener('mousemove', e => { mouse = [e.clientX, innerHeight - e.clientY]; });
+  addEventListener('touchmove', e => {
+    if (e.touches[0]) mouse = [e.touches[0].clientX, innerHeight - e.touches[0].clientY];
+  }, { passive:true });
+
+  function resize(){
+    const dpr = Math.min(devicePixelRatio || 1, 1.5);
+    canvas.width = innerWidth * dpr;
+    canvas.height = innerHeight * dpr;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  resize(); addEventListener('resize', resize);
+
+  let visible = true;
+  const io = new IntersectionObserver(es => { visible = es[0].isIntersecting; }, { threshold: 0.01 });
+  io.observe(canvas);
+
+  const start = performance.now();
+  function render(){
+    requestAnimationFrame(render);
+    if (!visible || reduceMotion) return;
+    smooth[0] += (mouse[0] - smooth[0]) * 0.06;
+    smooth[1] += (mouse[1] - smooth[1]) * 0.06;
+    const dpr = Math.min(devicePixelRatio || 1, 1.5);
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform2f(uMouse, mouse[0]*dpr, mouse[1]*dpr);
+    gl.uniform2f(uMouseS, smooth[0]*dpr, smooth[1]*dpr);
+    gl.uniform1f(uTime, (performance.now() - start) / 1000);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+  render();
+})();
+
+/* ── Manifesto: split words, scrub blur sharpen ─────── */
+document.fonts.ready.then(() => {
+  const el = document.getElementById('manifesto-text');
+  // preserve the .accent span
+  const html = el.innerHTML;
+  // walk text nodes
+  const tmp = document.createElement('div'); tmp.innerHTML = html;
+  const out = [];
+  function walk(node){
+    if (node.nodeType === 3){
+      const words = node.textContent.split(/(\s+)/);
+      words.forEach(w => {
+        if (/^\s+$/.test(w)) out.push(w);
+        else if (w.length) out.push(`<span class="word">${w}</span>`);
+      });
+    } else if (node.nodeType === 1){
+      if (node.classList.contains('accent')){
+        const words = node.textContent.split(/(\s+)/);
+        let inner = '';
+        words.forEach(w => {
+          if (/^\s+$/.test(w)) inner += w;
+          else if (w.length) inner += `<span class="word accent-w">${w}</span>`;
+        });
+        out.push(`<span class="accent">${inner}</span>`);
+      } else {
+        const children = [...node.childNodes];
+        const tag = node.tagName.toLowerCase();
+        out.push(`<${tag}>`);
+        children.forEach(walk);
+        out.push(`</${tag}>`);
+      }
+    }
+  }
+  [...tmp.childNodes].forEach(walk);
+  el.innerHTML = out.join('');
+
+  // style accent words
+  el.querySelectorAll('.accent-w').forEach(w => w.style.color = 'var(--accent)');
+
+  if (reduceMotion){
+    el.querySelectorAll('.word').forEach(w => { w.style.opacity = 1; w.style.filter = 'none'; });
+    return;
+  }
+
+  gsap.timeline({
+    scrollTrigger: {
+      trigger: '.manifesto',
+      start: 'top 75%',
+      end: 'center 45%',
+      scrub: true,
+    }
+  }).to(el.querySelectorAll('.word'), {
+    opacity: 1,
+    filter: 'blur(0px) brightness(100%)',
+    stagger: 0.04,
+    ease: 'sine.out'
+  });
+});
+
+/* ── Directional clip reveal on work cards ───────────── */
+const dirs = [
+  'inset(0 100% 0 0)',
+  'inset(0 0 100% 0)',
+  'inset(0 0 0 100%)',
+  'inset(100% 0 0 0)',
+];
+document.querySelectorAll('.work-card').forEach((card, i) => {
+  const media = card.querySelector('.media');
+  const img = card.querySelector('.img');
+  if (reduceMotion){
+    gsap.set(media, { clipPath: 'inset(0)' });
+    return;
+  }
+  gsap.set(media, { clipPath: dirs[i % dirs.length] });
+  ScrollTrigger.create({
+    trigger: card,
+    start: 'top 85%',
+    once: true,
+    onEnter: () => {
+      gsap.to(media, {
+        clipPath: 'inset(0% 0% 0% 0%)',
+        duration: 1.3,
+        ease: 'power4.inOut',
+        delay: (i % 3) * 0.08
+      });
+      gsap.fromTo(card.querySelector('.media img'),
+        { scale: 1.25 },
+        { scale: 1.0, duration: 1.6, ease: 'power3.out', delay: (i % 3) * 0.08 }
+      );
+    }
+  });
+});
+
+/* ── Generic headline enter ──────────────────────────── */
+document.querySelectorAll('.headline-enter').forEach(el => {
+  ScrollTrigger.create({
+    trigger: el,
+    start: 'top 88%',
+    once: true,
+    onEnter: () => el.classList.add('is-in')
+  });
+});
+
+/* ── Section labels & principle reveals ─────────────── */
+document.querySelectorAll('.principle').forEach((el, i) => {
+  if (reduceMotion) return;
+  gsap.from(el, {
+    opacity: 0,
+    y: 50,
+    duration: 1.1,
+    ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 80%' }
+  });
+});
+
+document.querySelectorAll('.stat').forEach((el, i) => {
+  if (reduceMotion) return;
+  gsap.from(el, {
+    opacity: 0,
+    y: 40,
+    duration: 1.0,
+    delay: i * 0.08,
+    ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 85%' }
+  });
+});
+
+document.querySelectorAll('.member').forEach((el, i) => {
+  if (reduceMotion) return;
+  gsap.from(el, {
+    opacity: 0,
+    y: 60,
+    duration: 1.0,
+    delay: (i % 3) * 0.1,
+    ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 88%' }
+  });
+});
+
+document.querySelectorAll('.client').forEach((el, i) => {
+  if (reduceMotion) return;
+  gsap.from(el, {
+    opacity: 0,
+    duration: 0.6,
+    delay: i * 0.03,
+    ease: 'power2.out',
+    scrollTrigger: { trigger: el, start: 'top 90%' }
+  });
+});
+
+document.querySelectorAll('.svc-row').forEach((el, i) => {
+  if (reduceMotion) return;
+  gsap.from(el, {
+    opacity: 0,
+    y: 30,
+    duration: 0.8,
+    delay: i * 0.06,
+    ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 88%' }
+  });
+});
+
+/* ── Hero title entrance ─────────────────────────────── */
+if (!reduceMotion){
+  gsap.from('.hero-headline h1', { y: 80, opacity: 0, duration: 1.6, ease: 'power4.out', delay: 0.2 });
+  gsap.from('.hero-top .label', { y: 30, opacity: 0, duration: 1.2, ease: 'power3.out', stagger: 0.15, delay: 0.1 });
+  gsap.from('.hero-bottom .col', { y: 30, opacity: 0, duration: 1.0, ease: 'power3.out', stagger: 0.1, delay: 0.8 });
+  gsap.from('.scroll-cue', { opacity: 0, duration: 1.0, ease: 'power2.out', delay: 1.4 });
+}
+</script>
+</body>
+</html>

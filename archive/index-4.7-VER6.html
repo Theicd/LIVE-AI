@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jazz Flow - Generative Art</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-color: rgba(255, 255, 255, 0.8);
+            --accent-color: rgba(255, 255, 255, 0.9);
+            --glass-bg: rgba(20, 20, 20, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden; /* Prevent scrolling */
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        /* Canvas Layer */
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Cinematic Grain Overlay */
+        .grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            opacity: 0.05;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* UI Layer */
+        #ui-layer {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            width: 90%;
+            max-width: 500px;
+            pointer-events: none; /* Let clicks pass through empty areas */
+        }
+
+        .controls {
+            pointer-events: auto;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            padding: 12px 24px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .controls:hover {
+            background: rgba(30, 30, 30, 0.6);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-color);
+            padding: 8px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+
+        .btn:hover {
+            color: var(--accent-color);
+            transform: scale(1.1);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        /* Info Text */
+        .info {
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            opacity: 0.7;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        /* Theme Label */
+        #theme-label {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            z-index: 10;
+            font-size: 0.75rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            opacity: 0.6;
+            mix-blend-mode: difference;
+            pointer-events: none;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            .controls {
+                padding: 10px 16px;
+                gap: 15px;
+                width: 100%;
+                justify-content: space-between;
+            }
+            .info {
+                font-size: 0.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="grain"></div>
+    <div id="theme-label">Generative Flow #01</div>
+    
+    <canvas id="canvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="info">Touch & Drag to interact</div>
+        <div class="controls">
+            <button class="btn" id="btn-theme" aria-label="Switch Theme">
+                <!-- Shuffle Icon -->
+                <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+            </button>
+            <button class="btn" id="btn-play" aria-label="Play/Pause">
+                <!-- Pause Icon (default) -->
+                <svg id="icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                <!-- Play Icon (hidden) -->
+                <svg id="icon-play" viewBox="0 0 24 24" style="display:none"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button class="btn" id="btn-speed" aria-label="Change Speed">
+                <!-- Speed Icon -->
+                <svg viewBox="0 0 24 24"><path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.44zm-9.79 6.84a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * JAZZ FLOW ENGINE
+         * A generative particle system designed to mimic the smooth, improvisational nature of jazz.
+         */
+        
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const themeLabel = document.getElementById('theme-label');
+        
+        // State Management
+        let width, height;
+        let particles = [];
+        let animationId;
+        let isPlaying = true;
+        let speedMultiplier = 1.0;
+        let frameCount = 0;
+        
+        // Interaction State
+        const mouse = { x: -1000, y: -1000, active: false };
+        
+        // Configuration for current theme
+        const config = {
+            particleCount: 150,
+            baseSpeed: 1,
+            trailStrength: 0.12, // Lower = longer trails
+            sizeBase: 2,
+            colorPalette: [],
+            noiseScale: 0.002,
+            flowField: true,
+            oscillation: true
+        };
+
+        // Theme Definitions (Generative Variations)
+        const themes = [
+            { name: "Midnight Aurora", particleCount: 120, color: ["#00f260", "#0575E6", "#8E2DE2", "#4A00E0"], baseSpeed: 0.8, trailStrength: 0.1, noiseScale: 0.003 },
+            { name: "Golden Dust", particleCount: 200, color: ["#FDC830", "#F37335", "#FF416C", "#FF4B2B"], baseSpeed: 0.5, trailStrength: 0.08, noiseScale: 0.001 },
+            { name: "Cyber Rain", particleCount: 100, color: ["#00C9FF", "#92FE9D", "#F83600", "#F9D423"], baseSpeed: 1.2, trailStrength: 0.15, noiseScale: 0.005 },
+            { name: "Deep Ocean", particleCount: 180, color: ["#4834d4", "#686de0", "#30336b", "#130f40"], baseSpeed: 0.4, trailStrength: 0.2, noiseScale: 0.002 },
+            { name: "Neon Nebula", particleCount: 250, color: ["#f857a6", "#ff5858", "#fbb03b", "#22a6b3"], baseSpeed: 0.9, trailStrength: 0.05, noiseScale: 0.008 }
+        ];
+
+        let currentThemeIndex = 0;
+
+        // --- Helper Functions ---
+        
+        // Linear interpolation for smooth color transitions
+        function lerp(start, end, amt) {
+            return (1 - amt) * start + amt * end;
+        }
+
+        // --- Particle Class ---
+
+        class Particle {
+            constructor() {
+                this.reset();
+                // Randomize starting position to avoid "pop-in"
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+            }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * config.baseSpeed;
+                this.vy = (Math.random() - 0.5) * config.baseSpeed;
+                this.size = Math.random() * config.sizeBase + 0.5;
+                
+                // Assign a color from the current palette
+                this.color = config.colorPalette[Math.floor(Math.random() * config.colorPalette.length)];
+                
+                // Oscillation properties for "jazz" feel
+                this.angle = Math.random() * Math.PI * 2;
+                this.oscillationSpeed = Math.random() * 0.05 + 0.01;
+                this.oscillationAmp = Math.random() * 2;
+            }
+
+            update() {
+                // Base movement
+                let dx = this.vx * speedMultiplier;
+                let dy = this.vy * speedMultiplier;
+
+                // Add organic flow (sine wave + noise simulation)
+                if (config.oscillation) {
+                    this.angle += this.oscillationSpeed * speedMultiplier;
+                    dx += Math.cos(this.angle) * this.oscillationAmp;
+                    dy += Math.sin(this.angle) * this.oscillationAmp;
+                }
+
+                // Mouse Interaction (Attraction/Repulsion)
+                if (mouse.active) {
+                    const distX = mouse.x - this.x;
+                    const distY = mouse.y - this.y;
+                    const distance = Math.sqrt(distX * distX + distY * distY);
+                    const forceRadius = 300;
+
+                    if (distance < forceRadius) {
+                        const force = (forceRadius - distance) / forceRadius;
+                        // Gentle push away or pull towards? Let's do a swirl effect.
+                        const angle = Math.atan2(distY, distX);
+                        dx += Math.cos(angle + Math.PI / 2) * force * 2;
+                        dy += Math.sin(angle + Math.PI / 2) * force * 2;
+                    }
+                }
+
+                this.x += dx;
+                this.y += dy;
+
+                // Screen Wrapping (Seamless loop)
+                if (this.x > width) this.x = 0;
+                if (this.x < 0) this.x = width;
+                if (this.y > height) this.y = 0;
+                if (this.y < 0) this.y = height;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                
+                // Add a glow effect
+                ctx.shadowBlur = this.size * 3;
+                ctx.shadowColor = this.color;
+                
+                ctx.fill();
+                ctx.shadowBlur = 0; // Reset to save performance
+            }
+        }
+
+        // --- Engine Functions ---
+
+        function init() {
+            resize();
+            applyTheme(themes[currentThemeIndex]);
+            createParticles();
+            animate();
+        }
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        function createParticles() {
+            particles = [];
+            for (let i = 0; i < config.particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function applyTheme(theme) {
+            config.particleCount = theme.particleCount;
+            config.baseSpeed = theme.baseSpeed;
+            config.trailStrength = theme.trailStrength;
+            config.noiseScale = theme.noiseScale;
+            config.colorPalette = theme.color;
+            
+            themeLabel.textContent = `Generative Flow: ${theme.name}`;
+            
+            // Re-initialize particles to match new theme
+            createParticles();
+        }
+
+        function animate() {
+            if (!isPlaying) return;
+
+            // Create trail effect by drawing a semi-transparent rectangle over the canvas
+            // instead of clearing it completely.
+            ctx.fillStyle = `rgba(5, 5, 5, ${config.trailStrength})`;
+            ctx.fillRect(0, 0, width, height);
+
+            // Use 'lighter' composite operation for that glowing, neon jazz look
+            ctx.globalCompositeOperation = 'lighter';
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // Reset composite operation for the background fade next frame
+            ctx.globalCompositeOperation = 'source-over';
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners ---
+
+        window.addEventListener('resize', resize);
+
+        // Mouse & Touch Interaction
+        const handleInput = (e) => {
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            mouse.x = clientX;
+            mouse.y = clientY;
+            mouse.active = true;
+        };
+
+        const stopInput = () => {
+            mouse.active = false;
+        };
+
+        window.addEventListener('mousemove', handleInput);
+        window.addEventListener('touchstart', handleInput, { passive: true });
+        window.addEventListener('touchend', stopInput);
+
+        // UI Controls
+        document.getElementById('btn-theme').addEventListener('click', () => {
+            // Cycle to next theme
+            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+            applyTheme(themes[currentThemeIndex]);
+        });
+
+        const btnPlay = document.getElementById('btn-play');
+        const iconPause = document.getElementById('icon-pause');
+        const iconPlay = document.getElementById('icon-play');
+
+        btnPlay.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                iconPause.style.display = 'block';
+                iconPlay.style.display = 'none';
+                animate();
+            } else {
+                iconPause.style.display = 'none';
+                iconPlay.style.display = 'block';
+                cancelAnimationFrame(animationId);
+            }
+        });
+
+        document.getElementById('btn-speed').addEventListener('click', () => {
+            // Cycle speeds: 1.0 -> 0.5 -> 2.0 -> 1.0
+            if (speedMultiplier === 1.0) speedMultiplier = 0.5;
+            else if (speedMultiplier === 0.5) speedMultiplier = 2.0;
+            else speedMultiplier = 1.0;
+        });
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>

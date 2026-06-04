@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Pulse - Retro Vector Mushroom</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050000; }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #ff3300;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border: 1px solid #ff3300;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        SYSTEM: INFRARED<br>
+        VIEW: FIRST PERSON<br>
+        TARGET: FUNGAL GILL
+    </div>
+
+    <!-- Import Three.js from a CDN -->
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+        // --- 1. SCENE SETUP ---
+        const scene = new THREE.Scene();
+        // Infrared background fog
+        scene.fog = new THREE.FogExp2(0x220000, 0.03);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        // --- 2. OBJECTS (The Breathing Mushroom) ---
+        const mushroomGroup = new THREE.Group();
+        scene.add(mushroomGroup);
+
+        // Create a curved shell (The Mushroom Cap)
+        // We use a SphereGeometry but scale it to look like a dome
+        const geometry = new THREE.SphereGeometry(10, 64, 64, 0, Math.PI * 2, 0, Math.PI * 0.5);
+        
+        // Style: Retro Vector Glitch
+        // We use Wireframe for the vector look and Edges for the "glitch" outline
+        const material = new THREE.MeshBasicMaterial({ 
+            color: 0xff3300, 
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+
+        const shell = new THREE.Mesh(geometry, material);
+        shell.position.y = 5; // Raise it up
+        mushroomGroup.add(shell);
+
+        // Add a secondary "inner" layer for complexity
+        const innerGeo = new THREE.IcosahedronGeometry(8, 1);
+        const innerMat = new THREE.MeshBasicMaterial({
+            color: 0xffaa00,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.1
+        });
+        const innerShell = new THREE.Mesh(innerGeo, innerMat);
+        mushroomGroup.add(innerShell);
+
+        // --- 3. LIGHTING (Infrared Heatmap) ---
+        const ambientLight = new THREE.AmbientLight(0x550000); // Very dark red ambient
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xff0000, 2, 50);
+        pointLight.position.set(0, 10, 0);
+        scene.add(pointLight);
+
+        // --- 4. PARTICLES (Spores/Heat) ---
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 500;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            // Random positions inside the sphere
+            posArray[i] = (Math.random() - 0.5) * 20;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.1,
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        // --- 5. ANIMATION STATE ---
+        let time = 0;
+        const clock = new THREE.Clock();
+
+        // --- 6. ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            time += delta;
+
+            // A. The Breathing Effect (Scale)
+            // Pulse between 1.0 and 1.1
+            const scale = 1 + Math.sin(time * 2) * 0.05;
+            mushroomGroup.scale.set(scale, scale * 0.8, scale); // Flatten slightly
+
+            // B. The Glitch Effect (Random Rotation)
+            // Slight jitter on the inner shell
+            innerShell.rotation.x = Math.sin(time) * 0.5;
+            innerShell.rotation.y = time * 0.2;
+
+            // C. Camera Movement (First Person POV)
+            // Bobbing up and down
+            camera.position.y = Math.sin(time) * 1.5 + 5;
+            // Slow rotation around the center
+            camera.position.x = Math.sin(time * 0.5) * 8;
+            camera.position.z = Math.cos(time * 0.5) * 8;
+            camera.lookAt(0, 5, 0);
+
+            // D. Particle Movement
+            particlesMesh.rotation.y = time * 0.1;
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

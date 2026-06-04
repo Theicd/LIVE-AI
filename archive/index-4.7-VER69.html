@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS-7 Command OS</title>
+    <style>
+        :root {
+            --bg-dark: #050505;
+            --bg-panel: #0a0a0a;
+            --neon-cyan: #00f3ff;
+            --neon-red: #ff003c;
+            --neon-green: #0aff00;
+            --neon-yellow: #ffee00;
+            --grid-line: rgba(0, 243, 255, 0.1);
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-dark);
+            color: var(--neon-cyan);
+            font-family: var(--font-main);
+            overflow: hidden;
+        }
+
+        /* --- Intro Screen --- */
+        #intro-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1s ease-out;
+        }
+
+        .loader {
+            width: 200px;
+            height: 2px;
+            background: #222;
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loader::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: var(--neon-cyan);
+            animation: load 5s ease-in-out forwards;
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        @keyframes load {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+
+        .intro-text {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            letter-spacing: 4px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* --- Desktop --- */
+        #desktop {
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 40px 40px;
+            position: relative;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+
+        /* --- Taskbar & Icons --- */
+        #taskbar {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 50px;
+            background: rgba(0, 10, 20, 0.9);
+            border-top: 1px solid var(--neon-cyan);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+
+        .start-btn {
+            width: 30px;
+            height: 30px;
+            border: 2px solid var(--neon-cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            animation: pulse-border 3s infinite;
+        }
+
+        .app-icons {
+            display: flex;
+            gap: 15px;
+            margin-left: 20px;
+        }
+
+        .app-icon {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--neon-cyan);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(0, 243, 255, 0.1);
+        }
+
+        .app-icon:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        /* --- Windows --- */
+        .window {
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            width: 600px;
+            height: 400px;
+            background: rgba(10, 15, 20, 0.95);
+            border: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+            transition: opacity 0.3s, transform 0.3s, top 0.3s, left 0.3s;
+            z-index: 1;
+        }
+
+        .window.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+            z-index: 100;
+        }
+
+        .window-header {
+            height: 30px;
+            background: rgba(0, 243, 255, 0.1);
+            border-bottom: 1px solid var(--neon-cyan);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 12px;
+        }
+
+        .close-btn {
+            color: var(--neon-red);
+            cursor: pointer;
+        }
+
+        .window-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            padding: 10px;
+        }
+
+        /* --- Terminal --- */
+        .terminal-output {
+            height: 90%;
+            overflow-y: auto;
+            color: #ccc;
+            font-size: 14px;
+        }
+        .terminal-input-line {
+            height: 10%;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        .prompt { color: var(--neon-green); margin-right: 5px; }
+        .input-field {
+            background: transparent;
+            border: none;
+            color: white;
+            outline: none;
+            font-family: inherit;
+            flex: 1;
+            caret-color: var(--neon-cyan);
+        }
+
+        /* --- Map View --- */
+        .map-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #0f1a20 0%, #000 100%);
+        }
+        
+        /* Simplified SVG World Map */
+        svg.world-map {
+            width: 200%; /* Double width for panning */
+            height: 100%;
+            transition: transform 10s linear;
+        }
+        
+        .landmass {
+            fill: rgba(0, 243, 255, 0.2);
+            stroke: var(--neon-cyan);
+            stroke-width: 0.5;
+        }
+
+        .ping {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: var(--neon-red);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px var(--neon-red);
+            animation: ping-anim 2s infinite;
+        }
+
+        @keyframes ping-anim {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(5); opacity: 0; }
+        }
+
+        .map-alert {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 0, 60, 0.2);
+            border: 1px solid var(--neon-red);
+            padding: 5px 15px;
+            color: var(--neon-red);
+            font-size: 12px;
+            animation: flash 1s infinite;
+        }
+
+        /* --- Hologram View --- */
+        .holo-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 1000px;
+            overflow: hidden;
+        }
+
+        .holo-cube {
+            width: 100px;
+            height: 100px;
+            position: relative;
+            transform-style: preserve-3d;
+            animation: rotateCube 10s infinite linear;
+        }
+
+        .face {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: rgba(0, 243, 255, 0.1);
+            border: 2px solid var(--neon-cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3) inset;
+            backface-visibility: visible;
+        }
+
+        .front  { transform: rotateY(0deg) translateZ(50px); }
+        .back   { transform: rotateY(180deg) translateZ(50px); }
+        .right  { transform: rotateY(90deg) translateZ(50px); }
+        .left   { transform: rotateY(-90deg) translateZ(50px); }
+        .top    { transform: rotateX(90deg) translateZ(50px); }
+        .bottom { transform: rotateX(-90deg) translateZ(50px); }
+
+        .holo-data-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 243, 255, 0.05) 2px,
+                rgba(0, 243, 255, 0.05) 4px
+            );
+            pointer-events: none;
+            animation: scanline 4s linear infinite;
+        }
+
+        .holo-label {
+            position: absolute;
+            color: var(--neon-green);
+            font-size: 10px;
+            text-shadow: 0 0 5px var(--neon-green);
+        }
+
+        @keyframes rotateCube {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            100% { transform: rotateX(360deg) rotateY(360deg); }
+        }
+
+        @keyframes scanline {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100%; }
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 5px var(--neon-cyan); }
+            50% { box-shadow: 0 0 20px var(--neon-cyan); }
+            100% { box-shadow: 0 0 5px var(--neon-cyan); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .window {
+                width: 90%;
+                height: 70%;
+                top: 20px;
+                left: 5%;
+            }
+            #taskbar {
+                justify-content: space-between;
+            }
+            .app-icon span { display: none; } /* Hide text on small screens */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Intro Sequence -->
+    <div id="intro-screen">
+        <h1>NEXUS-7 OS</h1>
+        <div class="loader"></div>
+        <div class="intro-text">INITIALIZING SYSTEM...</div>
+    </div>
+
+    <!-- Main Desktop -->
+    <div id="desktop">
+        
+        <!-- Taskbar -->
+        <div id="taskbar">
+            <div class="start-btn">N</div>
+            <div class="app-icons">
+                <div class="app-icon" onclick="openApp('terminal-window')">
+                    <div>>_</div>
+                    <span>TERMINAL</span>
+                </div>
+                <div class="app-icon" onclick="openApp('map-window')">
+                    <div>🌏</div>
+                    <span>GEOSPATIAL</span>
+                </div>
+                <div class="app-icon" onclick="openApp('holo-window')">
+                    <div>🔮</div>
+                    <span>HOLO_DB</span>
+                </div>
+            </div>
+            <div style="margin-left: auto; font-size: 10px;" id="clock">00:00:00</div>
+        </div>
+
+        <!-- Window 1: Terminal -->
+        <div class="window" id="terminal-window">
+            <div class="window-header">
+                <span>NEXUS-7 TERMINAL (root)</span>
+                <span class="close-btn" onclick="closeApp('terminal-window')">x</span>
+            </div>
+            <div class="window-content">
+                <div class="terminal-output" id="term-output">
+                    <div>NexusOS Kernel v9.2.1 Loaded.</div>
+                    <div>Security protocols engaged.</div>
+                </div>
+                <div class="terminal-input-line">
+                    <span class="prompt">root@nexus:~#</span>
+                    <input type="text" class="input-field" id="term-input" autocomplete="off" disabled>
+                </div>
+            </div>
+        </div>
+
+        <!-- Window 2: World Map -->
+        <div class="window" id="map-window">
+            <div class="window-header">
+                <span>GLOBAL THREAT MONITOR</span>
+                <span class="close-btn" onclick="closeApp('map-window')">x</span>
+            </div>
+            <div class="window-content map-container">
+                <div class="map-alert" id="map-alert" style="display: none;">⚠ UNAUTHORIZED SIGNAL DETECTED</div>
+                
+                <!-- Simplified SVG World Map -->
+                <svg class="world-map" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
+                    <g id="map-pan">
+                        <!-- Abstract Landmasses -->
+                        <path class="landmass" d="M150,100 L250,80 L350,120 L400,100 L500,130 L480,200 L400,250 L300,220 L200,260 L100,200 Z" />
+                        <path class="landmass" d="M600,50 L750,40 L850,80 L800,150 L650,140 L580,100 Z" />
+                        <path class="landmass" d="M550,300 L700,280 L750,350 L650,400 L500,380 Z" />
+                        <path class="landmass" d="M200,380 L350,360 L400,420 L300,480 Z" />
+                    </g>
+                </svg>
+                <div id="ping-container" style="position: absolute; width: 100%; height: 100%; top:0; left:0;"></div>
+            </div>
+        </div>
+
+        <!-- Window 3: Hologram -->
+        <div class="window" id="holo-window">
+            <div class="window-header">
+                <span>CLASSIFIED DATA LAYER</span>
+                <span class="close-btn" onclick="closeApp('holo-window')">x</span>
+            </div>
+            <div class="window-content holo-container">
+                <div class="holo-cube">
+                    <div class="face front">DATA-A</div>
+                    <div class="face back">SECURE</div>
+                    <div class="face right">CORE</div>
+                    <div class="face left">NET</div>
+                    <div class="face top">LAYER 01</div>
+                    <div class="face bottom">LAYER 02</div>
+                </div>
+                <div class="holo-data-overlay"></div>
+                <div class="holo-label" style="top: 10px; left: 10px;">TARGET: UNKNOWN</div>
+                <div class="holo-label" style="bottom: 10px; right: 10px;">HEX: 0xFFA29C</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- System Logic ---
+        
+        // Clock
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toISOString().split('T')[1].split('.')[0] + " UTC";
+        }, 1000);
+
+        function openWindow(id) {
+            const win = document.getElementById(id);
+            win.classList.add('active');
+            // Bring to front
+            document.querySelectorAll('.window').forEach(w => w.style.zIndex = 100);
+            win.style.zIndex = 200;
+        }
+
+        function closeApp(id) {
+            const win = document.getElementById(id);
+            win.classList.remove('active');
+            // Reset Map Pan
+            if(id === 'map-window') {
+                const mapSvg = document.querySelector('.world-map');
+                mapSvg.style.transition = 'transform 0.5s';
+                mapSvg.style.transform = 'translate(0, 0)';
+                setTimeout(() => mapSvg.style.transition = 'transform 10s linear', 500);
+            }
+        }
+
+        function typeWriter(element, text, speed = 30) {
+            let i = 0;
+            element.value = ""; // Clear previous
+            function type() {
+                if (i < text.length) {
+                    element.value += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+            }
+            type();
+        }
+
+        // --- Demo Scripting ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // 1. Intro Sequence (5s)
+            setTimeout(() => {
+                document.getElementById('intro-screen').style.opacity = 0;
+                document.getElementById('desktop').style.opacity = 1;
+                setTimeout(() => {
+                    document.getElementById('intro-screen').style.display = 'none';
+                    runDemoSequence();
+                }, 1000);
+            }, 5000);
+
+            // Allow typing in terminal manually too
+            const termInput = document.getElementById('term-input');
+            termInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    // Manual interaction logic could go here
+                }
+            });
+        });
+
+        function runDemoSequence() {
+            const output = document.getElementById('term-output');
+            const termInput = document.getElementById('term-input');
+
+            // --- Step 1: Open Terminal & Command ---
+            output.innerHTML += "<br>> SYSTEM_ACCESS_GRANTED...";
+            setTimeout(() => output.innerHTML += "<br>> Initiating automated diagnostics...", 1000);
+
+            openWindow('terminal-window');
+
+            setTimeout(() => {
+                output.innerHTML += "<br>> root@nexus:~# <span style='color:var(--neon-yellow)'>ai_assess</span>";
+                termInput.disabled = false;
+                termInput.focus();
+                typeWriter(termInput, "ai_assess current_situation");
+                output.innerHTML += "<br>> Parsing input...";
+            }, 2000);
+
+            // --- Step 2: AI Response & Switch Windows ---
+            setTimeout(() => {
+                output.innerHTML += "<br><span style='color:var(--neon-cyan)'>> ANALYSIS COMPLETE.</span>";
+                output.innerHTML += "<br>> Network traffic: 4TB/s";
+                output.innerHTML += "<br>> Threat Level: <span style='color:var(--neon-red)'>HIGH</span>";
+                output.innerHTML += "<br>> Scanning sectors...";
+                termInput.value = "";
+                
+                // AI Waveform Animation simulated visually
+                const waveform = document.createElement('div');
+                waveform.style.height = '20px';
+                waveform.style.margin = '10px auto';
+                waveform.style.display = 'flex';
+                waveform.style.gap = '2px';
+                for(let i=0; i<10; i++) {
+                    const bar = document.createElement('div');
+                    bar.style.width = '4px';
+                    bar.style.height = Math.floor(Math.random() * 20 + 10) + 'px';
+                    bar.style.background = 'var(--neon-cyan)';
+                    bar.style.animation = `ping-anim 0.5s infinite alternate`;
+                    waveform.appendChild(bar);
+                }
+                output.appendChild(waveform);
+                output.scrollTop = output.scrollHeight;
+
+                setTimeout(() => {
+                    output.innerHTML += "<br>> Suggesting immediate action.";
+                    // Switch to Map
+                    openWindow('map-window');
+                    // Start panning map
+                    setTimeout(() => {
+                        const mapSvg = document.querySelector('.world-map');
+                        mapSvg.style.transform = 'translate(-200px, 50px)';
+                    }, 100);
+                }, 1500);
+
+            }, 6000);
+
+            // --- Step 3: Map Interaction (Pings & Alerts) ---
+            setTimeout(() => {
+                const container = document.getElementById('ping-container');
+                const alertBox = document.getElementById('map-alert');
+                
+                alertBox.style.display = 'block';
+                alertBox.innerText = "⚠ THREAT DETECTED: SECTOR 7";
+
+                // Create Ping 1
+                const ping1 = document.createElement('div');
+                ping1.className = 'ping';
+                ping1.style.left = '40%';
+                ping1.style.top = '40%';
+                container.appendChild(ping1);
+
+                setTimeout(() => {
+                    // Create Ping 2
+                    const ping2 = document.createElement('div');
+                    ping2.className = 'ping';
+                    ping2.style.left = '65%';
+                    ping2.style.top = '60%';
+                    container.appendChild(ping2);
+                    alertBox.innerText = "⚠ MULTIPLE THREATS";
+                }, 2500);
+
+            }, 8000);
+
+            // --- Step 4: Return to Desktop & Hologram ---
+            setTimeout(() => {
+                closeApp('map-window');
+                openWindow('holo-window');
+                
+                // Cycle Data Layers simulation
+                setTimeout(() => {
+                    const cube = document.querySelector('.holo-cube');
+                    cube.style.animationDuration = '5s'; // Rotate faster
+                    document.querySelector('.holo-label').innerText = "LAYER 02: ACTIVE";
+                }, 2000);
+
+                setTimeout(() => {
+                    document.querySelector('.holo-label').innerText = "DECRYPTED: 98%";
+                }, 4000);
+
+                setTimeout(() => {
+                    cube.style.animationDuration = '0s'; // Stop
+                    cube.style.transform = 'rotateX(360deg) rotateY(360deg)'; // Ensure rotation is complete
+                    alert('Demo Sequence Complete. System Ready.');
+                }, 6000);
+
+            }, 14000);
+        }
+
+    </script>
+</body>
+</html>

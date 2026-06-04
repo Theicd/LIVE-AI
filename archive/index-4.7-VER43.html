@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holo-System Interface</title>
+    <!-- Importing a Sci-Fi Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --holo-cyan: #00f3ff;
+            --holo-blue: #0066ff;
+            --holo-dim: rgba(0, 243, 255, 0.2);
+            --bg-color: #020408;
+            --grid-line: rgba(0, 243, 255, 0.15);
+            --scanline-color: rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--holo-cyan);
+            font-family: 'Share Tech Mono', monospace;
+            overflow: hidden; /* Prevent scrollbars from 3D perspective */
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            perspective: 1000px; /* Essential for 3D effect */
+        }
+
+        /* --- BACKGROUND GRID --- */
+        .perspective-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background-image: 
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform: rotateX(60deg) translateZ(-200px) scale(2);
+            animation: gridMove 20s linear infinite;
+            z-index: -2;
+            pointer-events: none;
+        }
+
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 40%, #000 100%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* --- SCANLINES --- */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* --- MAIN CONTAINER --- */
+        #holo-interface {
+            width: 100%;
+            max-width: 900px;
+            height: 90vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transform-style: preserve-3d;
+            transition: transform 0.5s ease;
+        }
+
+        /* --- HEADER --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 2px solid var(--holo-cyan);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px var(--holo-cyan);
+        }
+
+        .title-block h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            background: linear-gradient(90deg, #fff, var(--holo-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            border: 1px solid var(--holo-cyan);
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            background: rgba(0, 243, 255, 0.1);
+            text-align: right;
+        }
+
+        /* --- CONTENT AREA (3D CARDS) --- */
+        .holo-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            flex-grow: 1;
+        }
+
+        .holo-card {
+            background: rgba(0, 10, 20, 0.6);
+            border: 1px solid var(--holo-cyan);
+            border-left: 4px solid var(--holo-blue);
+            padding: 15px;
+            position: relative;
+            transform: translateZ(20px);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 15px var(--holo-dim);
+        }
+
+        .holo-card:hover {
+            background: rgba(0, 243, 255, 0.15);
+            transform: translateZ(40px) scale(1.05);
+            box-shadow: 0 0 25px var(--holo-cyan);
+            z-index: 10;
+        }
+
+        .holo-card h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            opacity: 0.8;
+        }
+
+        .data-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .data-label {
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--holo-cyan);
+            width: 0%;
+            box-shadow: 0 0 10px var(--holo-cyan);
+            transition: width 1s ease-out;
+        }
+
+        /* --- CANVAS VISUALIZATION --- */
+        #visualizer-container {
+            width: 100%;
+            height: 150px;
+            position: relative;
+            border: 1px solid var(--holo-cyan);
+            background: rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            overflow: hidden;
+            transform: translateZ(30px);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .overlay-text {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 0.7rem;
+            color: var(--holo-cyan);
+            pointer-events: none;
+        }
+
+        /* --- FOOTER CONTROLS --- */
+        footer {
+            border-top: 2px solid var(--holo-cyan);
+            padding-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--holo-cyan);
+            color: var(--holo-cyan);
+            padding: 10px 20px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:hover {
+            background: var(--holo-cyan);
+            color: #000;
+            box-shadow: 0 0 15px var(--holo-cyan);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .system-log {
+            font-size: 0.7rem;
+            color: var(--holo-blue);
+            max-width: 200px;
+            text-align: right;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes gridMove {
+            0% { background-position: 0 0; }
+            100% { background-position: -40px 40px; }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        .glitch-effect {
+            animation: glitch 0.2s cubic-bezier(.25, .46, .45, .94) both infinite;
+            color: red; /* Danger color */
+        }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 768px) {
+            #holo-interface {
+                transform: rotateX(0deg) scale(0.9);
+            }
+            
+            .holo-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .title-block h1 {
+                font-size: 1.5rem;
+            }
+            
+            .controls {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .system-log {
+                display: none;
+            }
+        }
+
+        /* Decorative corner markers */
+        .corner {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border: 2px solid var(--holo-cyan);
+            transition: all 0.3s;
+        }
+        .top-left { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+        .top-right { top: -2px; right: -2px; border-left: none; border-bottom: none; }
+        .bottom-left { bottom: -2px; left: -2px; border-right: none; border-top: none; }
+        .bottom-right { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div class="perspective-grid"></div>
+
+    <main id="holo-interface">
+        <header>
+            <div class="title-block">
+                <h1>A E T H E R // CORE</h1>
+            </div>
+            <div class="status-badge">
+                SYS.STATUS: <span id="sys-status">OPTIMAL</span><br>
+                <span style="font-size: 0.7rem; opacity: 0.7;">UPLINK: SECURE</span>
+            </div>
+        </header>
+
+        <!-- Visualizer Canvas -->
+        <section id="visualizer-container">
+            <div class="overlay-text">CPU_LOAD_STREAM_V4.0</div>
+            <canvas id="waveform"></canvas>
+        </section>
+
+        <!-- Data Grid -->
+        <section class="holo-grid">
+            <!-- Card 1 -->
+            <div class="holo-card">
+                <h3>MEMORY USAGE</h3>
+                <div class="data-value" id="mem-val">64%</div>
+                <div class="data-label">ALLOCATED</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 64%"></div></div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="holo-card">
+                <h3>NETWORK TRAFFIC</h3>
+                <div class="data-value" id="net-val">0 GB/s</div>
+                <div class="data-label">DATA IN/OUT</div>
+                <div class="progress-bar"><div class="progress-fill" id="net-bar" style="width: 45%"></div></div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="holo-card">
+                <h3>SERVER UPTIME</h3>
+                <div class="data-value" id="time-val">00:00:00</div>
+                <div class="data-label">ELAPSED TIME</div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="holo-card">
+                <h3>THREAT LEVEL</h3>
+                <div class="data-value" id="threat-val">0</div>
+                <div class="data-label">DETECTED</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 2%; background: #ff3333;"></div></div>
+            </div>
+        </section>
+
+        <footer>
+            <div class="controls">
+                <button onclick="toggleSystem('firewall')">Toggle Firewall</button>
+                <button onclick="toggleSystem('encryption')">Encrypt Data</button>
+                <button onclick="scanNetwork()">Scan Network</button>
+            </div>
+            <div class="system-log" id="log-box">
+                > Initializing protocols...
+            </div>
+        </footer>
+    </main>
+
+    <script>
+        // --- 1. SYSTEM CLOCK ---
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { hour12: false });
+            document.getElementById('time-val').innerText = timeString;
+            
+            // Randomly flicker uptime slightly to look alive
+            if(Math.random() > 0.95) {
+                document.getElementById('time-val').style.opacity = '0.5';
+            } else {
+                document.getElementById('time-val').style.opacity = '1';
+            }
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // --- 2. DYNAMIC DATA SIMULATION ---
+        function updateData() {
+            // Memory
+            const mem = Math.floor(Math.random() * (85 - 40) + 40);
+            document.getElementById('mem-val').innerText = mem + '%';
+            document.querySelector('#mem-val + .data-label').innerText = "ALLOCATED";
+            document.querySelector('#mem-val + .data-label + .progress-bar .progress-fill').style.width = mem + '%';
+
+            // Network
+            const net = Math.random().toFixed(2);
+            document.getElementById('net-val').innerText = net + " TB/s";
+            document.getElementById('net-bar').style.width = Math.random() * 100 + '%';
+
+            // Threat (Spikes occasionally)
+            const threat = Math.random() > 0.9 ? 1 : 0;
+            const threatEl = document.getElementById('threat-val');
+            threatEl.innerText = threat;
+            if(threat > 0) {
+                threatEl.style.color = 'red';
+                threatEl.style.textShadow = '0 0 10px red';
+                addLog("WARNING: ANOMALY DETECTED");
+            } else {
+                threatEl.style.color = 'var(--holo-cyan)';
+                threatEl.style.textShadow = 'none';
+            }
+        }
+        setInterval(updateData, 2000);
+
+        // --- 3. VISUALIZER (CANVAS) ---
+        const canvas = document.getElementById('waveform');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        function resizeCanvas() {
+            width = canvas.parentElement.clientWidth;
+            height = canvas.parentElement.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const dataPoints = [];
+        const maxPoints = 50;
+
+        function animateWaveform() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Add new point
+            const y = height / 2 + Math.sin(Date.now() / 200) * 20 + (Math.random() - 0.5) * 40;
+            dataPoints.push(y);
+            if (dataPoints.length > maxPoints) dataPoints.shift();
+
+            // Draw Grid lines on canvas
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, height/2);
+            ctx.lineTo(width, height/2);
+            ctx.stroke();
+
+            // Draw Wave
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00f3ff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00f3ff';
+
+            for (let i = 0; i < dataPoints.length; i++) {
+                const x = (i / maxPoints) * width;
+                if (i === 0) ctx.moveTo(x, dataPoints[i]);
+                else ctx.lineTo(x, dataPoints[i]);
+            }
+            ctx.stroke();
+            
+            // Reset shadow
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(animateWaveform);
+        }
+        animateWaveform();
+
+        // --- 4. INTERACTION LOGIC ---
+        const logBox = document.getElementById('log-box');
+        
+        function addLog(msg) {
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            logBox.innerText = `> [${time}] ${msg}`;
+            logBox.style.animation = 'pulse 0.2s';
+            setTimeout(() => logBox.style.animation = '', 200);
+        }
+
+        function toggleSystem(sys) {
+            if(sys === 'firewall') {
+                // Logic mock
+                const btn = document.querySelector('button');
+                btn.innerText = btn.innerText === "TOGGLE FIREWALL" ? "DISABLE FIREWALL" : "TOGGLE FIREWALL";
+                if(btn.innerText === "DISABLE FIREWALL") {
+                    addLog("FIREWALL: DISCONNECTED");
+                    document.body.classList.add('glitch-effect');
+                    setTimeout(() => document.body.classList.remove('glitch-effect'), 500);
+                } else {
+                    addLog("FIREWALL: CONNECTED");
+                }
+            }
+            if(sys === 'encryption') {
+                addLog("DATA ENCRYPTION: RE-ROUTING...");
+            }
+        }
+
+        function scanNetwork() {
+            addLog("INITIATING NETWORK SCAN...");
+            const btn = document.querySelector('button[onclick="scanNetwork()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "SCANNING...";
+            btn.disabled = true;
+
+            // Visual fake scan
+            setTimeout(() => {
+                addLog("SCAN COMPLETE: 4 NODES FOUND");
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }, 2000);
+        }
+
+        // Boot sequence log
+        setTimeout(() => addLog("SYSTEM BOOT SEQUENCE INITIATED..."), 500);
+        setTimeout(() => addLog("CONNECTING TO NEURAL NET..."), 1500);
+        setTimeout(() => addLog("INTERFACE READY."), 2500);
+
+    </script>
+</body>
+</html>

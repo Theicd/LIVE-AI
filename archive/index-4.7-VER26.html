@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Tempest — Realistic Rain & Lightning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;500;700&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#05070a;
+    --bg-1:#0b1014;
+    --fg:#e8eef2;
+    --muted:#7a8a96;
+    --accent:#ffb86b;
+    --accent-2:#6fd3cf;
+    --border:rgba(255,255,255,0.08);
+    --card:rgba(12,16,20,0.55);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;background:#000;color:var(--fg);font-family:'Space Grotesk',sans-serif;overflow:hidden}
+  
+  /* Scene canvases */
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  #sky{z-index:0}
+  #rain{z-index:2;mix-blend-mode:screen}
+  #flash{z-index:3;pointer-events:none;background:#fff;opacity:0;transition:opacity 60ms linear}
+  
+  /* Vignette */
+  .vignette{
+    position:fixed;inset:0;z-index:4;pointer-events:none;
+    background:
+      radial-gradient(ellipse at 50% 30%, transparent 0%, transparent 40%, rgba(0,0,0,0.55) 100%),
+      linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.6) 100%);
+  }
+  
+  /* HUD */
+  .hud{
+    position:fixed;z-index:10;pointer-events:none;
+  }
+  
+  .brand{
+    top:32px;left:40px;
+  }
+  .brand .mark{
+    font-family:'Cormorant Garamond',serif;
+    font-weight:300;font-size:14px;letter-spacing:0.6em;
+    color:var(--muted);text-transform:uppercase;margin-bottom:6px;
+  }
+  .brand h1{
+    font-family:'Cormorant Garamond',serif;
+    font-weight:500;font-size:54px;line-height:0.95;margin:0;
+    color:var(--fg);letter-spacing:-0.01em;
+  }
+  .brand h1 em{
+    font-style:italic;font-weight:300;color:var(--accent);
+  }
+  .brand .sub{
+    margin-top:14px;font-size:12px;letter-spacing:0.3em;color:var(--muted);
+    text-transform:uppercase;max-width:340px;line-height:1.7;
+  }
+  
+  /* Stats */
+  .stats{
+    top:32px;right:40px;text-align:right;
+    font-family:'Space Grotesk',sans-serif;
+  }
+  .stat-row{display:flex;align-items:baseline;justify-content:flex-end;gap:10px;margin-bottom:6px}
+  .stat-label{font-size:10px;letter-spacing:0.3em;color:var(--muted);text-transform:uppercase}
+  .stat-value{font-size:22px;font-weight:300;color:var(--fg);font-variant-numeric:tabular-nums;min-width:60px;text-align:right}
+  .stat-value.accent{color:var(--accent)}
+  .stat-value.cyan{color:var(--accent-2)}
+  
+  /* Controls */
+  .controls{
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:32px;z-index:10;
+    background:var(--card);
+    backdrop-filter:blur(20px) saturate(140%);
+    -webkit-backdrop-filter:blur(20px) saturate(140%);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:18px 26px;
+    display:flex;align-items:center;gap:28px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .ctrl{display:flex;flex-direction:column;gap:8px;min-width:130px}
+  .ctrl-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:10px;letter-spacing:0.25em;text-transform:uppercase;color:var(--muted);
+  }
+  .ctrl-head b{color:var(--fg);font-weight:500;letter-spacing:0.05em;font-size:12px}
+  
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;
+    width:100%;height:4px;background:rgba(255,255,255,0.08);
+    border-radius:2px;outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;
+    background:var(--fg);
+    box-shadow:0 0 0 4px rgba(255,255,255,0.06), 0 0 12px rgba(255,184,107,0.5);
+    transition:transform 0.15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+  input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;border-radius:50%;border:none;
+    background:var(--fg);
+    box-shadow:0 0 0 4px rgba(255,255,255,0.06);
+  }
+  
+  .btn{
+    appearance:none;border:1px solid var(--border);
+    background:linear-gradient(180deg, rgba(255,184,107,0.15), rgba(255,184,107,0.05));
+    color:var(--accent);
+    font-family:inherit;font-size:11px;letter-spacing:0.3em;text-transform:uppercase;
+    padding:14px 22px;border-radius:10px;cursor:pointer;
+    transition:all 0.2s;font-weight:500;
+  }
+  .btn:hover{
+    background:linear-gradient(180deg, rgba(255,184,107,0.3), rgba(255,184,107,0.1));
+    box-shadow:0 0 24px rgba(255,184,107,0.4);
+    transform:translateY(-1px);
+  }
+  .btn:active{transform:translateY(0)}
+  
+  .divider{width:1px;height:36px;background:var(--border)}
+  
+  /* Toast */
+  .toast{
+    position:fixed;left:50%;top:24px;transform:translate(-50%,-20px);
+    background:var(--card);backdrop-filter:blur(20px);
+    border:1px solid var(--border);
+    padding:10px 18px;border-radius:30px;
+    font-size:11px;letter-spacing:0.2em;text-transform:uppercase;
+    color:var(--fg);opacity:0;transition:all 0.4s;z-index:20;pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  
+  /* Hint */
+  .hint{
+    position:fixed;left:40px;bottom:32px;z-index:10;
+    font-size:10px;letter-spacing:0.3em;color:var(--muted);text-transform:uppercase;
+  }
+  .hint kbd{
+    display:inline-block;padding:3px 8px;margin:0 4px;
+    border:1px solid var(--border);border-radius:4px;
+    background:rgba(255,255,255,0.04);color:var(--fg);
+    font-family:inherit;font-size:9px;
+  }
+  
+  @media (max-width:780px){
+    .brand h1{font-size:38px}
+    .brand{left:20px;top:20px}
+    .stats{right:20px;top:20px}
+    .controls{flex-wrap:wrap;justify-content:center;padding:14px;gap:14px;left:10px;right:10px;transform:none}
+    .ctrl{min-width:100px}
+    .divider{display:none}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="sky"></canvas>
+<canvas id="rain"></canvas>
+<div id="flash"></div>
+<div class="vignette"></div>
+
+<div class="hud brand">
+  <div class="mark">— Atmosphere No. 07</div>
+  <h1>The <em>Tempest</em><br/>in slow motion</h1>
+  <div class="sub">A live storm simulation rendered in real time. Move your cursor to part the rain.</div>
+</div>
+
+<div class="hud stats">
+  <div class="stat-row">
+    <span class="stat-label">Intensity</span>
+    <span class="stat-value accent" id="s-intensity">72</span>
+  </div>
+  <div class="stat-row">
+    <span class="stat-label">Wind</span>
+    <span class="stat-value" id="s-wind">−1.4</span>
+  </div>
+  <div class="stat-row">
+    <span class="stat-label">Strikes</span>
+    <span class="stat-value cyan" id="s-strikes">0</span>
+  </div>
+  <div class="stat-row">
+    <span class="stat-label">FPS</span>
+    <span class="stat-value" id="s-fps">60</span>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="ctrl">
+    <div class="ctrl-head"><span>Rain Density</span><b id="v-rain">Heavy</b></div>
+    <input type="range" id="r-rain" min="0" max="100" value="72">
+  </div>
+  <div class="ctrl">
+    <div class="ctrl-head"><span>Wind Force</span><b id="v-wind">Soft</b></div>
+    <input type="range" id="r-wind" min="-100" max="100" value="-25">
+  </div>
+  <div class="ctrl">
+    <div class="ctrl-head"><span>Storm Rate</span><b id="v-storm">Active</b></div>
+    <input type="range" id="r-storm" min="0" max="100" value="55">
+  </div>
+  <div class="divider"></div>
+  <button class="btn" id="btn-strike">Strike Now</button>
+  <button class="btn" id="btn-thunder" style="background:linear-gradient(180deg,rgba(111,211,207,0.15),rgba(111,211,207,0.05));color:var(--accent-2);border-color:var(--border)">Thunder On</button>
+</div>
+
+<div class="hint">Press <kbd>Space</kbd> to summon lightning · <kbd>↑↓</kbd> rain · <kbd>←→</kbd> wind</div>
+
+<div class="toast" id="toast">Thunder enabled</div>
+
+<script>
+/* ============================================================
+   TEMPEST — Realistic rain & lightning simulation
+   ============================================================ */
+
+const skyCanvas = document.getElementById('sky');
+const rainCanvas = document.getElementById('rain');
+const flashEl = document.getElementById('flash');
+const skyCtx = skyCanvas.getContext('2d');
+const rainCtx = rainCanvas.getContext('2d');
+
+let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  [skyCanvas, rainCanvas].forEach(c=>{
+    c.width = W * DPR; c.height = H * DPR;
+    c.style.width = W+'px'; c.style.height = H+'px';
+    c.getContext('2d').setTransform(DPR,0,0,DPR,0,0);
+  });
+  buildBackground();
+}
+window.addEventListener('resize', resize);
+
+/* ---------- State ---------- */
+const state = {
+  rainAmount: 0.72,
+  wind: -0.25,            // -1..1
+  stormRate: 0.55,        // 0..1
+  thunderOn: false,
+  strikes: 0,
+  mouse: {x:-9999, y:-9999, active:false},
+};
+
+/* ---------- Background (sky, clouds, landscape) ---------- */
+let bgClouds = [];
+let stars = [];
+let landscapePath = null;
+
+function buildBackground(){
+  // Stars (faint, mostly hidden by clouds)
+  stars = [];
+  for(let i=0;i<80;i++){
+    stars.push({
+      x: Math.random()*W,
+      y: Math.random()*H*0.5,
+      r: Math.random()*0.8 + 0.2,
+      a: Math.random()*0.4 + 0.1
+    });
+  }
+  // Clouds (large soft blobs)
+  bgClouds = [];
+  for(let i=0;i<14;i++){
+    bgClouds.push({
+      x: Math.random()*W,
+      y: Math.random()*H*0.55,
+      r: Math.random()*180 + 140,
+      a: Math.random()*0.25 + 0.15,
+      speed: Math.random()*0.08 + 0.02,
+      tone: Math.random() < 0.85 ? 'dark' : 'warm'
+    });
+  }
+  // Landscape silhouette
+  landscapePath = makeLandscape();
+}
+
+function makeLandscape(){
+  const pts = [];
+  // Far mountains
+  const layer1 = [];
+  let y = H * 0.62;
+  for(let x=0; x<=W+20; x+=20){
+    y += (Math.random()-0.5)*8;
+    y = Math.max(H*0.55, Math.min(H*0.7, y));
+    layer1.push({x,y});
+  }
+  // Mid hills with trees
+  const layer2 = [];
+  y = H * 0.78;
+  for(let x=0; x<=W+10; x+=10){
+    y += (Math.random()-0.5)*6;
+    y = Math.max(H*0.7, Math.min(H*0.85, y));
+    layer2.push({x,y});
+  }
+  // Foreground ground
+  const layer3 = [];
+  y = H * 0.92;
+  for(let x=0; x<=W+8; x+=8){
+    y += (Math.random()-0.5)*3;
+    y = Math.max(H*0.86, Math.min(H*0.96, y));
+    layer3.push({x,y});
+  }
+  return {layer1, layer2, layer3};
+}
+
+function drawSky(){
+  // Gradient sky
+  const g = skyCtx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, '#06090d');
+  g.addColorStop(0.4, '#0c1318');
+  g.addColorStop(0.7, '#10181d');
+  g.addColorStop(1, '#070a0d');
+  skyCtx.fillStyle = g;
+  skyCtx.fillRect(0,0,W,H);
+  
+  // Subtle warm glow near horizon (distant city)
+  const glow = skyCtx.createRadialGradient(W*0.7, H*0.78, 10, W*0.7, H*0.78, W*0.5);
+  glow.addColorStop(0, 'rgba(255,170,90,0.18)');
+  glow.addColorStop(0.4, 'rgba(255,140,70,0.06)');
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  skyCtx.fillStyle = glow;
+  skyCtx.fillRect(0,0,W,H);
+  
+  // Stars
+  skyCtx.save();
+  for(const s of stars){
+    skyCtx.fillStyle = `rgba(200,220,240,${s.a})`;
+    skyCtx.beginPath();
+    skyCtx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    skyCtx.fill();
+  }
+  skyCtx.restore();
+  
+  // Clouds
+  for(const c of bgClouds){
+    c.x += c.speed * (1 + state.wind*0.5);
+    if(c.x - c.r > W) c.x = -c.r;
+    if(c.x + c.r < 0) c.x = W + c.r;
+    
+    const cg = skyCtx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+    if(c.tone === 'warm'){
+      cg.addColorStop(0, `rgba(80,60,55,${c.a})`);
+      cg.addColorStop(0.5, `rgba(40,30,30,${c.a*0.6})`);
+      cg.addColorStop(1, 'rgba(0,0,0,0)');
+    } else {
+      cg.addColorStop(0, `rgba(45,55,65,${c.a})`);
+      cg.addColorStop(0.5, `rgba(20,28,35,${c.a*0.6})`);
+      cg.addColorStop(1, 'rgba(0,0,0,0)');
+    }
+    skyCtx.fillStyle = cg;
+    skyCtx.beginPath();
+    skyCtx.arc(c.x, c.y, c.r, 0, Math.PI*2);
+    skyCtx.fill();
+  }
+  
+  // Landscape layers
+  drawLayer(landscapePath.layer1, 'rgba(8,12,16,0.85)', 0);
+  drawLayer(landscapePath.layer2, 'rgba(4,7,10,0.95)', 0);
+  drawLayer(landscapePath.layer3, '#020406', 0);
+  
+  // Tiny distant lights (windows)
+  skyCtx.fillStyle = 'rgba(255,170,90,0.7)';
+  const seed = 12345;
+  for(let i=0;i<25;i++){
+    const x = ((i*73 + seed) % W);
+    const y = H*0.78 + ((i*37)%30);
+    skyCtx.globalAlpha = 0.4 + Math.sin(performance.now()*0.001 + i)*0.2;
+    skyCtx.fillRect(x, y, 1.5, 1.5);
+  }
+  skyCtx.globalAlpha = 1;
+}
+
+function drawLayer(pts, fill, offsetY){
+  skyCtx.fillStyle = fill;
+  skyCtx.beginPath();
+  skyCtx.moveTo(0, H);
+  for(const p of pts) skyCtx.lineTo(p.x, p.y + offsetY);
+  skyCtx.lineTo(W, H);
+  skyCtx.closePath();
+  skyCtx.fill();
+}
+
+/* ---------- Rain System ---------- */
+class Drop {
+  constructor(){ this.reset(true); }
+  reset(initial){
+    // Depth 0..1 — 0 is far/slow, 1 is close/fast
+    this.depth = Math.pow(Math.random(), 1.4);
+    this.x = Math.random() * (W + 200) - 100;
+    this.y = initial ? Math.random()*H : -20 - Math.random()*60;
+    this.len = 8 + this.depth * 22;
+    this.speed = 6 + this.depth * 18;
+    this.thickness = 0.4 + this.depth * 1.2;
+    this.alpha = 0.15 + this.depth * 0.55;
+  }
+  step(dt, wind){
+    this.x += wind * (4 + this.depth*8) * dt;
+    this.y += this.speed * dt * 60;
+    if(this.y > H + 10 || this.x < -50 || this.x > W + 50){
+      this.reset(false);
+    }
+  }
+  draw(ctx, wind){
+    const vx = wind * (4 + this.depth*8);
+    const vy = this.speed * 60;
+    const mag = Math.hypot(vx, vy);
+    const nx = vx / mag, ny = vy / mag;
+    
+    // Mouse repulsion (subtle umbrella effect)
+    let ex = this.x, ey = this.y;
+    if(state.mouse.active){
+      const dx = this.x - state.mouse.x;
+      const dy = this.y - state.mouse.y;
+      const d2 = dx*dx + dy*dy;
+      if(d2 < 14400){
+        const f = (1 - d2/14400) * 30;
+        ex += dx/Math.sqrt(d2+1) * f;
+        ey += dy/Math.sqrt(d2+1) * f * 0.3;
+      }
+    }
+    
+    ctx.strokeStyle = `rgba(170,200,225,${this.alpha})`;
+    ctx.lineWidth = this.thickness;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - nx*this.len, ey - ny*this.len);
+    ctx.stroke();
+  }
+}
+
+let drops = [];
+function rebuildDrops(){
+  const target = Math.floor(200 + state.rainAmount * 1400);
+  while(drops.length < target) drops.push(new Drop());
+  while(drops.length > target) drops.pop();
+}
+
+/* Splash particles for ground hits */
+const splashes = [];
+function spawnSplash(x, y, depth){
+  splashes.push({
+    x, y, depth,
+    life: 1,
+    r: 0,
+    maxR: 4 + depth*8
+  });
+}
+
+function updateSplashes(dt){
+  for(let i=splashes.length-1; i>=0; i--){
+    const s = splashes[i];
+    s.life -= dt * 2.2;
+    s.r += dt * 18;
+    if(s.life <= 0) splashes.splice(i,1);
+  }
+}
+
+function drawSplashes(ctx){
+  for(const s of splashes){
+    ctx.strokeStyle = `rgba(180,210,235,${s.life*0.5})`;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y, s.r, s.r*0.35, 0, 0, Math.PI*2);
+    ctx.stroke();
+  }
+}
+
+/* ---------- Lightning ---------- */
+class Lightning {
+  constructor(startX){
+    this.startX = startX;
+    this.segments = [];
+    this.branches = [];
+    this.life = 1;
+    this.flicker = 1;
+    this.generate();
+  }
+  generate(){
+    const startX = this.startX;
+    const startY = -20;
+    const endX = startX + (Math.random()-0.5)*W*0.3;
+    const endY = H * (0.7 + Math.random()*0.15);
+    this.endX = endX; this.endY = endY;
+    
+    // Main jagged path
+    const pts = [{x:startX, y:startY}];
+    const steps = 24 + Math.floor(Math.random()*16);
+    for(let i=1; i<=steps; i++){
+      const t = i/steps;
+      const baseX = startX + (endX-startX)*t;
+      const baseY = startY + (endY-startY)*t;
+      const jitter = 40 * (1 - t*0.3);
+      pts.push({
+        x: baseX + (Math.random()-0.5)*jitter,
+        y: baseY + (Math.random()-0.5)*15
+      });
+    }
+    this.segments = pts;
+    
+    // Branches
+    const branchCount = 3 + Math.floor(Math.random()*5);
+    for(let b=0; b<branchCount; b++){
+      const idx = 2 + Math.floor(Math.random()*(pts.length-4));
+      const origin = pts[idx];
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      const len = 30 + Math.random()*120;
+      const bpts = [{x:origin.x, y:origin.y}];
+      const segs = 4 + Math.floor(Math.random()*6);
+      let cx = origin.x, cy = origin.y;
+      for(let s=0; s<segs; s++){
+        cx += dir * (len/segs) * (0.5 + Math.random()*0.8);
+        cy += (len/segs) * (0.4 + Math.random()*1.2);
+        bpts.push({x:cx, y:cy});
+      }
+      this.branches.push(bpts);
+    }
+  }
+  step(dt){
+    this.life -= dt * 1.4;
+    this.flicker = 0.7 + Math.random()*0.3;
+  }
+  draw(ctx){
+    if(this.life <= 0) return;
+    const alpha = Math.max(0, this.life) * this.flicker;
+    
+    // Outer glow
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    // Wide outer halo
+    ctx.strokeStyle = `rgba(180,210,255,${alpha*0.15})`;
+    ctx.lineWidth = 18;
+    ctx.beginPath();
+    drawPath(ctx, this.segments);
+    ctx.stroke();
+    
+    // Mid glow
+    ctx.strokeStyle = `rgba(200,225,255,${alpha*0.35})`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    drawPath(ctx, this.segments);
+    ctx.stroke();
+    
+    // Bright core
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    drawPath(ctx, this.segments);
+    ctx.stroke();
+    
+    // Branches
+    for(const br of this.branches){
+      ctx.strokeStyle = `rgba(200,225,255,${alpha*0.25})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      drawPath(ctx, br);
+      ctx.stroke();
+      
+      ctx.strokeStyle = `rgba(255,255,255,${alpha*0.85})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      drawPath(ctx, br);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function drawPath(ctx, pts){
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+}
+
+const lightnings = [];
+let flashIntensity = 0;
+let nextStrikeTime = 0;
+
+function triggerStrike(){
+  const x = W*0.15 + Math.random()*W*0.7;
+  lightnings.push(new Lightning(x));
+  flashIntensity = 0.85 + Math.random()*0.15;
+  state.strikes++;
+  document.getElementById('s-strikes').textContent = state.strikes;
+  
+  if(state.thunderOn) playThunder();
+}
+
+/* ---------- Thunder (Web Audio) ---------- */
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+    catch(e){}
+  }
+  if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playThunder(){
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const duration = 3.5 + Math.random()*1.5;
+  
+  // Noise buffer
+  const bufSize = audioCtx.sampleRate * duration;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<bufSize;i++){
+    const t = i/audioCtx.sampleRate;
+    const env = Math.exp(-t*0.6) * (1 - Math.exp(-t*30));
+    data[i] = (Math.random()*2-1) * env;
+  }
+  
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  
+  // Lowpass for rumble
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 180 + Math.random()*80;
+  lp.Q.value = 1.2;
+  
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 30;
+  
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.6;
+  
+  src.connect(hp); hp.connect(lp); lp.connect(gain); gain.connect(audioCtx.destination);
+  src.start(now);
+}
+
+/* ---------- Main Loop ---------- */
+let last = performance.now();
+let fpsAcc = 0, fpsFrames = 0, fpsLast = last;
+
+function loop(now){
+  const dt = Math.min(0.05, (now - last)/1000);
+  last = now;
+  
+  // FPS
+  fpsFrames++;
+  if(now - fpsLast > 500){
+    const fps = Math.round(fpsFrames * 1000 / (now - fpsLast));
+    document.getElementById('s-fps').textContent = fps;
+    fpsFrames = 0; fpsLast = now;
+  }
+  
+  // Sky redraw (clouds move)
+  drawSky();
+  
+  // Rain canvas — fade trail
+  rainCtx.fillStyle = 'rgba(0,0,0,0.18)';
+  rainCtx.fillRect(0,0,W,H);
+  
+  // Update & draw drops
+  const wind = state.wind;
+  for(const d of drops){
+    d.step(dt, wind);
+    d.draw(rainCtx, wind);
+    
+    // Random splash near ground for closer drops
+    if(d.depth > 0.6 && d.y > H*0.88 && Math.random() < 0.04){
+      spawnSplash(d.x, H*0.9 + Math.random()*H*0.08, d.depth);
+    }
+  }
+  
+  updateSplashes(dt);
+  drawSplashes(rainCtx);
+  
+  // Lightning
+  for(let i=lightnings.length-1; i>=0; i--){
+    lightnings[i].step(dt);
+    lightnings[i].draw(rainCtx);
+    if(lightnings[i].life <= 0) lightnings.splice(i,1);
+  }
+  
+  // Flash overlay
+  flashIntensity *= Math.pow(0.001, dt); // decay
+  if(flashIntensity < 0.001) flashIntensity = 0;
+  flashEl.style.opacity = (flashIntensity * 0.7).toFixed(3);
+  flashEl.style.background = flashIntensity > 0.4 ? '#e8f0ff' : '#9bb5d6';
+  
+  // Auto-strikes
+  if(now > nextStrikeTime && state.stormRate > 0.02){
+    triggerStrike();
+    const baseInterval = 8000 - state.stormRate*6500; // 8s..1.5s
+    nextStrikeTime = now + baseInterval + Math.random()*2000;
+  } else if(state.stormRate <= 0.02){
+    nextStrikeTime = now + 4000;
+  }
+  
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Controls ---------- */
+const rRain = document.getElementById('r-rain');
+const rWind = document.getElementById('r-wind');
+const rStorm = document.getElementById('r-storm');
+const vRain = document.getElementById('v-rain');
+const vWind = document.getElementById('v-wind');
+const vStorm = document.getElementById('v-storm');
+const sIntensity = document.getElementById('s-intensity');
+const sWind = document.getElementById('s-wind');
+
+function rainLabel(v){
+  if(v<15) return 'Mist';
+  if(v<35) return 'Drizzle';
+  if(v<55) return 'Steady';
+  if(v<75) return 'Heavy';
+  if(v<90) return 'Downpour';
+  return 'Torrential';
+}
+function windLabel(v){
+  const a = Math.abs(v);
+  if(a<5) return 'Calm';
+  if(a<20) return 'Soft';
+  if(a<45) return 'Moderate';
+  if(a<70) return 'Strong';
+  return 'Gale';
+}
+function stormLabel(v){
+  if(v<10) return 'Distant';
+  if(v<30) return 'Quiet';
+  if(v<55) return 'Active';
+  if(v<80) return 'Frequent';
+  return 'Continuous';
+}
+
+function updateRain(){
+  state.rainAmount = rRain.value/100;
+  vRain.textContent = rainLabel(+rRain.value);
+  sIntensity.textContent = rRain.value;
+  rebuildDrops();
+}
+function updateWind(){
+  state.wind = rWind.value/100 * 1.6;
+  vWind.textContent = windLabel(+rWind.value);
+  sWind.textContent = (state.wind>=0?'+':'') + state.wind.toFixed(1);
+}
+function updateStorm(){
+  state.stormRate = rStorm.value/100;
+  vStorm.textContent = stormLabel(+rStorm.value);
+}
+
+rRain.addEventListener('input', updateRain);
+rWind.addEventListener('input', updateWind);
+rStorm.addEventListener('input', updateStorm);
+
+document.getElementById('btn-strike').addEventListener('click', ()=>{
+  ensureAudio();
+  triggerStrike();
+});
+
+const btnThunder = document.getElementById('btn-thunder');
+btnThunder.addEventListener('click', ()=>{
+  state.thunderOn = !state.thunderOn;
+  ensureAudio();
+  btnThunder.textContent = state.thunderOn ? 'Thunder Off' : 'Thunder On';
+  btnThunder.style.background = state.thunderOn 
+    ? 'linear-gradient(180deg,rgba(111,211,207,0.35),rgba(111,211,207,0.12))'
+    : 'linear-gradient(180deg,rgba(111,211,207,0.15),rgba(111,211,207,0.05))';
+  showToast(state.thunderOn ? 'Thunder audio enabled' : 'Thunder audio muted');
+});
+
+/* Mouse interaction */
+window.addEventListener('mousemove', e=>{
+  state.mouse.x = e.clientX;
+  state.mouse.y = e.clientY;
+  state.mouse.active = true;
+});
+window.addEventListener('mouseleave', ()=>{ state.mouse.active = false; });
+
+/* Keyboard */
+window.addEventListener('keydown', e=>{
+  if(e.code === 'Space'){
+    e.preventDefault();
+    ensureAudio();
+    triggerStrike();
+  } else if(e.code === 'ArrowUp'){
+    rRain.value = Math.min(100, +rRain.value + 5);
+    updateRain();
+  } else if(e.code === 'ArrowDown'){
+    rRain.value = Math.max(0, +rRain.value - 5);
+    updateRain();
+  } else if(e.code === 'ArrowLeft'){
+    rWind.value = Math.max(-100, +rWind.value - 5);
+    updateWind();
+  } else if(e.code === 'ArrowRight'){
+    rWind.value = Math.min(100, +rWind.value + 5);
+    updateWind();
+  }
+});
+
+/* Toast */
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function showToast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toastEl.classList.remove('show'), 2200);
+}
+
+/* Init */
+resize();
+updateRain();
+updateWind();
+updateStorm();
+nextStrikeTime = performance.now() + 1500;
+requestAnimationFrame(loop);
+
+// First click anywhere enables audio
+window.addEventListener('click', ensureAudio, {once:false});
+</script>
+</body>
+</html>

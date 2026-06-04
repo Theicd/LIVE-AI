@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS // Deep Field Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #05030a;
+  --cyan: #05d9e8;
+  --magenta: #ff2a6d;
+  --amber: #ff9a00;
+  --violet: #d300ff;
+  --green: #00ffaa;
+  --fg: #e8f4ff;
+  --muted: #6a7a99;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: 'JetBrains Mono', 'Courier New', monospace; -webkit-font-smoothing: antialiased; }
+canvas#bg { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* Vignette overlay */
+.vignette {
+  position: fixed; inset: 0; pointer-events: none; z-index: 30;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.55) 100%);
+  mix-blend-mode: multiply;
+}
+.scanlines {
+  position: fixed; inset: 0; pointer-events: none; z-index: 31;
+  background: repeating-linear-gradient(0deg, rgba(5,217,232,0.025) 0px, rgba(5,217,232,0.025) 1px, transparent 1px, transparent 3px);
+  opacity: 0.6;
+}
+
+/* Intro */
+#intro {
+  position: fixed; inset: 0; z-index: 100;
+  background: radial-gradient(ellipse at center, #0a061a 0%, #05030a 70%);
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  transition: opacity 0.8s ease;
+}
+#intro.fade { opacity: 0; pointer-events: none; }
+.intro-logo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(2.5rem, 9vw, 5.5rem);
+  font-weight: 900;
+  letter-spacing: 0.35em;
+  color: var(--cyan);
+  text-shadow: 0 0 30px rgba(5, 217, 232, 0.7), 0 0 60px rgba(5, 217, 232, 0.3);
+  margin-bottom: 0.5rem;
+  animation: pulse 2s ease-in-out infinite;
+  position: relative;
+}
+.intro-logo::before {
+  content: 'NEXUS';
+  position: absolute; left: 3px; top: 0;
+  color: var(--magenta);
+  opacity: 0.6;
+  mix-blend-mode: screen;
+  animation: glitch 4s infinite;
+}
+@keyframes glitch {
+  0%, 95%, 100% { transform: translate(0,0); opacity: 0; }
+  96% { transform: translate(-3px, 1px); opacity: 0.8; }
+  97% { transform: translate(2px, -1px); opacity: 0.6; }
+  98% { transform: translate(-1px, 2px); opacity: 0.7; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+.intro-sub {
+  font-size: 0.85rem;
+  color: var(--muted);
+  letter-spacing: 0.4em;
+  margin-bottom: 2.5rem;
+  text-transform: uppercase;
+}
+.boot-log {
+  width: min(520px, 84vw);
+  font-size: 0.75rem;
+  color: var(--cyan);
+  line-height: 1.9;
+  opacity: 0.85;
+}
+.boot-log .line { opacity: 0; animation: fadeIn 0.3s forwards; white-space: nowrap; overflow: hidden; }
+.boot-log .line.ok::after { content: ' [OK]'; color: var(--green); }
+@keyframes fadeIn { to { opacity: 1; } }
+.progress-bar {
+  width: min(360px, 70vw); height: 2px; margin-top: 1.5rem;
+  background: rgba(5,217,232,0.15); position: relative; overflow: hidden;
+}
+.progress-bar::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+  transform-origin: left; animation: fillBar 5s linear forwards;
+}
+@keyframes fillBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* HUD */
+#hud {
+  position: fixed; inset: 0; z-index: 50; pointer-events: none;
+  padding: 22px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+#hud.show { opacity: 1; }
+.hud-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px;
+}
+.chapter-wrap { min-width: 0; }
+.chapter {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.45em;
+  color: var(--cyan);
+  text-transform: uppercase;
+  display: flex; align-items: center; gap: 10px;
+}
+.chapter::before {
+  content: ''; display: inline-block; width: 8px; height: 8px;
+  background: var(--magenta); border-radius: 50%;
+  box-shadow: 0 0 14px var(--magenta);
+  animation: blink 1.2s infinite;
+  flex-shrink: 0;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.subtitle {
+  font-size: clamp(0.85rem, 1.6vw, 1.1rem);
+  color: var(--fg);
+  margin-top: 6px;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  max-width: 60ch;
+}
+.system-status {
+  text-align: right;
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.22em;
+  line-height: 1.8;
+  flex-shrink: 0;
+}
+.system-status .val { color: var(--cyan); margin-left: 6px; }
+.system-status .val.warn { color: var(--amber); }
+
+.hud-mid {
+  display: flex; align-items: flex-end; justify-content: flex-end;
+}
+.info-panel {
+  background: linear-gradient(135deg, rgba(8,12,28,0.85), rgba(20,8,30,0.75));
+  border: 1px solid rgba(5, 217, 232, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 14px 20px;
+  min-width: 250px;
+  font-size: 0.75rem;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+}
+.info-panel.show { opacity: 1; transform: translateY(0); }
+.info-panel::before, .info-panel::after {
+  content: ''; position: absolute; width: 14px; height: 14px;
+}
+.info-panel::before { top: -1px; left: -1px; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+.info-panel::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--magenta); border-right: 2px solid var(--magenta); }
+.info-panel .label { color: var(--magenta); letter-spacing: 0.32em; font-size: 0.62rem; font-weight: 700; }
+.info-panel .title { color: var(--cyan); font-size: 1.05rem; margin: 5px 0 10px; font-family: 'Orbitron', sans-serif; letter-spacing: 0.12em; font-weight: 700; }
+.info-panel .stat { display: flex; justify-content: space-between; color: var(--fg); margin-top: 4px; font-size: 0.72rem; }
+.info-panel .stat span:first-child { color: var(--muted); letter-spacing: 0.1em; }
+.info-panel .stat span:last-child { color: var(--amber); font-weight: 500; }
+
+.hud-bottom {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.timeline {
+  display: flex; gap: 3px; height: 3px;
+}
+.tl-seg {
+  background: rgba(255,255,255,0.06); position: relative; overflow: hidden;
+}
+.tl-seg .fill {
+  position: absolute; inset: 0; background: linear-gradient(90deg, var(--cyan), var(--magenta));
+  transform-origin: left; transform: scaleX(0);
+}
+.tl-seg.active .fill { transition: transform 0.15s linear; }
+.tl-seg.done .fill { transform: scaleX(1); }
+.timeline-labels {
+  display: flex; gap: 3px; font-size: 0.58rem; color: var(--muted); letter-spacing: 0.22em;
+  font-weight: 500;
+}
+.tl-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.3s; }
+.tl-label.active { color: var(--cyan); }
+.tl-label.done { color: rgba(5,217,232,0.5); }
+
+/* Reticle */
+.reticle {
+  position: fixed; pointer-events: none; z-index: 40;
+  width: 110px; height: 110px;
+  opacity: 0; transition: opacity 0.35s;
+}
+.reticle.show { opacity: 1; }
+.reticle .corner { position: absolute; width: 18px; height: 18px; border: 2px solid var(--cyan); box-shadow: 0 0 8px rgba(5,217,232,0.6); }
+.reticle .corner.tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+.reticle .corner.tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+.reticle .corner.bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+.reticle .corner.br { bottom: 0; right: 0; border-left: none; border-top: none; }
+.reticle .cross { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.reticle .cross::before, .reticle .cross::after { content: ''; background: var(--magenta); }
+.reticle .cross::before { width: 14px; height: 1px; }
+.reticle .cross::after { width: 1px; height: 14px; position: absolute; }
+
+.scan-label {
+  position: fixed; pointer-events: none; z-index: 41;
+  font-size: 0.7rem; color: var(--cyan); letter-spacing: 0.22em;
+  white-space: nowrap;
+  opacity: 0; transition: opacity 0.4s;
+}
+.scan-label.show { opacity: 1; }
+.scan-label::before {
+  content: ''; position: absolute; left: -45px; top: 50%; width: 40px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan));
+}
+.scan-label .name { font-family: 'Orbitron', sans-serif; font-size: 0.95rem; color: var(--fg); font-weight: 700; letter-spacing: 0.15em; }
+.scan-label .meta { color: var(--amber); margin-top: 3px; font-size: 0.65rem; }
+
+/* Hyperspace flash */
+.flash {
+  position: fixed; inset: 0; z-index: 35; pointer-events: none;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.9), rgba(5,217,232,0.4) 40%, transparent 70%);
+  opacity: 0;
+}
+.flash.fire { animation: flashAnim 1.2s ease-out; }
+@keyframes flashAnim {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@media (max-width: 700px) {
+  #hud { padding: 14px; gap: 10px; }
+  .subtitle { font-size: 0.85rem; }
+  .system-status { font-size: 0.6rem; }
+  .info-panel { min-width: 200px; padding: 10px 14px; font-size: 0.7rem; }
+  .info-panel .title { font-size: 0.9rem; }
+  .reticle { width: 80px; height: 80px; }
+  .scan-label .name { font-size: 0.8rem; }
+  .timeline-labels { font-size: 0.5rem; letter-spacing: 0.15em; }
+}
+@media (max-width: 480px) {
+  .system-status { display: none; }
+}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="vignette"></div>
+<div class="scanlines"></div>
+
+<div id="intro">
+  <div class="intro-logo">NEXUS</div>
+  <div class="intro-sub">Deep Field Explorer &mdash; v3.7.2</div>
+  <div class="boot-log" id="bootLog"></div>
+  <div class="progress-bar"></div>
+</div>
+
+<div id="hud">
+  <div class="hud-top">
+    <div class="chapter-wrap">
+      <div class="chapter" id="chapter">SYSTEM BOOT</div>
+      <div class="subtitle" id="subtitle">Initializing navigation matrix</div>
+    </div>
+    <div class="system-status">
+      <div>VESSEL<span class="val">NEXUS-01</span></div>
+      <div>SECTOR<span class="val" id="sector">00-A</span></div>
+      <div>FUEL<span class="val">98.4%</span></div>
+      <div>SHIELD<span class="val warn">STBY</span></div>
+    </div>
+  </div>
+  <div class="hud-mid">
+    <div class="info-panel" id="infoPanel">
+      <div class="label" id="ipLabel">MODULE</div>
+      <div class="title" id="ipTitle">--</div>
+      <div class="stat"><span>STATUS</span><span id="ipStat">--</span></div>
+      <div class="stat"><span>OUTPUT</span><span id="ipOut">--</span></div>
+      <div class="stat"><span>INTEGRITY</span><span id="ipInt">--</span></div>
+    </div>
+  </div>
+  <div class="hud-bottom">
+    <div class="timeline" id="timeline">
+      <div class="tl-seg" data-i="0"><div class="fill"></div></div>
+      <div class="tl-seg" data-i="1"><div class="fill"></div></div>
+      <div class="tl-seg" data-i="2"><div class="fill"></div></div>
+      <div class="tl-seg" data-i="3"><div class="fill"></div></div>
+      <div class="tl-seg" data-i="4"><div class="fill"></div></div>
+    </div>
+    <div class="timeline-labels" id="tlLabels">
+      <div class="tl-label" data-i="0">BOOT</div>
+      <div class="tl-label" data-i="1">VEGA CITY</div>
+      <div class="tl-label" data-i="2">EREBUS-9</div>
+      <div class="tl-label" data-i="3">DEEP SPACE</div>
+      <div class="tl-label" data-i="4">GENESIS</div>
+    </div>
+  </div>
+</div>
+
+<div class="reticle" id="reticle">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <div class="cross"></div>
+</div>
+<div class="scan-label" id="scanLabel">
+  <div class="name" id="slName"></div>
+  <div class="meta" id="slMeta"></div>
+</div>
+<div class="flash" id="flash"></div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ====== PHASES ======
+const PHASES = [
+  { name: 'BOOT',      label: 'SYSTEM BOOT',          sub: 'Initializing navigation matrix',          start: 0,  end: 5,  sector: '00-A' },
+  { name: 'CITY',      label: 'VEGA PRIME // APPROACH', sub: 'Skimming the cyber-sprawl at low altitude', sector: 'VEG-3' },
+  { name: 'STATION',   label: 'STATION EREBUS-9',     sub: 'Touring orbital infrastructure modules',  start: 12, end: 17, sector: 'ORB-09' },
+  { name: 'PLANETS',   label: 'DEEP SPACE TRANSIT',   sub: 'Cataloguing uncharted systems',           start: 17, end: 22, sector: 'Z-742' },
+  { name: 'PARTICLES', label: 'GENESIS FIELD',        sub: 'Matter self-organizing — observing',      start: 22, end: 30, sector: '∞' }
+];
+// Fix CITY end:
+PHASES[1].end = 12; PHASES[1].start = 5;
+
+// ====== BOOT LOG ======
+const bootLines = [
+  { t: '> NEXUS core online',          cls: 'ok' },
+  { t: '> Calibrating quantum drive',  cls: 'ok' },
+  { t: '> Loading starcharts [████]',  cls: 'ok' },
+  { t: '> Linking deep-space beacons', cls: 'ok' },
+  { t: '> All systems nominal',        cls: 'ok' },
+  { t: '> ENGAGING DRIVE...',          cls: '' }
+];
+const bootEl = document.getElementById('bootLog');
+bootLines.forEach((l, i) => {
+  const d = document.createElement('div');
+  d.className = 'line ' + l.cls;
+  d.textContent = l.t;
+  d.style.animationDelay = (i * 0.55) + 's';
+  bootEl.appendChild(d);
+});
+
+// ====== RENDERER ======
+const canvas = document.getElementById('bg');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x05030a, 1);
+
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 4000);
+camera.position.set(0, 0, 8);
+
+// ====== SCENES ======
+const scenes = {
+  boot:      new THREE.Scene(),
+  city:      new THREE.Scene(),
+  station:   new THREE.Scene(),
+  planets:   new THREE.Scene(),
+  particles: new THREE.Scene()
+};
+
+function makeStars(count, range, size, opacity = 0.9) {
+  const g = new THREE.BufferGeometry();
+  const pos = new Float32Array(count * 3);
+  const col = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    pos[i*3]   = (Math.random() - 0.5) * range;
+    pos[i*3+1] = (Math.random() - 0.5) * range;
+    pos[i*3+2] = (Math.random() - 0.5) * range;
+    const tint = Math.random();
+    if (tint > 0.85) { col[i*3]=1.0; col[i*3+1]=0.55; col[i*3+2]=0.4; }
+    else if (tint > 0.7) { col[i*3]=0.5; col[i*3+1]=0.85; col[i*3+2]=1.0; }
+    else { col[i*3]=0.9; col[i*3+1]=0.95; col[i*3+2]=1.0; }
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return new THREE.Points(g, new THREE.PointsMaterial({ size, vertexColors: true, transparent: true, opacity, depthWrite: false }));
+}
+
+// ============ BOOT SCENE ============
+scenes.boot.background = new THREE.Color(0x05030a);
+const bootStars = makeStars(900, 700, 1.4, 0.85);
+scenes.boot.add(bootStars);
+const bootPlanet = new THREE.Mesh(
+  new THREE.SphereGeometry(2.2, 48, 48),
+  new THREE.MeshBasicMaterial({ color: 0xff2a6d })
+);
+bootPlanet.position.set(2.8, 0.6, -12);
+scenes.boot.add(bootPlanet);
+const bootGlow = new THREE.Mesh(
+  new THREE.SphereGeometry(2.7, 32, 32),
+  new THREE.MeshBasicMaterial({ color: 0xff2a6d, transparent: true, opacity: 0.18, side: THREE.BackSide })
+);
+bootGlow.position.copy(bootPlanet.position);
+scenes.boot.add(bootGlow);
+// ring
+const bootRing = new THREE.Mesh(
+  new THREE.RingGeometry(3.4, 3.55, 64),
+  new THREE.MeshBasicMaterial({ color: 0x05d9e8, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+);
+bootRing.position.copy(bootPlanet.position);
+bootRing.rotation.x = Math.PI / 2.3;
+scenes.boot.add(bootRing);
+
+// ============ CITY SCENE ============
+const cityScene = scenes.city;
+cityScene.fog = new THREE.FogExp2(0x0a0418, 0.014);
+cityScene.background = new THREE.Color(0x0a0418);
+
+// Ground shader (animated grid)
+const groundMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 }, uSpeed: { value: 1.0 } },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    uniform float uTime;
+    uniform float uSpeed;
+    void main(){
+      vec2 uv = vUv;
+      vec2 g = vec2(uv.x * 60.0, uv.y * 300.0 - uTime * 35.0 * uSpeed);
+      vec2 gf = abs(fract(g) - 0.5);
+      float line = 1.0 - smoothstep(0.0, 0.06, min(gf.x, gf.y));
+      vec3 neonA = vec3(0.02, 0.85, 0.91);
+      vec3 neonB = vec3(1.0, 0.16, 0.43);
+      float mixV = smoothstep(0.3, 0.7, sin(uv.x * 6.28 + uTime * 0.5) * 0.5 + 0.5);
+      vec3 col = mix(neonA, neonB, mixV) * line * 0.9;
+      // distance darken
+      float fade = smoothstep(0.0, 0.15, uv.y) * smoothstep(1.0, 0.6, uv.y);
+      col *= fade;
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+});
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 2400), groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.01;
+ground.position.z = -400;
+cityScene.add(ground);
+
+// Procedural building texture
+function makeBuildingTexture(neonHex) {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 256;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0, '#0c0818');
+  grad.addColorStop(1, '#04020a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 256);
+  // window grid
+  for (let y = 6; y < 250; y += 7) {
+    for (let x = 3; x < 62; x += 6) {
+      const r = Math.random();
+      if (r > 0.55) {
+        if (r > 0.93) ctx.fillStyle = neonHex;
+        else if (r > 0.78) ctx.fillStyle = '#5a3a8a';
+        else ctx.fillStyle = '#2a1f4a';
+        ctx.fillRect(x, y, 3, 3);
+      }
+    }
+  }
+  // vertical neon strip
+  if (Math.random() > 0.5) {
+    ctx.fillStyle = neonHex;
+    ctx.globalAlpha = 0.7;
+    const sx = 4 + Math.floor(Math.random() * 56);
+    ctx.fillRect(sx, 0, 1.5, 256);
+    ctx.globalAlpha = 1;
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.minFilter = THREE.LinearFilter;
+  return t;
+}
+const neonPalette = ['#ff2a6d', '#05d9e8', '#ff9a00', '#d300ff', '#00ffaa'];
+const buildingTextures = neonPalette.map(makeBuildingTexture);
+
+const buildings = [];
+const BUILDING_COUNT = 160;
+for (let i = 0; i < BUILDING_COUNT; i++) {
+  const w = 5 + Math.random() * 9;
+  const h = 14 + Math.random() * 95;
+  const d = 5 + Math.random() * 9;
+  const tex = buildingTextures[Math.floor(Math.random() * buildingTextures.length)];
+  const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ map: tex }));
+  const side = (i % 2 === 0) ? 1 : -1;
+  const lane = Math.floor(Math.random() * 5);
+  b.position.x = side * (10 + lane * 9 + Math.random() * 3);
+  b.position.y = h / 2;
+  b.position.z = -i * 9 - Math.random() * 6;
+  // top crown
+  const topColor = parseInt(neonPalette[Math.floor(Math.random() * neonPalette.length)].slice(1), 16);
+  const crown = new THREE.Mesh(
+    new THREE.BoxGeometry(w + 0.3, 0.4, d + 0.3),
+    new THREE.MeshBasicMaterial({ color: topColor })
+  );
+  crown.position.y = h / 2 + 0.2;
+  b.add(crown);
+  buildings.push(b);
+  cityScene.add(b);
+}
+
+// Traffic
+const traffic = [];
+const trafficColors = [0xff2a6d, 0x05d9e8, 0xff9a00, 0xffffff, 0x00ffaa];
+for (let i = 0; i < 36; i++) {
+  const isLong = Math.random() > 0.6;
+  const geo = isLong ? new THREE.BoxGeometry(0.3, 0.15, 1.6) : new THREE.BoxGeometry(0.4, 0.2, 0.7);
+  const col = trafficColors[Math.floor(Math.random() * trafficColors.length)];
+  const v = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col }));
+  v.position.x = (Math.random() - 0.5) * 70;
+  v.position.y = 2 + Math.random() * 35;
+  v.position.z = -Math.random() * 350;
+  v.userData.speed = 18 + Math.random() * 35;
+  v.userData.color = col;
+  traffic.push(v);
+  cityScene.add(v);
+  // halo
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 8, 8),
+    new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  v.add(halo);
+}
+
+// Sky beams (vertical neon columns in distance)
+for (let i = 0; i < 8; i++) {
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.3, 200, 6, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: i % 2 ? 0xff2a6d : 0x05d9e8,
+      transparent: true,
+      opacity: 0.25,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    })
+  );
+  beam.position.set((Math.random() - 0.5) * 200, 100, -200 - Math.random() * 200);
+  cityScene.add(beam);
+}
+
+// ============ STATION SCENE ============
+const stationScene = scenes.station;
+stationScene.background = new THREE.Color(0x02010a);
+stationScene.add(makeStars(1800, 1800, 1.0, 0.9));
+// distant nebula
+const stationNeb = new THREE.Mesh(
+  new THREE.PlaneGeometry(3000, 3000),
+  new THREE.ShaderMaterial({
+    uniforms: {},
+    vertexShader: `varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader: `
+      varying vec2 vUv;
+      float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
+      float n(vec2 p){vec2 i=floor(p),f=fract(p);float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));vec2 u=f*f*(3.-2.*f);return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);}
+      void main(){
+        vec2 uv=vUv*2.5;
+        float v=n(uv)*.5+n(uv*2.)*.25+n(uv*4.)*.125;
+        vec3 c=mix(vec3(.02,.01,.08),vec3(.4,.05,.3),smoothstep(.3,.7,v));
+        c=mix(c,vec3(.05,.4,.6),smoothstep(.5,.9,v)*.4);
+        gl_FragColor=vec4(c*.35,1.);
+      }`,
+    depthWrite: false
+  })
+);
+stationNeb.position.z = -900;
+stationScene.add(stationNeb);
+
+const station = new THREE.Group();
+stationScene.add(station);
+
+// Central hub
+const hub = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 4.5, 24), new THREE.MeshBasicMaterial({ color: 0x2a3550 }));
+hub.rotation.z = Math.PI / 2;
+station.add(hub);
+// hub glow rings
+for (let i = 0; i < 3; i++) {
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(2.3, 0.04, 6, 48),
+    new THREE.MeshBasicMaterial({ color: 0x05d9e8 })
+  );
+  ring.rotation.y = Math.PI / 2;
+  ring.position.x = -1.5 + i * 1.5;
+  station.add(ring);
+}
+
+// Modules
+const moduleData = [
+  { name: 'LIFE SUPPORT',  color: 0x00ffaa, angle: 0,             stat: 'NOMINAL',     out: 'O₂ 20.9%',   int: '99.8%' },
+  { name: 'DOCKING BAY',   color: 0xff9a00, angle: Math.PI * 2/3, stat: '3 VESSELS',   out: 'BAY 7 ACT',  int: '100%'  },
+  { name: 'COMMS ARRAY',   color: 0xff2a6d, angle: Math.PI * 4/3, stat: 'LINKED',      out: '12.4 PHz',   int: '97.2%' }
+];
+const moduleMeshes = [];
+moduleData.forEach(m => {
+  const grp = new THREE.Group();
+  // connecting arm
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(8, 0.25, 0.25), new THREE.MeshBasicMaterial({ color: 0x3a4565 }));
+  arm.position.x = 4;
+  grp.add(arm);
+  // arm accent line
+  const armLine = new THREE.Mesh(new THREE.BoxGeometry(8, 0.05, 0.06), new THREE.MeshBasicMaterial({ color: m.color }));
+  armLine.position.set(4, 0.16, 0);
+  grp.add(armLine);
+  // module body
+  const mod = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.2, 2.8), new THREE.MeshBasicMaterial({ color: 0x1a2540 }));
+  mod.position.x = 8.6;
+  grp.add(mod);
+  // accent band
+  const acc = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.18, 3.0), new THREE.MeshBasicMaterial({ color: m.color }));
+  acc.position.set(8.6, 1.2, 0);
+  grp.add(acc);
+  // unique detail
+  if (m.name === 'COMMS ARRAY') {
+    const ant = new THREE.Mesh(new THREE.ConeGeometry(0.18, 2.2, 8), new THREE.MeshBasicMaterial({ color: m.color }));
+    ant.position.set(8.6, 2.6, 0);
+    grp.add(ant);
+    const dish = new THREE.Mesh(
+      new THREE.SphereGeometry(0.9, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: m.color, side: THREE.DoubleSide, wireframe: true })
+    );
+    dish.position.set(8.6, 2.0, 0);
+    dish.rotation.x = Math.PI;
+    grp.add(dish);
+  } else if (m.name === 'DOCKING BAY') {
+    const dock = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 1.8), new THREE.MeshBasicMaterial({ color: m.color }));
+    dock.position.set(8.6, -1.15, 0);
+    grp.add(dock);
+    const ship = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.2, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    ship.position.set(8.6, -1.7, 0);
+    ship.rotation.x = Math.PI / 2;
+    grp.add(ship);
+    // dock lights
+    for (let k = 0; k < 4; k++) {
+      const dl = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), new THREE.MeshBasicMaterial({ color: m.color }));
+      const a = (k / 4) * Math.PI * 2;
+      dl.position.set(8.6 + Math.cos(a) * 1.0, -1.15, Math.sin(a) * 1.0);
+      grp.add(dl);
+    }
+  } else {
+    // tanks
+    for (let k = 0; k < 2; k++) {
+      const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.6, 12), new THREE.MeshBasicMaterial({ color: m.color }));
+      tank.position.set(8.6, 1.6, k === 0 ? -0.7 : 0.7);
+      grp.add(tank);
+    }
+    // vent
+    const vent = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 6, 16), new THREE.MeshBasicMaterial({ color: m.color }));
+    vent.position.set(8.6, -1.2, 0);
+    vent.rotation.y = Math.PI / 2;
+    grp.add(vent);
+  }
+  grp.rotation.y = m.angle;
+  station.add(grp);
+  moduleMeshes.push({ group: grp, data: m });
+});
+
+// ============ PLANETS SCENE ============
+const planetsScene = scenes.planets;
+planetsScene.background = new THREE.Color(0x02010a);
+planetsScene.add(makeStars(2400, 2400, 0.9, 0.85));
+
+// Nebula
+const planetsNeb = stationNeb.clone();
+planetsNeb.material = stationNeb.material.clone();
+planetsNeb.position.z = -1200;
+planetsScene.add(planetsNeb);
+
+function makePlanetTexture(c1, c2) {
+  const cv = document.createElement('canvas');
+  cv.width = 512; cv.height = 256;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = c1;
+  ctx.fillRect(0, 0, 512, 256);
+  // bands
+  for (let i = 0; i < 24; i++) {
+    ctx.fillStyle = i % 2 ? c1 : c2;
+    ctx.globalAlpha = 0.25 + Math.random() * 0.45;
+    const y = Math.random() * 256;
+    ctx.fillRect(0, y, 512, 5 + Math.random() * 18);
+  }
+  ctx.globalAlpha = 1;
+  // storms / spots
+  for (let i = 0; i < 50; i++) {
+    ctx.fillStyle = Math.random() > 0.5 ? c1 : c2;
+    ctx.globalAlpha = 0.25 + Math.random() * 0.4;
+    ctx.beginPath();
+    ctx.arc(Math.random() * 512, Math.random() * 256, 3 + Math.random() * 14, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return new THREE.CanvasTexture(cv);
+}
+
+const planetData = [
+  { name: 'KORATH-IV',     meta: 'CLASS: GAS GIANT',     c1: '#ff9a00', c2: '#5a1a00', size: 16, pos: [-25, 4, -55] },
+  { name: 'AURORA PRIME',  meta: 'CLASS: OCEAN WORLD',   c1: '#05d9e8', c2: '#0a2a5a', size: 12, pos: [38, -4, -110] },
+  { name: 'X-742c',        meta: 'CLASS: ROCK / VOLCANIC', c1: '#ff2a6d', c2: '#3a0a1a', size: 11, pos: [-18, 8, -170] }
+];
+const planets = [];
+planetData.forEach(p => {
+  const tex = makePlanetTexture(p.c1, p.c2);
+  const m = new THREE.Mesh(new THREE.SphereGeometry(p.size, 48, 48), new THREE.MeshBasicMaterial({ map: tex }));
+  m.position.set(...p.pos);
+  planetsScene.add(m);
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(p.size * 1.18, 32, 32),
+    new THREE.MeshBasicMaterial({ color: p.c1, transparent: true, opacity: 0.14, side: THREE.BackSide })
+  );
+  glow.position.copy(m.position);
+  planetsScene.add(glow);
+  // ring for first planet
+  if (p.name === 'KORATH-IV') {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(p.size * 1.5, p.size * 2.2, 64),
+      new THREE.MeshBasicMaterial({ color: 0xff9a00, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
+    );
+    ring.position.copy(m.position);
+    ring.rotation.x = Math.PI / 2.4;
+    planetsScene.add(ring);
+  }
+  planets.push({ mesh: m, glow, data: p });
+});
+
+// Hyperspace tunnel
+const hyperCount = 5000;
+const hyperGeo = new THREE.BufferGeometry();
+const hyperPos = new Float32Array(hyperCount * 3);
+const hyperCol = new Float32Array(hyperCount * 3);
+for (let i = 0; i < hyperCount; i++) {
+  const r = 4 + Math.random() * 45;
+  const a = Math.random() * Math.PI * 2;
+  hyperPos[i*3]   = Math.cos(a) * r;
+  hyperPos[i*3+1] = Math.sin(a) * r;
+  hyperPos[i*3+2] = -Math.random() * 500;
+  const c = Math.random();
+  if (c < 0.4)      { hyperCol[i*3]=1.0; hyperCol[i*3+1]=0.16; hyperCol[i*3+2]=0.43; }
+  else if (c < 0.75){ hyperCol[i*3]=0.02; hyperCol[i*3+1]=0.85; hyperCol[i*3+2]=0.91; }
+  else              { hyperCol[i*3]=1.0; hyperCol[i*3+1]=1.0; hyperCol[i*3+2]=1.0; }
+}
+hyperGeo.setAttribute('position', new THREE.BufferAttribute(hyperPos, 3));
+hyperGeo.setAttribute('color', new THREE.BufferAttribute(hyperCol, 3));
+const hyperMat = new THREE.PointsMaterial({ size: 1.8, vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+const hyper = new THREE.Points(hyperGeo, hyperMat);
+planetsScene.add(hyper);
+
+// ============ PARTICLES SCENE ============
+const particlesScene = scenes.particles;
+particlesScene.background = new THREE.Color(0x02010a);
+particlesScene.add(makeStars(1400, 1800, 0.7, 0.7));
+
+const PARTICLE_COUNT = 5500;
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(PARTICLE_COUNT * 3);
+const pCol = new Float32Array(PARTICLE_COUNT * 3);
+
+const palette = [
+  [1.0, 0.16, 0.43],
+  [0.02, 0.85, 0.91],
+  [1.0, 0.6, 0.0],
+  [0.82, 0.0, 1.0],
+  [0.0, 1.0, 0.67]
+];
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  pPos[i*3]   = (Math.random() - 0.5) * 250;
+  pPos[i*3+1] = (Math.random() - 0.5) * 250;
+  pPos[i*3+2] = (Math.random() - 0.5) * 200;
+  const c = palette[Math.floor(Math.random() * palette.length)];
+  pCol[i*3] = c[0]; pCol[i*3+1] = c[1]; pCol[i*3+2] = c[2];
+}
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+const pMat = new THREE.PointsMaterial({ size: 0.7, vertexColors: true, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
+const particles = new THREE.Points(pGeo, pMat);
+particlesScene.add(particles);
+
+// Target shapes
+function cubeTargets(count) {
+  const arr = new Float32Array(count * 3);
+  const size = 22;
+  for (let i = 0; i < count; i++) {
+    const face = Math.floor(Math.random() * 6);
+    const u = (Math.random() - 0.5) * size;
+    const v = (Math.random() - 0.5) * size;
+    const w = size / 2;
+    let x, y, z;
+    switch(face) {
+      case 0: x =  w; y = u; z = v; break;
+      case 1: x = -w; y = u; z = v; break;
+      case 2: x =  u; y = w; z = v; break;
+      case 3: x =  u; y =-w; z = v; break;
+      case 4: x =  u; y = v; z = w; break;
+      case 5: x =  u; y = v; z =-w; break;
+    }
+    arr[i*3] = x; arr[i*3+1] = y; arr[i*3+2] = z;
+  }
+  return arr;
+}
+function sphereTargets(count) {
+  const arr = new Float32Array(count * 3);
+  const r = 17;
+  for (let i = 0; i < count; i++) {
+    const phi = Math.acos(1 - 2 * (i + 0.5) / count);
+    const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+    arr[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+    arr[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+    arr[i*3+2] = r * Math.cos(phi);
+  }
+  return arr;
+}
+function logoTargets(count) {
+  const cv = document.createElement('canvas');
+  cv.width = 1024; cv.height = 256;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 200px Orbitron, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('NEXUS', 512, 128);
+  const data = ctx.getImageData(0, 0, 1024, 256).data;
+  const pts = [];
+  for (let y = 0; y < 256; y += 2) {
+    for (let x = 0; x < 1024; x += 2) {
+      if (data[(y*1024+x)*4+3] > 128) pts.push([x, y]);
+    }
+  }
+  const arr = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const p = pts[Math.floor(Math.random() * pts.length)];
+    arr[i*3]   = (p[0] - 512) * 0.045;
+    arr[i*3+1] = -(p[1] - 128) * 0.045;
+    arr[i*3+2] = (Math.random() - 0.5) * 3;
+  }
+  return arr;
+}
+const shapeTargets = {
+  cube:   cubeTargets(PARTICLE_COUNT),
+  sphere: sphereTargets(PARTICLE_COUNT),
+  logo:   logoTargets(PARTICLE_COUNT)
+};
+
+// ====== TIMING / STATE ======
+const clock = new THREE.Clock();
+let elapsed = 0;
+let currentPhase = -1;
+let hyperFlashFired = false;
+
+const introEl = document.getElementById('intro');
+const hudEl = document.getElementById('hud');
+const chapterEl = document.getElementById('chapter');
+const subtitleEl = document.getElementById('subtitle');
+const sectorEl = document.getElementById('sector');
+const infoPanel = document.getElementById('infoPanel');
+const ipLabel = document.getElementById('ipLabel');
+const ipTitle = document.getElementById('ipTitle');
+const ipStat = document.getElementById('ipStat');
+const ipOut = document.getElementById('ipOut');
+const ipInt = document.getElementById('ipInt');
+const reticle = document.getElementById('reticle');
+const scanLabel = document.getElementById('scanLabel');
+const slName = document.getElementById('slName');
+const slMeta = document.getElementById('slMeta');
+const flash = document.getElementById('flash');
+const tlSegs = document.querySelectorAll('.tl-seg');
+const tlLabs = document.querySelectorAll('.tl-label');
+
+// Proportional timeline widths
+tlSegs.forEach((seg, i) => {
+  const dur = PHASES[i].end - PHASES[i].start;
+  seg.style.flex = dur;
+  tlLabs[i].style.flex = dur;
+});
+
+function setPhase(idx) {
+  if (idx === currentPhase) return;
+  currentPhase = idx;
+  const p = PHASES[idx];
+  chapterEl.textContent = p.label;
+  subtitleEl.textContent = p.sub;
+  sectorEl.textContent = p.sector;
+  tlLabs.forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+    el.classList.toggle('done', i < idx);
+  });
+  if (idx === 0) {
+    introEl.classList.remove('fade');
+    hudEl.classList.remove('show');
+  } else {
+    introEl.classList.add('fade');
+    hudEl.classList.add('show');
+  }
+  if (idx !== 2) infoPanel.classList.remove('show');
+  if (idx !== 3) { scanLabel.classList.remove('show'); reticle.classList.remove('show'); }
+  if (idx !== 2) reticle.classList.remove('show');
+  if (idx === 3) hyperFlashFired = false;
+}
+
+function updateTimeline(t) {
+  tlSegs.forEach((seg, i) => {
+    const p = PHASES[i];
+    const segT = (t - p.start) / (p.end - p.start);
+    const clamped = Math.max(0, Math.min(1, segT));
+    seg.classList.toggle('active', segT > 0 && segT < 1);
+    seg.classList.toggle('done', segT >= 1);
+    seg.querySelector('.fill').style.transform = `scaleX(${clamped})`;
+  });
+}
+
+const tmpV = new THREE.Vector3();
+function worldToScreen(vec) {
+  tmpV.copy(vec).project(camera);
+  return {
+    x: (tmpV.x * 0.5 + 0.5) * window.innerWidth,
+    y: (-tmpV.y * 0.5 + 0.5) * window.innerHeight,
+    visible: tmpV.z < 1
+  };
+}
+
+// ====== ANIMATION LOOP ======
+let currentScene = scenes.boot;
+let lastModuleIdx = -1;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  elapsed += dt;
+
+  // Determine phase
+  let phaseIdx = 0;
+  for (let i = 0; i < PHASES.length; i++) {
+    if (elapsed >= PHASES[i].start && elapsed < PHASES[i].end) phaseIdx = i;
+  }
+  if (elapsed >= PHASES[PHASES.length-1].end) phaseIdx = PHASES.length - 1;
+  setPhase(phaseIdx);
+  updateTimeline(elapsed);
+
+  const phase = PHASES[phaseIdx];
+  const phaseT = Math.max(0, Math.min(1, (elapsed - phase.start) / (phase.end - phase.start)));
+
+  // ====== BOOT ======
+  if (phase.name === 'BOOT') {
+    currentScene = scenes.boot;
+    camera.position.set(0, 0, 5);
+    camera.lookAt(bootPlanet.position);
+    bootStars.rotation.y += dt * 0.015;
+    bootPlanet.rotation.y += dt * 0.08;
+    bootRing.rotation.z += dt * 0.3;
+    bootGlow.scale.setScalar(1 + Math.sin(elapsed * 2.2) * 0.06);
+    // gentle camera dolly
+    camera.position.x = Math.sin(elapsed * 0.4) * 0.3;
+    camera.position.y = Math.cos(elapsed * 0.5) * 0.2;
+  }
+
+  // ====== CITY ======
+  else if (phase.name === 'CITY') {
+    currentScene = scenes.city;
+    const baseZ = -((elapsed - phase.start) * 28);
+    camera.position.set(
+      Math.sin(elapsed * 0.6) * 1.8,
+      3.5 + Math.sin(elapsed * 0.4) * 0.4,
+      baseZ
+    );
+    camera.lookAt(camera.position.x * 0.5, 2.5, camera.position.z - 30);
+
+    // Recycle buildings
+    buildings.forEach(b => {
+      if (b.position.z > camera.position.z + 25) {
+        b.position.z -= BUILDING_COUNT * 9;
+      }
+    });
+    // Traffic
+    traffic.forEach(v => {
+      v.position.z += v.userData.speed * dt;
+      if (v.position.z > camera.position.z + 25) {
+        v.position.z = camera.position.z - 280;
+        v.position.x = (Math.random() - 0.5) * 70;
+        v.position.y = 2 + Math.random() * 35;
+      }
+    });
+    groundMat.uniforms.uTime.value = elapsed;
+  }
+
+  // ====== STATION ======
+  else if (phase.name === 'STATION') {
+    currentScene = scenes.station;
+    // Camera arcs around station
+    const r = 22;
+    const angle = -0.6 + phaseT * Math.PI * 1.1;
+    camera.position.set(
+      Math.cos(angle) * r,
+      3 + Math.sin(phaseT * Math.PI) * 4,
+      Math.sin(angle) * r
+    );
+    camera.lookAt(0, 0, 0);
+    station.rotation.y += dt * 0.04;
+
+    // Activate modules sequentially
+    const moduleIdx = Math.min(2, Math.floor(phaseT * 3 + 0.05));
+    if (moduleIdx !== lastModuleIdx) {
+      lastModuleIdx = moduleIdx;
+      const mod = moduleData[moduleIdx];
+      ipLabel.textContent = 'MODULE ' + (moduleIdx + 1).toString().padStart(2, '0') + ' / 03';
+      ipTitle.textContent = mod.name;
+      ipStat.textContent = mod.stat;
+      ipOut.textContent = mod.out;
+      ipInt.textContent = mod.int;
+      // Trigger re-show animation
+      infoPanel.classList.remove('show');
+      setTimeout(() => infoPanel.classList.add('show'), 30);
+    } else {
+      infoPanel.classList.add('show');
+    }
+    // Reticle on current module
+    const target = moduleMeshes[moduleIdx].group;
+    tmpV.set(8.6, 0, 0);
+    target.localToWorld(tmpV);
+    const s = worldToScreen(tmpV);
+    if (s.visible) {
+      reticle.style.left = (s.x - 55) + 'px';
+      reticle.style.top  = (s.y - 55) + 'px';
+      reticle.classList.add('show');
+    } else {
+      reticle.classList.remove('show');
+    }
+  }
+
+  // ====== PLANETS ======
+  else if (phase.name === 'PLANETS') {
+    currentScene = scenes.planets;
+    planets.forEach(p => { p.mesh.rotation.y += dt * 0.08; });
+
+    if (phaseT < 0.78) {
+      // Orbit + scan phase
+      hyperMat.opacity = 0;
+      const idx = Math.min(2, Math.floor(phaseT / 0.26));
+      const localT = (phaseT - idx * 0.26) / 0.26;
+      const planet = planets[idx];
+
+      const radius = 38;
+      const ang = localT * Math.PI * 0.55 - 0.2;
+      camera.position.set(
+        planet.data.pos[0] + Math.cos(ang) * radius,
+        planet.data.pos[1] + 4 + Math.sin(localT * Math.PI) * 2,
+        planet.data.pos[2] + Math.sin(ang) * radius
+      );
+      camera.lookAt(planet.mesh.position);
+
+      // Scan label
+      const s = worldToScreen(planet.mesh.position);
+      if (s.visible) {
+        scanLabel.style.left = (s.x + 70) + 'px';
+        scanLabel.style.top  = (s.y - 35) + 'px';
+        slName.textContent = planet.data.name;
+        slMeta.textContent = planet.data.meta;
+        scanLabel.classList.add('show');
+      } else {
+        scanLabel.classList.remove('show');
+      }
+    } else {
+      // Hyperspace jump
+      scanLabel.classList.remove('show');
+      const ht = (phaseT - 0.78) / 0.22;
+      if (!hyperFlashFired && ht > 0.05) {
+        flash.classList.remove('fire');
+        void flash.offsetWidth;
+        flash.classList.add('fire');
+        hyperFlashFired = true;
+      }
+      hyperMat.opacity = Math.min(1, ht * 4) * (1 - Math.max(0, (ht - 0.7) / 0.3) * 0.5);
+      const hyperZ = -ht * 1200 - 50;
+      camera.position.set(
+        Math.sin(ht * 8) * (1 - ht) * 1.5,
+        Math.cos(ht * 7) * (1 - ht) * 1.5,
+        hyperZ
+      );
+      camera.lookAt(0, 0, hyperZ - 200);
+
+      // Stream particles
+      const pos = hyper.geometry.attributes.position.array;
+      const speed = 300 + ht * 1500;
+      for (let i = 0; i < hyperCount; i++) {
+        pos[i*3+2] += dt * speed;
+        if (pos[i*3+2] > camera.position.z + 50) {
+          pos[i*3+2] = camera.position.z - 500;
+          const r = 4 + Math.random() * 45;
+          const a = Math.random() * Math.PI * 2;
+          pos[i*3]   = Math.cos(a) * r;
+          pos[i*3+1] = Math.sin(a) * r;
+        }
+      }
+      hyper.geometry.attributes.position.needsUpdate = true;
+    }
+  }
+
+  // ====== PARTICLES ======
+  else if (phase.name === 'PARTICLES') {
+    currentScene = scenes.particles;
+
+    let fromKey, toKey, blend;
+    if (phaseT < 0.22) {
+      fromKey = 'dispersed'; toKey = 'cube';   blend = phaseT / 0.22;
+    } else if (phaseT < 0.45) {
+      fromKey = 'cube';      toKey = 'sphere'; blend = (phaseT - 0.22) / 0.23;
+    } else if (phaseT < 0.68) {
+      fromKey = 'sphere';    toKey = 'logo';   blend = (phaseT - 0.45) / 0.23;
+    } else if (phaseT < 0.82) {
+      fromKey = 'logo';      toKey = 'dispersed'; blend = (phaseT - 0.68) / 0.14;
+    } else {
+      fromKey = 'dispersed'; toKey = 'dispersed'; blend = 0;
+    }
+
+    // Smoothstep ease
+    const e = blend < 0.5 ? 2*blend*blend : 1 - Math.pow(-2*blend+2, 2)/2;
+
+    const positions = pGeo.attributes.position.array;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      let fx, fy, fz, tx, ty, tz;
+      if (fromKey === 'dispersed') {
+        fx = positions[i*3]; fy = positions[i*3+1]; fz = positions[i*3+2];
+      } else {
+        const t = shapeTargets[fromKey];
+        fx = t[i*3]; fy = t[i*3+1]; fz = t[i*3+2];
+      }
+      if (toKey === 'dispersed') {
+        // Drift outward
+        const len = Math.sqrt(fx*fx + fy*fy + fz*fz) + 0.001;
+        const expand = 1 + 2.5 * e;
+        tx = fx * expand; ty = fy * expand; tz = fz * expand;
+      } else {
+        const t = shapeTargets[toKey];
+        tx = t[i*3]; ty = t[i*3+1]; tz = t[i*3+2];
+      }
+      // jitter
+      const j = 0.08;
+      positions[i*3]   = fx + (tx - fx) * e + Math.sin(elapsed * 1.5 + i * 0.013) * j;
+      positions[i*3+1] = fy + (ty - fy) * e + Math.cos(elapsed * 1.7 + i * 0.011) * j;
+      positions[i*3+2] = fz + (tz - fz) * e + Math.sin(elapsed * 1.3 + i * 0.017) * j;
+    }
+    pGeo.attributes.position.needsUpdate = true;
+
+    // Camera drift
+    const camR = 55;
+    camera.position.set(
+      Math.sin(elapsed * 0.18) * camR * 0.7,
+      6 + Math.sin(elapsed * 0.25) * 6,
+      camR + Math.cos(elapsed * 0.13) * 8
+    );
+    camera.lookAt(0, 0, 0);
+    particles.rotation.y += dt * 0.04;
+  }
+
+  renderer.render(currentScene, camera);
+}
+
+// ====== RESIZE ======
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>

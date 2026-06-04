@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="he" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>מסע בזמן - Chrono Explorer | הפעלה אוטומטית</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            overflow: hidden;
+            background-color: #030318;
+            font-family: 'Courier New', 'SF Mono', monospace;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* HUD מינימלי - נראה מיד */
+        #ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 20;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .hud-panel {
+            background: rgba(0, 8, 20, 0.75);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            border-radius: 12px;
+            padding: 8px 14px;
+            box-shadow: 0 0 12px rgba(0, 243, 255, 0.2);
+            font-size: clamp(10px, 4vw, 14px);
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .status-text {
+            color: #0ff;
+            text-shadow: 0 0 5px #0ff;
+            font-weight: bold;
+        }
+        .progress-container {
+            width: 160px;
+            max-width: 45vw;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #0ff;
+            box-shadow: 0 0 8px #0ff;
+            border-radius: 4px;
+        }
+        .module-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 240px;
+            max-width: 80vw;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #ff2a6d;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            color: #ff2a6d;
+            box-shadow: 0 0 25px #ff2a6d;
+            backdrop-filter: blur(8px);
+            display: none;
+            pointer-events: none;
+        }
+        .module-screen.active {
+            display: block;
+            animation: pulseGlow 0.6s ease-out;
+        }
+        .module-title {
+            font-size: 1.2rem;
+            border-bottom: 1px dashed #ff2a6d;
+            margin-bottom: 12px;
+        }
+        .scan-label {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #0ff;
+            border-radius: 40px;
+            padding: 6px 18px;
+            color: #0ff;
+            font-size: 12px;
+            white-space: nowrap;
+            backdrop-filter: blur(4px);
+            display: none;
+            pointer-events: none;
+            z-index: 25;
+        }
+        @keyframes pulseGlow {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9);}
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1);}
+        }
+        /* שום מסך פתיחה - הכול מופיע מיד */
+        .mobile-hint {
+            position: fixed;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 8px;
+            color: #0ff;
+            pointer-events: none;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+<div id="ui-layer">
+    <div class="top-bar">
+        <div class="hud-panel progress-container">
+            <div class="status-text">🌀 TIMELINE SYNC</div>
+            <div class="progress-bar"><div class="progress-fill" id="timeline-fill"></div></div>
+        </div>
+        <div class="hud-panel" id="phase-status">🚀 ACTIVE | NEON CITY</div>
+    </div>
+    <div id="module-life" class="module-screen"><div class="module-title">⚙️ LIFE SUPPORT</div><div>O₂: 99.9%</div><div>H₂O: RECYCLE</div></div>
+    <div id="module-dock" class="module-screen"><div class="module-title">🛸 DOCKING BAY</div><div>PORT: ALPHA-7</div><div>SHUTTLE: READY</div></div>
+    <div id="module-comms" class="module-screen"><div class="module-title">📡 COMMS ARRAY</div><div>SIGNAL: 98%</div><div>ENCRYPT: QUANTUM</div></div>
+    <div id="planet-scan-label" class="scan-label">🌍 PLANET X-77 | GAS GIANT</div>
+    <div class="mobile-hint">⚡ מסע אוטומטי | מופעל מיידי</div>
+</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+    // התאמות מובייל + ביצועים מהירים
+    const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const PARTICLE_COUNT = isMobile ? 1000 : 1800;
+    const TRAFFIC_COUNT = isMobile ? 40 : 90;
+    const BLOOM_STRENGTH = isMobile ? 0.9 : 1.4;
+    
+    // ציר זמן לולאה קצרה (הכול רציף)
+    const CYCLE_DURATION = 92; 
+    const PHASE_CITY = { start: 0, end: 28 };
+    const PHASE_STATION = { start: 28, end: 52 };
+    const PHASE_PLANET = { start: 52, end: 72 };
+    const PHASE_PARTICLE = { start: 72, end: 92 };
+    
+    let scene, camera, renderer, composer;
+    let clock = new THREE.Clock();
+    let isRunning = true;  // התחלה אוטומטית ללא כפתור
+    let startTime = performance.now();
+    let currentCycleTime = 0;
+    
+    // קבוצות אובייקטים
+    const groups = {
+        city: new THREE.Group(),
+        station: new THREE.Group(),
+        planet: new THREE.Group(),
+        particle: new THREE.Group(),
+        stars: new THREE.Group()
+    };
+    
+    let trafficInstanced = null;
+    let trafficData = [];
+    let stationRings = [];
+    let planetMesh = null, cloudLayer = null;
+    let particleSwarm = null;
+    let starPoints = null;
+    let particleTargets = [];
+    
+    // UI
+    const phaseEl = document.getElementById('phase-status');
+    const fillBar = document.getElementById('timeline-fill');
+    const lifeMod = document.getElementById('module-life');
+    const dockMod = document.getElementById('module-dock');
+    const commsMod = document.getElementById('module-comms');
+    const planetLabel = document.getElementById('planet-scan-label');
+    
+    // ------------------------ יצירת רכיבים בצורה מהירה ויעילה ------------------------
+    function createStarfieldFast() {
+        const geom = new THREE.BufferGeometry();
+        const verts = [];
+        for (let i = 0; i < 2500; i++) {
+            verts.push((Math.random() - 0.5) * 400);
+            verts.push((Math.random() - 0.5) * 250);
+            verts.push((Math.random() - 0.5) * 150 - 60);
+        }
+        geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+        const mat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.22, transparent: true, opacity: 0.8 });
+        starPoints = new THREE.Points(geom, mat);
+        groups.stars.add(starPoints);
+    }
+    
+    function createCityFast() {
+        const group = groups.city;
+        const mat = new THREE.MeshStandardMaterial({ color: 0x111b2e, metalness: 0.8, roughness: 0.3, emissive: 0x001133, emissiveIntensity: 0.2 });
+        const buildingCount = isMobile ? 160 : 250;
+        for (let i = 0; i < buildingCount; i++) {
+            const x = (Math.random() - 0.5) * 58;
+            const z = (Math.random() - 0.5) * 160;
+            if (Math.abs(x) < 5 && Math.abs(z) < 45) continue;
+            const h = Math.random() * 8 + 1.2;
+            const box = new THREE.Mesh(new THREE.BoxGeometry(0.85, h, 0.85), mat);
+            box.position.set(x, h / 2, z);
+            group.add(box);
+            // אור ניאון קטן לחלק מהבניינים
+            if (Math.random() > 0.85) {
+                const light = new THREE.PointLight(0x33aaff, 0.4, 8);
+                light.position.set(x, h * 0.6, z);
+                group.add(light);
+            }
+        }
+        // תנועת כלי רכב (InstancedMesh)
+        const vehicleGeo = new THREE.BoxGeometry(0.45, 0.2, 0.9);
+        const vehicleMat = new THREE.MeshStandardMaterial({ color: 0xff66cc, emissive: 0x331122 });
+        const inst = new THREE.InstancedMesh(vehicleGeo, vehicleMat, TRAFFIC_COUNT);
+        inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        for (let i = 0; i < TRAFFIC_COUNT; i++) {
+            const lane = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 3.2 + 1.8);
+            const zPos = (Math.random() - 0.5) * 130;
+            const speed = 0.7 + Math.random() * 1.4;
+            trafficData.push({ lane, z: zPos, speed });
+        }
+        group.add(inst);
+        trafficInstanced = inst;
+    }
+    
+    function createStationFast() {
+        const group = groups.station;
+        const coreMat = new THREE.MeshStandardMaterial({ color: 0x88aaff, metalness: 0.9 });
+        const core = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 2.2, 12), coreMat);
+        group.add(core);
+        const ringMat = new THREE.MeshStandardMaterial({ color: 0x0ff, emissive: 0x0ff, emissiveIntensity: 0.25, wireframe: true });
+        const ring1 = new THREE.Mesh(new THREE.TorusGeometry(3.0, 0.12, 24, 100), ringMat);
+        ring1.rotation.x = Math.PI / 2;
+        group.add(ring1);
+        const ring2 = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.1, 24, 120), ringMat);
+        ring2.rotation.z = Math.PI / 3.5;
+        group.add(ring2);
+        stationRings = [ring1, ring2];
+        
+        const dockPod = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 1.8), new THREE.MeshStandardMaterial({ color: 0xff3366, emissive: 0x441122 }));
+        dockPod.position.set(3.8, 0.2, 0);
+        group.add(dockPod);
+        const dish = new THREE.Mesh(new THREE.ConeGeometry(1.0, 0.9, 6), new THREE.MeshStandardMaterial({ color: 0x77ffaa }));
+        dish.position.set(-3.5, 1.0, 1.2);
+        group.add(dish);
+    }
+    
+    function createPlanetFast() {
+        const group = groups.planet;
+        const geo = new THREE.IcosahedronGeometry(2.7, 2);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x3a7cb0, roughness: 0.5, metalness: 0.2, emissive: 0x112244 });
+        planetMesh = new THREE.Mesh(geo, mat);
+        planetMesh.position.set(0, 0, -13);
+        const cloudGeo = new THREE.SphereGeometry(2.85, 32, 32);
+        const cloudMat = new THREE.MeshPhongMaterial({ color: 0x88ccff, transparent: true, opacity: 0.12 });
+        cloudLayer = new THREE.Mesh(cloudGeo, cloudMat);
+        planetMesh.add(cloudLayer);
+        const ringDeco = new THREE.Mesh(new THREE.TorusGeometry(3.8, 0.07, 48, 160), new THREE.MeshStandardMaterial({ color: 0x88aaff, emissive: 0x225588 }));
+        ringDeco.rotation.x = Math.PI / 2.4;
+        planetMesh.add(ringDeco);
+        group.add(planetMesh);
+    }
+    
+    function createParticleSwarmFast() {
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(PARTICLE_COUNT * 3);
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            positions[i*3] = (Math.random() - 0.5) * 32;
+            positions[i*3+1] = (Math.random() - 0.5) * 32;
+            positions[i*3+2] = (Math.random() - 0.5) * 32;
+        }
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const pMat = new THREE.PointsMaterial({ color: 0xffaa66, size: 0.13, blending: THREE.AdditiveBlending });
+        const pointsObj = new THREE.Points(geometry, pMat);
+        particleSwarm = pointsObj;
+        groups.particle.add(pointsObj);
+        // יצירת מטרות לצורות
+        const targets = [];
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            targets.push(new THREE.Vector3(
+                (Math.random() - 0.5) * 13,
+                (Math.random() - 0.5) * 13,
+                (Math.random() - 0.5) * 13
+            ));
+        }
+        particleTargets = targets;
+    }
+    
+    // ---------- אתחול מלא מהיר ----------
+    function initScene() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x030318);
+        scene.fog = new THREE.FogExp2(0x030318, 0.007);
+        camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 400);
+        camera.position.set(0, 1.8, 6.5);
+        renderer = new THREE.WebGLRenderer({ antialias: !isMobile, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.6 : 2));
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        document.body.appendChild(renderer.domElement);
+        
+        const renderPass = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), BLOOM_STRENGTH, 0.3, 0.5);
+        bloomPass.threshold = 0.1;
+        composer = new EffectComposer(renderer);
+        composer.addPass(renderPass);
+        composer.addPass(bloomPass);
+        
+        // תאורה בסיסית
+        const ambient = new THREE.AmbientLight(0x222222);
+        scene.add(ambient);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(2, 5, 2);
+        scene.add(dirLight);
+        const fill = new THREE.PointLight(0x2266ff, 0.5);
+        fill.position.set(-2, 1, 3);
+        scene.add(fill);
+        
+        // הוספת כל הקבוצות
+        Object.values(groups).forEach(g => scene.add(g));
+        
+        // יצירת כל האובייקטים (סינכרוני, אבל מהיר - לא חסימה כבדה)
+        createStarfieldFast();
+        createCityFast();
+        createStationFast();
+        createPlanetFast();
+        createParticleSwarmFast();
+        
+        // נראות התחלתית
+        setPhaseVisibility('city');
+        
+        // התחלת הלולאה מיד
+        clock.start();
+        startTime = performance.now();
+        animateLoop();
+    }
+    
+    function setPhaseVisibility(phase) {
+        groups.city.visible = (phase === 'city');
+        groups.station.visible = (phase === 'station');
+        groups.planet.visible = (phase === 'planet');
+        groups.particle.visible = (phase === 'particle');
+        groups.stars.visible = true;
+        if (phase === 'planet') planetLabel.style.display = 'block';
+        else planetLabel.style.display = 'none';
+        if (phase !== 'station') {
+            lifeMod.classList.remove('active');
+            dockMod.classList.remove('active');
+            commsMod.classList.remove('active');
+        }
+    }
+    
+    function updateStationModules(cycleTime) {
+        if (cycleTime >= PHASE_STATION.start && cycleTime < PHASE_STATION.end) {
+            const t = (cycleTime - PHASE_STATION.start) / (PHASE_STATION.end - PHASE_STATION.start);
+            lifeMod.classList.remove('active');
+            dockMod.classList.remove('active');
+            commsMod.classList.remove('active');
+            if (t < 0.34) lifeMod.classList.add('active');
+            else if (t < 0.67) dockMod.classList.add('active');
+            else commsMod.classList.add('active');
+        } else {
+            lifeMod.classList.remove('active');
+            dockMod.classList.remove('active');
+            commsMod.classList.remove('active');
+        }
+    }
+    
+    function updateTraffic(delta) {
+        if (!trafficInstanced || !groups.city.visible) return;
+        const matrix = new THREE.Matrix4();
+        const pos = new THREE.Vector3();
+        const scale = new THREE.Vector3(1,1,1);
+        const quat = new THREE.Quaternion();
+        for (let i = 0; i < trafficData.length; i++) {
+            const d = trafficData[i];
+            d.z += d.speed * delta * 2.2;
+            if (d.z > 85) d.z = -85;
+            if (d.z < -85) d.z = 85;
+            pos.set(d.lane, 0.12, d.z);
+            matrix.compose(pos, quat, scale);
+            trafficInstanced.setMatrixAt(i, matrix);
+        }
+        trafficInstanced.instanceMatrix.needsUpdate = true;
+    }
+    
+    function updateParticleSwarm(phaseLocalTime) {
+        if (!particleSwarm || !groups.particle.visible) return;
+        const attr = particleSwarm.geometry.attributes.position;
+        let arr = attr.array;
+        const cnt = PARTICLE_COUNT;
+        if (phaseLocalTime < 4) {
+            for (let i=0; i<cnt*3; i++) arr[i] += (Math.random() - 0.5) * 0.22;
+        } else if (phaseLocalTime < 12) {
+            const prog = (phaseLocalTime - 4) / 8;
+            for (let i=0; i<cnt; i++) {
+                const targ = particleTargets[i % particleTargets.length];
+                const idx = i*3;
+                arr[idx] += (targ.x * prog - arr[idx]) * 0.07;
+                arr[idx+1] += (targ.y * prog - arr[idx+1]) * 0.07;
+                arr[idx+2] += (targ.z * prog - arr[idx+2]) * 0.07;
+            }
+        } else if (phaseLocalTime < 17) {
+            const swirl = (phaseLocalTime - 12) / 5;
+            for (let i=0; i<cnt; i++) {
+                const angle = i * 0.025 + performance.now() * 0.002;
+                const rad = 7.5 * (1 - swirl*0.4);
+                const x = Math.cos(angle) * rad;
+                const z = Math.sin(angle) * rad;
+                const y = Math.sin(angle * 1.5) * 3.5;
+                const idx = i*3;
+                arr[idx] += (x - arr[idx]) * 0.05;
+                arr[idx+1] += (y - arr[idx+1]) * 0.05;
+                arr[idx+2] += (z - arr[idx+2]) * 0.05;
+            }
+        } else {
+            for (let i=0; i<cnt*3; i++) arr[i] += (Math.random() - 0.5) * 0.18;
+        }
+        attr.needsUpdate = true;
+    }
+    
+    function updateCamera(phase, cycleTime, deltaTime) {
+        if (phase === 'city') {
+            const t = (cycleTime - PHASE_CITY.start) / (PHASE_CITY.end - PHASE_CITY.start);
+            const speedT = t * Math.PI;
+            camera.position.x = Math.sin(speedT * 0.9) * 3.2;
+            camera.position.y = 1.9 + Math.sin(speedT * 1.5) * 0.7;
+            camera.position.z = 6.2 + Math.sin(speedT * 1.2) * 1.2;
+            camera.lookAt(0, 0.6, -7);
+        } 
+        else if (phase === 'station') {
+            const angle = cycleTime * 0.55;
+            const radius = 5.0;
+            camera.position.x = Math.sin(angle) * radius;
+            camera.position.z = Math.cos(angle) * radius;
+            camera.position.y = 1.5;
+            camera.lookAt(0, 0.2, 0);
+        }
+        else if (phase === 'planet') {
+            const local = (cycleTime - PHASE_PLANET.start) / (PHASE_PLANET.end - PHASE_PLANET.start);
+            const dist = 7 - local * 2.0;
+            const targetZ = Math.max(3.4, dist);
+            camera.position.lerp(new THREE.Vector3(0, 1.0, targetZ), 0.06);
+            camera.lookAt(0, -0.4, -11);
+            if (planetMesh) planetMesh.rotation.y += 0.006;
+            if (cloudLayer) cloudLayer.rotation.y += 0.003;
+        }
+        else if (phase === 'particle') {
+            camera.position.lerp(new THREE.Vector3(0, 0.6, 8.2), 0.05);
+            camera.lookAt(0, 0, 0);
+        }
+    }
+    
+    // לולאת אנימציה ראשית - מתחילה מייד ללא המתנה
+    function animateLoop() {
+        if (!isRunning) return;
+        requestAnimationFrame(animateLoop);
+        const now = performance.now();
+        const elapsed = (now - startTime) / 1000;
+        currentCycleTime = elapsed % CYCLE_DURATION;
+        const percent = (currentCycleTime / CYCLE_DURATION) * 100;
+        fillBar.style.width = `${percent}%`;
+        
+        let activePhase = 'city';
+        let phaseLocal = 0;
+        if (currentCycleTime >= PHASE_CITY.start && currentCycleTime < PHASE_CITY.end) {
+            activePhase = 'city';
+            phaseLocal = currentCycleTime - PHASE_CITY.start;
+            phaseEl.innerHTML = "🌆 ניאון סיטי | תנועה מהירה";
+            setPhaseVisibility('city');
+        } 
+        else if (currentCycleTime >= PHASE_STATION.start && currentCycleTime < PHASE_STATION.end) {
+            activePhase = 'station';
+            phaseLocal = currentCycleTime - PHASE_STATION.start;
+            phaseEl.innerHTML = "🛸 תחנת חלל | מודולים פעילים";
+            setPhaseVisibility('station');
+            updateStationModules(currentCycleTime);
+        }
+        else if (currentCycleTime >= PHASE_PLANET.start && currentCycleTime < PHASE_PLANET.end) {
+            activePhase = 'planet';
+            phaseLocal = currentCycleTime - PHASE_PLANET.start;
+            phaseEl.innerHTML = "🪐 כוכב X-77 | סריקה עמוקה";
+            setPhaseVisibility('planet');
+        }
+        else if (currentCycleTime >= PHASE_PARTICLE.start && currentCycleTime < PHASE_PARTICLE.end) {
+            activePhase = 'particle';
+            phaseLocal = currentCycleTime - PHASE_PARTICLE.start;
+            phaseEl.innerHTML = "✨ נחיל קוונטי | עיצור צורות";
+            setPhaseVisibility('particle');
+        }
+        else {
+            activePhase = 'city';
+            setPhaseVisibility('city');
+        }
+        
+        const delta = Math.min(0.033, clock.getDelta());
+        if (activePhase === 'city') updateTraffic(delta);
+        if (activePhase === 'particle') updateParticleSwarm(phaseLocal);
+        
+        // סיבוב טבעות בתחנה אם גלויה
+        if (groups.station.visible) {
+            stationRings.forEach((ring, idx) => {
+                ring.rotation.z += 0.009 * (idx+1);
+                ring.rotation.y += 0.006;
+            });
+        }
+        if (starPoints) starPoints.rotation.y += 0.0004;
+        
+        updateCamera(activePhase, currentCycleTime, delta);
+        composer.render();
+    }
+    
+    // התאמת גודל מסך
+    window.addEventListener('resize', () => {
+        if (camera) {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+    });
+    
+    // הפעלה אוטומטית לחלוטין – ללא כפתור, ללא עיכוב
+    initScene();
+    console.log("✅ EXPLORER הופעל אוטומטית, כל האובייקטים נטענו תוך < 0.5 שנייה");
+</script>
+</body>
+</html>

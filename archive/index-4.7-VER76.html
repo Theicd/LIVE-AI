@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Shift - Color Runner</title>
+    <style>
+        :root {
+            --bg-color: #0f0f1a;
+            --ui-bg: rgba(255, 255, 255, 0.1);
+            --text-color: #ffffff;
+            --accent: #00ffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Prevents scrolling on mobile */
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+        }
+
+        /* Canvas Layer */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlay Layer */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas when playing */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #score-display {
+            font-size: 3rem;
+            font-weight: 800;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        #score-label {
+            font-size: 1rem;
+            opacity: 0.7;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Menus */
+        .menu-screen {
+            background: rgba(15, 15, 26, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            max-width: 90%;
+            width: 400px;
+        }
+
+        .hidden {
+            opacity: 0;
+            transform: scale(0.9);
+            pointer-events: none;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            font-style: italic;
+        }
+
+        p {
+            margin-bottom: 30px;
+            line-height: 1.5;
+            color: #ccc;
+        }
+
+        .btn {
+            background: linear-gradient(90deg, #00ffff, #0088ff);
+            border: none;
+            padding: 15px 40px;
+            color: #000;
+            font-weight: bold;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+            width: 100%;
+            text-transform: uppercase;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 5px rgba(0, 255, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            box-shadow: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-top: 15px;
+        }
+
+        .btn-secondary:active {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Bot Indicator */
+        #bot-status {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #00ffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <!-- HUD -->
+        <div id="hud">
+            <div id="score-label">Score</div>
+            <div id="score-display">0</div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="menu-screen">
+            <h1>Neon Shift</h1>
+            <p>TAP to change color.<br>Match the color to survive.</p>
+            <button class="btn" id="btn-play">Play</button>
+            <button class="btn btn-secondary" id="btn-watch-bot">Watch AI Bot</button>
+            <div id="bot-status" style="display: none;">
+                <span class="blink">●</span> AI Playing
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="menu-screen hidden">
+            <h1>Game Over</h1>
+            <p>Score: <span id="final-score">0</span></p>
+            <button class="btn" id="btn-restart">Try Again</button>
+            <button class="btn btn-secondary" id="btn-home">Home</button>
+        </div>
+    </div>
+
+<script>
+/**
+ * GAME ENGINE & LOGIC
+ */
+
+// --- Configuration ---
+const COLORS = ['#00ffff', '#ff00ff', '#ffff00']; // Cyan, Magenta, Yellow
+const BG_COLOR = '#0f0f1a';
+const PLAYER_RADIUS = 15;
+const BOT_THINKING_DELAY = 150; // ms between bot actions
+
+// --- State Management ---
+const state = {
+    screen: 'start', // start, playing, gameover
+    score: 0,
+    speed: 5,
+    frameCount: 0,
+    isBotActive: false,
+    lastBotAction: 0
+};
+
+// --- DOM Elements ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const uiLayer = document.getElementById('ui-layer');
+const startScreen = document.getElementById('start-screen');
+const gameOverScreen = document.getElementById('game-over-screen');
+const hud = document.getElementById('hud');
+const scoreDisplay = document.getElementById('score-display');
+const finalScoreDisplay = document.getElementById('final-score');
+const botStatus = document.getElementById('bot-status');
+
+// --- Audio Context (Simple Synth) ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+
+function initAudio() {
+    if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playSound(type) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    const now = audioCtx.currentTime;
+
+    if (type === 'switch') {
+        // High pitch blip
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+    } else if (type === 'die') {
+        // Low crash
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now);
+        osc.stop(now + 0.3);
+    }
+}
+
+// --- Game Entities ---
+
+class Player {
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        this.x = canvas.width / 2;
+        this.y = canvas.height - 100;
+        this.colorIndex = 0;
+        this.radius = PLAYER_RADIUS;
+        this.targetX = this.x; // For smooth follow
+        this.scale = 1;
+    }
+
+    changeColor() {
+        this.colorIndex = (this.colorIndex + 1) % COLORS.length;
+        this.scale = 1.3; // Pop effect
+        playSound('switch');
+        createParticles(this.x, this.y, COLORS[this.colorIndex], 10);
+    }
+
+    update() {
+        // Smooth follow mouse/finger x
+        this.x += (this.targetX - this.x) * 0.15;
+        
+        // Clamp to screen
+        if (this.x < this.radius) this.x = this.radius;
+        if (this.x > canvas.width - this.radius) this.x = canvas.width - this.radius;
+
+        // Animate scale back to normal
+        this.scale += (1 - this.scale) * 0.1;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.scale(this.scale, this.scale);
+        
+        // Glow effect
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = COLORS[this.colorIndex];
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = COLORS[this.colorIndex];
+        ctx.fill();
+        
+        // Inner white dot for detail
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+class Obstacle {
+    constructor() {
+        this.width = 40;
+        this.height = Math.random() * 150 + 50; // Random height
+        this.x = Math.random() * (canvas.width - this.width);
+        this.y = -this.height - 50;
+        this.colorIndex = Math.floor(Math.random() * COLORS.length);
+        this.speed = state.speed + Math.random() * 2;
+        this.passed = false;
+    }
+
+    update() {
+        this.y += this.speed;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.fillStyle = COLORS[this.colorIndex];
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = COLORS[this.colorIndex];
+        
+        // Draw a rectangle with rounded top
+        ctx.beginPath();
+        ctx.roundRect(this.x, this.y, this.width, this.height, [10, 10, 0, 0]);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 3 + 1;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.life = 1.0;
+        this.decay = Math.random() * 0.03 + 0.02;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= this.decay;
+    }
+
+    draw() {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+// --- Global Variables ---
+let player;
+let obstacles = [];
+let particles = [];
+let animationId;
+
+// --- Core Functions ---
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    if (player) {
+        player.y = canvas.height - 100;
+        // Keep player in bounds
+        if (player.x > canvas.width) player.x = canvas.width - 20;
+    }
+}
+
+function initGame() {
+    player = new Player();
+    obstacles = [];
+    particles = [];
+    state.score = 0;
+    state.speed = 6;
+    state.frameCount = 0;
+    state.isBotActive = false;
+    scoreDisplay.textContent = '0';
+    hud.style.opacity = '1';
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    botStatus.style.display = 'none';
+    
+    state.screen = 'playing';
+    initAudio();
+    loop();
+}
+
+function createParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+        particles.push(new Particle(x, y, color));
+    }
+}
+
+function gameOver() {
+    state.screen = 'gameover';
+    playSound('die');
+    hud.style.opacity = '0';
+    finalScoreDisplay.textContent = Math.floor(state.score);
+    gameOverScreen.classList.remove('hidden');
+    cancelAnimationFrame(animationId);
+}
+
+// --- Bot Logic ---
+function runBot() {
+    if (!state.isBotActive || state.screen !== 'playing') return;
+
+    const now = Date.now();
+    if (now - state.lastBotAction < BOT_THINKING_DELAY) return;
+    state.lastBotAction = now;
+
+    // 1. Find the closest obstacle
+    let closestObstacle = null;
+    let minDistance = Infinity;
+
+    obstacles.forEach(obs => {
+        // Distance is based on obstacle top edge
+        const dist = obs.y - player.y; 
+        if (dist > 0 && dist < minDistance) {
+            minDistance = dist;
+            closestObstacle = obs;
+        }
+    });
+
+    // 2. Decide action
+    if (closestObstacle) {
+        // If the obstacle color matches player, do nothing (safe).
+        // If different, change color to match obstacle.
+        if (closestObstacle.colorIndex !== player.colorIndex) {
+            player.colorIndex = closestObstacle.colorIndex;
+            player.scale = 1.3; // Visual feedback for bot
+            playSound('switch'); // Subtle sound for bot
+        }
+    } else {
+        // No obstacles nearby, pick a random color to keep it interesting
+        if (Math.random() > 0.8) {
+            player.colorIndex = (player.colorIndex + 1) % COLORS.length;
+        }
+    }
+}
+
+// --- Main Loop ---
+function loop() {
+    if (state.screen !== 'playing') return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Background Grid Effect (Moving)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.lineWidth = 1;
+    const gridOffset = (state.frameCount * state.speed) % 50;
+    
+    ctx.beginPath();
+    // Vertical lines
+    for(let x = 0; x <= canvas.width; x+=50) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+    }
+    // Horizontal lines (moving down)
+    for(let y = gridOffset; y <= canvas.height; y+=50) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+    }
+    ctx.stroke();
+
+    // Spawn Obstacles
+    if (state.frameCount % 60 === 0) { // Every ~1 second
+        obstacles.push(new Obstacle());
+    }
+
+    // Update & Draw Player
+    player.update();
+    player.draw();
+
+    // Bot Logic
+    runBot();
+
+    // Update & Draw Obstacles
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        let obs = obstacles[i];
+        obs.update();
+        obs.draw();
+
+        // Collision Detection
+        // Simple AABB vs Circle logic
+        // Check vertical overlap
+        if (player.y + player.radius > obs.y && player.y - player.radius < obs.y + obs.height) {
+            // Check horizontal overlap
+            if (player.x + player.radius > obs.x && player.x - player.radius < obs.x + obs.width) {
+                // Collision!
+                if (player.colorIndex !== obs.colorIndex) {
+                    createParticles(player.x, player.y, COLORS[player.colorIndex], 30);
+                    gameOver();
+                    return; // Stop frame
+                }
+            }
+        }
+
+        // Score Update
+        if (obs.y > canvas.height && !obs.passed) {
+            obs.passed = true;
+            state.score += 10;
+            scoreDisplay.textContent = state.score;
+            
+            // Increase difficulty slightly
+            if (state.score % 100 === 0) {
+                state.speed += 0.5;
+            }
+        }
+
+        // Remove off-screen
+        if (obs.y > canvas.height) {
+            obstacles.splice(i, 1);
+        }
+    }
+
+    // Update & Draw Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.update();
+        p.draw();
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    state.frameCount++;
+    animationId = requestAnimationFrame(loop);
+}
+
+// --- Event Listeners ---
+
+// Resize
+window.addEventListener('resize', resize);
+
+// Input Handling
+function handleInput(e) {
+    if (state.screen !== 'playing') return;
+    // Prevent default only if we want to stop zooming, but we used CSS touch-action
+    
+    if (state.isBotActive) return; // Don't let user interrupt bot
+
+    // Check if it's a touch or click
+    if (e.type === 'touchstart') {
+        e.preventDefault(); // Stop scrolling
+        player.targetX = e.touches[0].clientX;
+        player.changeColor();
+    } else if (e.type === 'mousedown') {
+        player.targetX = e.clientX;
+        player.changeColor();
+    }
+}
+
+// Add listeners to canvas
+canvas.addEventListener('touchstart', handleInput, {passive: false});
+canvas.addEventListener('mousedown', handleInput);
+
+// UI Buttons
+document.getElementById('btn-play').addEventListener('click', () => {
+    state.isBotActive = false;
+    initGame();
+});
+
+document.getElementById('btn-restart').addEventListener('click', () => {
+    initGame();
+});
+
+document.getElementById('btn-home').addEventListener('click', () => {
+    state.screen = 'start';
+    startScreen.classList.remove('hidden');
+    gameOverScreen.classList.add('hidden');
+    hud.style.opacity = '0';
+});
+
+document.getElementById('btn-watch-bot').addEventListener('click', () => {
+    state.isBotActive = true;
+    startScreen.classList.add('hidden');
+    hud.style.opacity = '1';
+    botStatus.style.display = 'flex';
+    initGame();
+});
+
+// Initial setup
+resize();
+player = new Player(); // Just for drawing background initially
+
+</script>
+</body>
+</html>

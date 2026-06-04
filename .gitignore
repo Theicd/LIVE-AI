@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.env
+.env.*
+*.log
+
+# Local runtime state (per-machine prompt rotation)
+prompt_state.json
+
+# IDE / OS
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
+
+# Old duplicate snapshots (keep only root + archive/)
+1/
+2/

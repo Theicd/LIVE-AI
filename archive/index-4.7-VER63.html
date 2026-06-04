@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Horizon - 3D Interactive Experience</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Orbitron for Sci-Fi feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* UI Overlay Styles */
+        .ui-layer {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to 3D scene */
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        .interactive-element {
+            pointer-events: auto;
+        }
+
+        .glass-panel {
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.1);
+        }
+
+        .neon-text {
+            color: #00f3ff;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.8), 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+
+        .neon-text-pink {
+            color: #ff00aa;
+            text-shadow: 0 0 10px rgba(255, 0, 170, 0.8), 0 0 20px rgba(255, 0, 170, 0.4);
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #00f3ff;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px #00f3ff;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 1s ease-out;
+        }
+        
+        .loader-ring {
+            width: 80px;
+            height: 80px;
+            border: 4px solid transparent;
+            border-top: 4px solid #00f3ff;
+            border-right: 4px solid #ff00aa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="loader-ring mb-4"></div>
+        <div class="text-cyan-400 font-bold tracking-widest text-xl">INITIALIZING SYSTEM</div>
+    </div>
+
+    <!-- 3D Container -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div class="ui-layer">
+        <!-- Header -->
+        <div class="flex justify-between items-start">
+            <div class="interactive-element">
+                <h1 class="text-5xl font-black font-['Orbitron'] neon-text tracking-tighter">NEON HORIZON</h1>
+                <p class="text-gray-400 text-sm tracking-widest mt-1">PROCEDURAL CYBER-LANDSCAPE</p>
+            </div>
+            <div class="interactive-element glass-panel px-4 py-2 rounded-lg">
+                <span class="text-xs text-cyan-300 font-mono">FPS: <span id="fps-counter" class="text-white">60</span></span>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex justify-center items-end pb-8">
+            <div class="interactive-element glass-panel p-6 rounded-xl w-full max-w-md transform transition hover:scale-105 duration-300">
+                <div class="flex justify-between items-center mb-4">
+                    <label class="text-cyan-400 font-bold font-['Orbitron'] text-sm">VELOCITY</label>
+                    <span id="speed-val" class="text-white font-mono text-sm">1.0x</span>
+                </div>
+                <input type="range" id="speed-slider" min="0" max="3" step="0.1" value="1">
+                
+                <div class="flex justify-between items-center mt-4 mb-2">
+                    <label class="text-pink-500 font-bold font-['Orbitron'] text-sm">BLOOM INTENSITY</label>
+                    <span id="bloom-val" class="text-white font-mono text-sm">1.5</span>
+                </div>
+                <input type="range" id="bloom-slider" min="0" max="3" step="0.1" value="1.5">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Logic -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- Configuration ---
+        const CONFIG = {
+            terrainSize: 200,
+            terrainSegments: 128,
+            fogColor: 0x050510,
+            gridColor: 0x00f3ff,
+            peakColor: 0x220044,
+            bgColor: 0x000000,
+            baseSpeed: 0.05,
+            maxSpeed: 0.3
+        };
+
+        // --- State ---
+        let state = {
+            speed: 1.0,
+            time: 0,
+            mouseX: 0,
+            mouseY: 0
+        };
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(CONFIG.bgColor);
+        scene.fog = new THREE.FogExp2(CONFIG.fogColor, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 15);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        container.appendChild(renderer.domElement);
+
+        // --- Controls ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.1; // Prevent going below ground
+        controls.minDistance = 5;
+        controls.maxDistance = 50;
+        controls.enablePan = false;
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(50, 50, 50);
+        scene.add(dirLight);
+
+        // --- Procedural Terrain Generation ---
+        // Simple pseudo-random noise function for single-file portability
+        function noise(x, z) {
+            const sin = Math.sin;
+            const cos = Math.cos;
+            return sin(x * 0.1) * cos(z * 0.1) * 2 + 
+                   sin(x * 0.3 + 1) * cos(z * 0.3) * 1 + 
+                   sin(x * 0.5 + 2) * cos(z * 0.5) * 0.5;
+        }
+
+        const geometry = new THREE.PlaneGeometry(CONFIG.terrainSize, CONFIG.terrainSize, CONFIG.terrainSegments, CONFIG.terrainSegments);
+        geometry.rotateX(-Math.PI / 2);
+
+        const count = geometry.attributes.position.count;
+        const colors = [];
+        const originalPositions = [];
+
+        for (let i = 0; i < count; i++) {
+            const x = geometry.attributes.position.getX(i);
+            const z = geometry.attributes.position.getZ(i);
+            
+            // Calculate height
+            let y = noise(x, z) * 3; // Base height
+            
+            // Add some "mountains" using multiple octaves
+            y += noise(x * 2, z * 2) * 1.5;
+            y += noise(x * 5, z * 5) * 0.5;
+
+            // Clamp height for aesthetics
+            if (y < -2) y = -2;
+            if (y > 8) y = 8;
+
+            geometry.attributes.position.setY(i, y);
+            
+            // Store original for animation
+            originalPositions.push({x, y, z});
+            
+            // Vertex coloring based on height
+            const color = new THREE.Color();
+            if (y < -1) {
+                color.setHex(0x1a1a2e); // Deep valleys
+            } else if (y < 2) {
+                color.setHex(0x2d1b4e); // Mid terrain
+            } else {
+                color.setHex(0xff00aa); // Peaks
+            }
+            colors.push(color.r, color.g, color.b);
+        }
+
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geometry.computeVertexNormals();
+
+        // Material 1: Solid Low-Poly
+        const material = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.8,
+            metalness: 0.2,
+            flatShading: true,
+            side: THREE.DoubleSide
+        });
+
+        const terrain = new THREE.Mesh(geometry, material);
+        scene.add(terrain);
+
+        // Material 2: Wireframe Overlay (Tron Style)
+        const wireframeGeo = new THREE.WireframeGeometry(geometry);
+        const wireframeMat = new THREE.LineBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.15 });
+        const wireframe = new THREE.LineSegments(wireframeGeo, wireframeMat);
+        // Slightly offset wireframe for depth effect
+        wireframe.position.y = 0.1;
+        scene.add(wireframe);
+
+        // --- Particle System (Stars/Dust) ---
+        const particlesCount = 1500;
+        const posArray = new Float32Array(particlesCount * 3);
+        
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 150; // Spread wide
+        }
+        
+        const particlesGeo = new THREE.BufferGeometry();
+        particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        
+        const particlesMat = new THREE.PointsMaterial({
+            size: 0.2,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+        
+        const particlesMesh = new THREE.Points(particlesGeo, particlesMat);
+        scene.add(particlesMesh);
+
+        // --- Post Processing (Bloom) ---
+        const renderScene = new RenderPass(scene, camera);
+        
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0;
+        bloomPass.strength = 1.5;
+        bloomPass.radius = 0.5;
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- Animation Loop ---
+        const clock = new THREE.Clock();
+        const fpsCounter = document.getElementById('fps-counter');
+        let frameCount = 0;
+        let lastTime = 0;
+
+        // --- UI Interactions ---
+        const speedSlider = document.getElementById('speed-slider');
+        const speedVal = document.getElementById('speed-val');
+        const bloomSlider = document.getElementById('bloom-slider');
+        const bloomVal = document.getElementById('bloom-val');
+
+        speedSlider.addEventListener('input', (e) => {
+            state.speed = parseFloat(e.target.value);
+            speedVal.innerText = state.speed.toFixed(1) + 'x';
+        });
+
+        bloomSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            bloomPass.strength = val;
+            bloomVal.innerText = val.toFixed(1);
+        });
+
+        // Mouse interaction for subtle parallax
+        document.addEventListener('mousemove', (event) => {
+            state.mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            state.mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            state.time += delta * state.speed * CONFIG.baseSpeed;
+
+            // 1. Terrain Movement Simulation
+            // We move the geometry along the Z axis (which is 'Y' in local space before rotation)
+            // Actually, we just update vertex positions to simulate flying
+            const positions = geometry.attributes.position.array;
+            
+            for (let i = 0; i < count; i++) {
+                const orig = originalPositions[i];
+                
+                // Calculate new Z based on time and X (creates a wave/movement effect)
+                // We map the "world" movement to the local vertex coordinates
+                let zOffset = orig.z + state.time * 5;
+                
+                // Wrap around logic for infinite terrain illusion
+                const terrainHalf = CONFIG.terrainSize / 2;
+                if (zOffset > terrainHalf) zOffset -= CONFIG.terrainSize;
+                if (zOffset < -terrainHalf) zOffset += CONFIG.terrainSize;
+
+                // Re-calculate height based on new Z (to keep mountains moving)
+                // Note: In a real infinite engine, you'd shift the whole mesh buffer. 
+                // Here we just shift the math.
+                let y = noise(orig.x, zOffset) * 3;
+                y += noise(orig.x * 2, zOffset * 2) * 1.5;
+                y += noise(orig.x * 5, zOffset * 5) * 0.5;
+                
+                // Clamp
+                if (y < -2) y = -2;
+                if (y > 8) y = 8;
+
+                positions[i * 3 + 1] = y;
+            }
+            
+            geometry.attributes.position.needsUpdate = true;
+            geometry.computeVertexNormals(); // Recompute lighting
+
+            // Update wireframe to match (expensive but necessary for sync)
+            // For performance, we might skip wireframe update every frame in heavy scenes, 
+            // but for this segment count it's fine.
+            const wireframePositions = wireframe.geometry.attributes.position;
+            // Note: WireframeGeometry is static, so we need to recreate it or just skip updating it perfectly.
+            // Optimization: Only update vertices of the wireframe mesh if we want perfect sync.
+            // For this visual style, slight desync is acceptable, but let's try to move it.
+            wireframe.position.z = -state.time * 5;
+            if(wireframe.position.z < -CONFIG.terrainSize/2) {
+                wireframe.position.z += CONFIG.terrainSize;
+            }
+
+            // 2. Particle Animation
+            particlesMesh.rotation.y = state.time * 0.05;
+            particlesMesh.position.z = state.time * 10;
+            if (particlesMesh.position.z > 50) particlesMesh.position.z = -50;
+
+            // 3. Camera Interaction
+            controls.update();
+
+            // 4. Render
+            composer.render();
+
+            // FPS Counter
+            frameCount++;
+            if (clock.getElapsedTime() - lastTime >= 1) {
+                fpsCounter.innerText = frameCount;
+                frameCount = 0;
+                lastTime = clock.getElapsedTime();
+            }
+        }
+
+        // --- Resize Handler ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- Start ---
+        // Hide loader after a brief moment
+        setTimeout(() => {
+            document.getElementById('loader').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+            }, 1000);
+        }, 1500);
+
+        animate();
+
+    </script>
+</body>
+</html>

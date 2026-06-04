@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS | Future Tech Solutions</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg-dark: #050505;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: none; /* Custom cursor used */
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Rajdhani', sans-serif;
+            overflow-x: hidden;
+            width: 100vw;
+        }
+
+        /* Custom Cursor */
+        #cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.2s, height 0.2s, background-color 0.2s;
+            mix-blend-mode: difference;
+        }
+        #cursor.hovered {
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 243, 255, 0.2);
+            border-color: var(--secondary);
+        }
+
+        /* 3D Canvas Container */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: -1;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+        }
+
+        /* UI Overlay */
+        .ui-layer {
+            position: relative;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to 3D where empty */
+        }
+
+        /* Navigation */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 5%;
+            pointer-events: auto;
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-main);
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        .nav-links button {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.5rem 1.5rem;
+            margin-left: 1rem;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-links button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.2), transparent);
+            transition: 0.5s;
+        }
+
+        .nav-links button:hover::before {
+            left: 100%;
+        }
+
+        .nav-links button:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        /* Hero Section */
+        header {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0 20px;
+            pointer-events: auto;
+        }
+
+        h1.glitch {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 900;
+            position: relative;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+            text-transform: uppercase;
+        }
+
+        .glitch::before, .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glitch::before {
+            left: 2px;
+            text-shadow: -1px 0 #ff00c1;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+        }
+
+        .glitch::after {
+            left: -2px;
+            text-shadow: -1px 0 #00fff9;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 5s infinite linear alternate-reverse;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin-bottom: 2rem;
+        }
+
+        .cta-btn {
+            padding: 1rem 3rem;
+            font-size: 1.2rem;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            border: none;
+            color: #000;
+            font-weight: 900;
+            font-family: 'Orbitron', sans-serif;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+            transition: transform 0.2s, filter 0.2s;
+        }
+
+        .cta-btn:hover {
+            transform: scale(1.05);
+            filter: brightness(1.2);
+        }
+
+        /* Business Sections */
+        section {
+            padding: 5rem 10%;
+            pointer-events: auto;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            text-align: center;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+            transform: scaleY(0);
+            transition: transform 0.4s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px rgba(0, 243, 255, 0.1);
+        }
+
+        .card:hover::before {
+            transform: scaleY(1);
+        }
+
+        .card h3 {
+            font-family: 'Orbitron', sans-serif;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .card p {
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* Stats Section */
+        .stats-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            text-align: center;
+            gap: 2rem;
+        }
+
+        .stat-item h2 {
+            font-size: 4rem;
+            font-family: 'Orbitron', sans-serif;
+            color: var(--secondary);
+        }
+
+        .stat-item p {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.9rem;
+        }
+
+        /* Contact Form */
+        .contact-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--glass);
+            padding: 3rem;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            border-color: var(--secondary);
+        }
+
+        /* Toast Notification */
+        #toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 100;
+        }
+
+        .toast {
+            background: rgba(0, 0, 0, 0.9);
+            border-left: 4px solid var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            margin-top: 1rem;
+            border-radius: 4px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            transform: translateX(120%);
+            transition: transform 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            pointer-events: auto;
+        }
+
+        /* Animations */
+        @keyframes glitch-anim {
+            0% { clip: rect(12px, 9999px, 86px, 0); }
+            5% { clip: rect(65px, 9999px, 3px, 0); }
+            10% { clip: rect(98px, 9999px, 12px, 0); }
+            15% { clip: rect(4px, 9999px, 54px, 0); }
+            20% { clip: rect(32px, 9999px, 76px, 0); }
+            25% { clip: rect(10px, 9999px, 23px, 0); }
+            30% { clip: rect(78px, 9999px, 45px, 0); }
+            35% { clip: rect(2px, 9999px, 67px, 0); }
+            40% { clip: rect(55px, 9999px, 12px, 0); }
+            45% { clip: rect(89px, 9999px, 34px, 0); }
+            50% { clip: rect(23px, 9999px, 56px, 0); }
+            55% { clip: rect(67px, 9999px, 89px, 0); }
+            60% { clip: rect(34px, 9999px, 12px, 0); }
+            65% { clip: rect(78px, 9999px, 45px, 0); }
+            70% { clip: rect(12px, 9999px, 98px, 0); }
+            75% { clip: rect(56px, 9999px, 23px, 0); }
+            80% { clip: rect(89px, 9999px, 67px, 0); }
+            85% { clip: rect(23px, 9999px, 45px, 0); }
+            90% { clip: rect(67px, 9999px, 12px, 0); }
+            95% { clip: rect(34px, 9999px, 78px, 0); }
+            100% { clip: rect(56px, 9999px, 34px, 0); }
+        }
+
+        @keyframes glitch-anim2 {
+            0% { clip: rect(65px, 9999px, 100px, 0); }
+            100% { clip: rect(12px, 9999px, 45px, 0); }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            h1.glitch { font-size: 2.5rem; }
+            nav { flex-direction: column; gap: 1rem; }
+            .section-title { font-size: 2rem; }
+            #cursor { display: none; } /* Disable custom cursor on touch */
+            * { cursor: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Custom Cursor -->
+    <div id="cursor"></div>
+
+    <!-- 3D Background -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div class="ui-layer">
+        <nav>
+            <div class="logo">NEXUS</div>
+            <div class="nav-links">
+                <button onclick="scrollToSection('features')">Features</button>
+                <button onclick="scrollToSection('stats')">Stats</button>
+                <button onclick="scrollToSection('contact')">Contact</button>
+            </div>
+        </nav>
+
+        <header>
+            <h1 class="glitch" id="hero-title" data-text="FUTURE_OS">FUTURE_OS</h1>
+            <p class="subtitle">Next-generation neural interfaces and quantum processing solutions. <br>Experience the evolution of reality.</p>
+            <button class="cta-btn" onclick="triggerExplosion()">Initialize System</button>
+        </header>
+
+        <section id="features">
+            <h2 class="section-title">Core Modules</h2>
+            <div class="features-grid">
+                <div class="card interactable">
+                    <h3>Neural Link</h3>
+                    <p>Direct brain-to-cloud synchronization with zero latency. Upload thoughts and download knowledge instantly.</p>
+                </div>
+                <div class="card interactable">
+                    <h3>Quantum Core</h3>
+                    <p>Processing power that defies the laws of physics. Solve complex algorithms in a fraction of a nanosecond.</p>
+                </div>
+                <div class="card interactable">
+                    <h3>Holo-Display</h3>
+                    <p>Augmented reality interfaces projected directly onto the retina. Seamless integration with the physical world.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="stats">
+            <h2 class="section-title">System Metrics</h2>
+            <div class="stats-container">
+                <div class="stat-item">
+                    <h2 data-target="98">0</h2>
+                    <p>Efficiency %</p>
+                </div>
+                <div class="stat-item">
+                    <h2 data-target="500">0</h2>
+                    <p>Nodes Online</p>
+                </div>
+                <div class="stat-item">
+                    <h2 data-target="24">0</h2>
+                    <p>Latency (ms)</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact">
+            <h2 class="section-title">Establish Uplink</h2>
+            <div class="contact-wrapper">
+                <form id="contact-form" onsubmit="handleFormSubmit(event)">
+                    <div class="form-group">
+                        <label>Identity</label>
+                        <input type="text" required placeholder="Enter your name">
+                    </div>
+                    <div class="form-group">
+                        <label>Comm Link</label>
+                        <input type="email" required placeholder="Enter your email">
+                    </div>
+                    <div class="form-group">
+                        <label>Transmission</label>
+                        <textarea rows="5" required placeholder="Message content..."></textarea>
+                    </div>
+                    <button type="submit" class="cta-btn" style="width: 100%; border:none;">Transmit Data</button>
+                </form>
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 2077 NEXUS TECHNOLOGIES. ALL RIGHTS RESERVED. SYSTEM SECURE.</p>
+        </footer>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        /**
+         * APPLICATION STATE
+         */
+        const state = {
+            themeColor: '#00f3ff',
+            secondaryColor: '#bc13fe',
+            objectTypes: ['torus', 'cubeCluster', 'icosahedron', 'rings', 'sphere'],
+            currentType: 'torus',
+            mouseX: 0,
+            mouseY: 0,
+            isHovering: false
+        };
+
+        // Randomize Theme and Object on Load
+        const randomHue = Math.floor(Math.random() * 360);
+        state.themeColor = `hsl(${randomHue}, 100%, 50%)`;
+        state.secondaryColor = `hsl(${(randomHue + 180) % 360}, 100%, 50%)`;
+        state.currentType = state.objectTypes[Math.floor(Math.random() * state.objectTypes.length)];
+
+        // Update CSS Variables
+        document.documentElement.style.setProperty('--primary', state.themeColor);
+        document.documentElement.style.setProperty('--secondary', state.secondaryColor);
+
+        /**
+         * THREE.JS SETUP
+         */
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        // Fog for depth
+        scene.fog = new THREE.FogExp2(0x050505, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        /**
+         * LIGHTING
+         */
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        const pointLight1 = new THREE.PointLight(state.themeColor, 2, 50);
+        pointLight1.position.set(5, 5, 5);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(state.secondaryColor, 2, 50);
+        pointLight2.position.set(-5, -5, 5);
+        scene.add(pointLight2);
+
+        /**
+         * OBJECTS
+         */
+        const mainGroup = new THREE.Group();
+        scene.add(mainGroup);
+
+        let mainObject = null;
+        let particles = null;
+        let grid = null;
+
+        // 1. Grid Floor
+        grid = new THREE.GridHelper(50, 50, state.themeColor, 0x222222);
+        grid.position.y = -3;
+        scene.add(grid);
+
+        // 2. Central Object Factory
+        function createObject(type) {
+            if (mainObject) {
+                mainGroup.remove(mainObject);
+                mainObject.geometry.dispose();
+                mainObject.material.dispose();
+            }
+
+            let geometry;
+            let material = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                roughness: 0.2,
+                metalness: 0.8,
+                wireframe: false,
+                emissive: 0x000000
+            });
+
+            switch(type) {
+                case 'torus':
+                    geometry = new THREE.TorusKnotGeometry(1, 0.3, 100, 16);
+                    break;
+                case 'cubeCluster':
+                    geometry = new THREE.IcosahedronGeometry(1.5, 0);
+                    material.wireframe = true;
+                    break;
+                case 'icosahedron':
+                    geometry = new THREE.IcosahedronGeometry(1.5, 1);
+                    break;
+                case 'rings':
+                    geometry = new THREE.TorusGeometry(1, 0.05, 16, 100);
+                    break;
+                case 'sphere':
+                    geometry = new THREE.SphereGeometry(1.5, 64, 64);
+                    break;
+                default:
+                    geometry = new THREE.BoxGeometry(2, 2, 2);
+            }
+
+            mainObject = new THREE.Mesh(geometry, material);
+            mainGroup.add(mainObject);
+        }
+
+        createObject(state.currentType);
+
+        // 3. Particle Network Background
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 700;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 25; // Spread
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.03,
+            color: state.secondaryColor,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        particles = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particles);
+
+        // 4. Floating Orbs (Debris)
+        const debrisGroup = new THREE.Group();
+        for(let i=0; i<20; i++) {
+            const size = Math.random() * 0.1;
+            const geo = new THREE.SphereGeometry(size, 8, 8);
+            const mat = new THREE.MeshBasicMaterial({ color: state.themeColor, wireframe: true });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(
+                (Math.random() - 0.5) * 15,
+                (Math.random() - 0.5) * 15,
+                (Math.random() - 0.5) * 15
+            );
+            debrisGroup.add(mesh);
+        }
+        scene.add(debrisGroup);
+
+        /**
+         * INTERACTION (Raycaster & Mouse)
+         */
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            // Custom Cursor
+            const cursor = document.getElementById('cursor');
+            cursor.style.left = event.clientX + 'px';
+            cursor.style.top = event.clientY + 'px';
+
+            // Three.js Mouse Logic
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            state.mouseX = event.clientX;
+            state.mouseY = event.clientY;
+        });
+
+        // Custom cursor hover effect on DOM elements
+        document.querySelectorAll('button, a, .card, input, textarea').forEach(el => {
+            el.addEventListener('mouseenter', () => document.getElementById('cursor').classList.add('hovered'));
+            el.addEventListener('mouseleave', () => document.getElementById('cursor').classList.remove('hovered'));
+        });
+
+        /**
+         * ANIMATION LOOP
+         */
+        let time = 0;
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += clock.getDelta();
+
+            const hueCycle = (Math.sin(time * 0.5) + 1) * 0.5; // 0 to 1
+
+            // 1. Object Animation
+            if (mainObject) {
+                // Base Rotation
+                mainObject.rotation.x += 0.005;
+                mainObject.rotation.y += 0.01;
+
+                // Orbital Motion (Simulating orbit around a center)
+                mainObject.position.x = Math.sin(time * 0.5) * 0.5;
+                mainObject.position.y = Math.cos(time * 0.3) * 0.5;
+
+                // Pulse Scale
+                const scale = 1 + Math.sin(time * 2) * 0.05;
+                mainObject.scale.set(scale, scale, scale);
+
+                // Hover Effect Logic
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(mainObject);
+
+                if (intersects.length > 0 && !state.isHovering) {
+                    state.isHovering = true;
+                    // Transition to Wireframe/Glow
+                    mainObject.material.wireframe = true;
+                    mainObject.material.emissive.setHex(0xffffff);
+                    mainObject.material.emissiveIntensity = 0.5;
+                    document.getElementById('cursor').classList.add('hovered');
+                } else if (intersects.length === 0 && state.isHovering) {
+                    state.isHovering = false;
+                    // Revert
+                    mainObject.material.wireframe = false;
+                    mainObject.material.emissive.setHex(0x000000);
+                    mainObject.material.emissiveIntensity = 0;
+                    document.getElementById('cursor').classList.remove('hovered');
+                }
+            }
+
+            // 2. Background Animation
+            particles.rotation.y = time * 0.05;
+            particles.rotation.x = time * 0.02;
+            
+            // Update debris
+            debrisGroup.rotation.y = -time * 0.1;
+            debrisGroup.children.forEach((orb, i) => {
+                orb.rotation.x += 0.02;
+                orb.position.y += Math.sin(time + i) * 0.002;
+            });
+
+            // 3. Camera Parallax
+            camera.position.x += (mouse.x * 0.5 - camera.position.x) * 0.05;
+            camera.position.y += (mouse.y * 0.5 - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        /**
+         * UI LOGIC
+         */
+
+        // Scroll to Section
+        function scrollToSection(id) {
+            document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Trigger Explosion Effect (Visual Feedback)
+        function triggerExplosion() {
+            if(!mainObject) return;
+            
+            // Temporary scale up
+            const originalScale = mainObject.scale.x;
+            let explosionFrame = 0;
+            
+            const explode = () => {
+                explosionFrame++;
+                const scale = originalScale + Math.sin(explosionFrame * 0.5) * 0.5;
+                mainObject.scale.set(scale, scale, scale);
+                
+                // Change color momentarily
+                mainObject.material.color.setHex(0xffffff);
+                
+                if(explosionFrame < 20) {
+                    requestAnimationFrame(explode);
+                } else {
+                    mainObject.scale.set(originalScale, originalScale, originalScale);
+                    mainObject.material.color.setHex(0xffffff);
+                }
+            };
+            explode();
+
+            // Show Toast
+            showToast("System Initialized. Connection Secure.", "success");
+        }
+
+        // Stats Counter Animation
+        const statsSection = document.getElementById('stats');
+        let statsAnimated = false;
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !statsAnimated) {
+                    statsAnimated = true;
+                    const counters = document.querySelectorAll('.stat-item h2');
+                    counters.forEach(counter => {
+                        const target = +counter.getAttribute('data-target');
+                        const speed = 200; // Lower is slower
+                        
+                        const updateCount = () => {
+                            const count = +counter.innerText;
+                            const inc = target / speed;
+
+                            if (count < target) {
+                                counter.innerText = Math.ceil(count + inc);
+                                setTimeout(updateCount, 20);
+                            } else {
+                                counter.innerText = target + (counter.parentElement.innerText.includes('%') ? '%' : '+');
+                            }
+                        };
+                        updateCount();
+                    });
+                }
+            });
+        }, { threshold: 0.5 });
+
+        observer.observe(statsSection);
+
+        // Form Handling
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerText;
+            
+            btn.innerText = "ENCRYPTING...";
+            btn.style.opacity = "0.7";
+
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.opacity = "1";
+                e.target.reset();
+                showToast("Transmission Sent Successfully.", "success");
+            }, 1500);
+        }
+
+        // Toast Notification System
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerText = message;
+            
+            if(type === 'success') {
+                toast.style.borderLeftColor = '#00ff00';
+            }
+
+            container.appendChild(toast);
+
+            // Trigger animation
+            setTimeout(() => toast.classList.add('show'), 10);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Random Glitch Text Update
+        setInterval(() => {
+            const title = document.getElementById('hero-title');
+            if(Math.random() > 0.95) {
+                const original = title.getAttribute('data-text');
+                const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&";
+                let glitch = "";
+                for(let i=0; i<original.length; i++) {
+                    glitch += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                title.innerText = glitch;
+                title.style.color = '#ff00c1';
+                setTimeout(() => {
+                    title.innerText = original;
+                    title.style.color = 'var(--text-main)';
+                }, 100);
+            }
+        }, 100);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aether Flow | Ambient Interactive Experience</title>
+    <style>
+        :root {
+            --font-main: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            --overlay-bg: rgba(0, 0, 0, 0.3);
+            --text-color: rgba(255, 255, 255, 0.9);
+            --accent-color: rgba(255, 255, 255, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: var(--font-main);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* UI Overlay */
+        .ui-layer {
+            position: absolute;
+            z-index: 10;
+            bottom: 40px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            pointer-events: none; /* Let clicks pass through to canvas where needed */
+            transition: opacity 0.8s ease;
+        }
+
+        .title {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            pointer-events: auto;
+            mix-blend-mode: difference;
+        }
+
+        h1 {
+            font-weight: 300;
+            font-size: 1.5rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        p.subtitle {
+            font-size: 0.8rem;
+            letter-spacing: 0.1em;
+            opacity: 0.6;
+            font-style: italic;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 15px;
+            pointer-events: auto;
+            background: var(--overlay-bg);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .mood-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            font-family: var(--font-main);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mood-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .mood-btn.active {
+            background: #fff;
+            color: #000;
+            font-weight: 600;
+        }
+
+        .hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.8rem;
+            letter-spacing: 0.2em;
+            pointer-events: none;
+            opacity: 1;
+            animation: fadeOut 4s forwards 2s;
+        }
+
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            .title {
+                top: 20px;
+                left: 20px;
+            }
+            h1 { font-size: 1.2rem; }
+            .controls {
+                width: 90%;
+                justify-content: center;
+                padding: 12px;
+            }
+            .mood-btn { font-size: 0.75rem; padding: 6px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="title">
+        <h1>Aether Flow</h1>
+        <p class="subtitle">Procedural Ambient Engine</p>
+    </div>
+
+    <div class="hint">Touch & Drag to Flow</div>
+
+    <div class="ui-layer">
+        <div class="controls" id="moodControls">
+            <button class="mood-btn active" data-mood="ocean">Ocean</button>
+            <button class="mood-btn" data-mood="cosmic">Cosmic</button>
+            <button class="mood-btn" data-mood="forest">Forest</button>
+            <button class="mood-btn" data-mood="desert">Desert</button>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        /**
+         * Aether Flow Engine
+         * Uses a flow field of vectors to create organic, fluid motion.
+         * No external libraries used.
+         */
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on base
+        
+        let width, height;
+        let particles = [];
+        let flowField = [];
+        let rows, cols;
+        let animationId;
+        
+        // Interaction State
+        const mouse = { x: 0, y: 0, active: false, radius: 150 };
+        
+        // Configuration for different moods
+        const moods = {
+            ocean: {
+                bgTop: '#0f2027', bgBottom: '#203a43', // Deep Ocean
+                particleColors: ['#2c5364', '#203a43', '#4ca1af', '#ffffff'],
+                particleSpeed: 1.5,
+                particleSize: 2,
+                flowScale: 0.003,
+                flowSpeed: 0.002,
+                glow: true
+            },
+            cosmic: {
+                bgTop: '#000000', bgBottom: '#434343', // Deep Space
+                particleColors: ['#f12711', '#f5af19', '#833ab4', '#fd1d1d'],
+                particleSpeed: 0.8,
+                particleSize: 1.5,
+                flowScale: 0.005,
+                flowSpeed: 0.004,
+                glow: true
+            },
+            forest: {
+                bgTop: '#0f2027', bgBottom: '#2c5364', // Night Forest
+                particleColors: ['#134E5E', '#71B280', '#FDFBF7', '#D4FC79'],
+                particleSpeed: 1.2,
+                particleSize: 3,
+                flowScale: 0.002,
+                flowSpeed: 0.003,
+                glow: false
+            },
+            desert: {
+                bgTop: '#3E5151', bgBottom: '#DECBA4', // Sunset Dunes
+                particleColors: ['#E65C00', '#F9D423', '#8E2DE2', '#4A00E0'],
+                particleSpeed: 1.0,
+                particleSize: 2.5,
+                flowScale: 0.004,
+                flowSpeed: 0.005,
+                glow: true
+            }
+        };
+
+        let currentMood = 'ocean';
+        let time = 0;
+
+        // Resize Handling
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initFlowField();
+            initParticles();
+        }
+
+        // Simplex-like Noise (Simplified for single file performance)
+        // Using a superposition of sine waves to approximate flow fields
+        function getFlowAngle(x, y, z) {
+            // Layer 1: Large waves
+            let angle = Math.sin(x * moods[currentMood].flowScale + z) * Math.PI * 2;
+            // Layer 2: Medium ripples
+            angle += Math.cos(y * moods[currentMood].flowScale + z) * Math.PI;
+            // Layer 3: Fine noise
+            angle += Math.sin(x * moods[currentMood].flowScale * 2 + y * moods[currentMood].flowScale * 2 + z) * 0.5;
+            return angle;
+        }
+
+        class Particle {
+            constructor() {
+                this.reset(true);
+            }
+
+            reset(randomizeStart = false) {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = 0;
+                this.vy = 0;
+                this.speed = Math.random() * moods[currentMood].particleSpeed + 0.5;
+                this.size = Math.random() * moods[currentMood].particleSize + 0.5;
+                this.color = moods[currentMood].particleColors[Math.floor(Math.random() * moods[currentMood].particleColors.length)];
+                this.life = Math.random() * 100 + 100;
+                this.maxLife = this.life;
+                
+                // If randomizeStart is true, spread them across screen initially
+                if (randomizeStart) {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() * height;
+                } else {
+                    // Respawn off-screen usually, but for flow fields, we wrap them
+                }
+            }
+
+            update() {
+                // Calculate flow field angle based on position and time
+                const angle = getFlowAngle(this.x, this.y, time * moods[currentMood].flowSpeed);
+                
+                // Add force from flow field
+                this.vx += Math.cos(angle) * 0.1;
+                this.vy += Math.sin(angle) * 0.1;
+
+                // Add mouse interaction force (repel/attract)
+                if (mouse.active) {
+                    const dx = this.x - mouse.x;
+                    const dy = this.y - mouse.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < mouse.radius) {
+                        const forceDirectionX = dx / distance;
+                        const forceDirectionY = dy / distance;
+                        const force = (mouse.radius - distance) / mouse.radius;
+                        
+                        // Push particles away smoothly
+                        this.vx += forceDirectionX * force * 2;
+                        this.vy += forceDirectionY * force * 2;
+                    }
+                }
+
+                // Apply friction
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+
+                // Update position
+                this.x += this.vx * this.speed;
+                this.y += this.vy * this.speed;
+
+                // Wrap around screen
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+
+                // Slowly change color slightly for "breathing" effect
+                this.life--;
+                if (this.life <= 0) this.reset();
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                
+                // Add glow for cinematic effect
+                if (moods[currentMood].glow) {
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = this.color;
+                } else {
+                    ctx.shadowBlur = 0;
+                }
+                
+                ctx.fill();
+                ctx.shadowBlur = 0; // Reset for performance
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const particleCount = window.innerWidth < 600 ? 800 : 1500;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function initFlowField() {
+            // Not strictly necessary for this vector-based approach, 
+            // but good for future expansion if we wanted grid-based obstacles
+            flowField = []; 
+        }
+
+        function drawBackground() {
+            // Create a gradient that shifts slightly over time for "alive" background
+            const mood = moods[currentMood];
+            const shift = Math.sin(time * 0.5) * 0.05;
+            
+            // Create gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, mood.bgTop);
+            gradient.addColorStop(1, mood.bgBottom);
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // Add a subtle "Sun/Moon" glow
+            const glowX = width * 0.5 + Math.sin(time * 0.2) * 100;
+            const glowY = height * 0.5 + Math.cos(time * 0.3) * 50;
+            const glowRadius = Math.min(width, height) * 0.4;
+            
+            const sunGlow = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, glowRadius);
+            sunGlow.addColorStop(0, mood.bgBottom); // Inner core
+            sunGlow.addColorStop(0.4, mood.bgTop);  // Mid tone
+            sunGlow.addColorStop(1, 'rgba(0,0,0,0)'); // Fade out
+            
+            ctx.globalCompositeOperation = 'overlay'; // Blend mode for lighting
+            ctx.fillStyle = sunGlow;
+            ctx.fillRect(0, 0, width, height);
+            ctx.globalCompositeOperation = 'source-over'; // Reset
+        }
+
+        function animate() {
+            time += 0.01;
+            
+            // Clear with a very slight fade for trails (optional, but clean redraw is better for this style)
+            // drawBackground(); // Redraw background every frame for smooth gradients
+            
+            // Optimization: Only redraw background if it's static, but here we want moving light
+            drawBackground();
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', resize);
+        
+        // Mouse / Touch Interaction
+        const updateMouse = (x, y) => {
+            mouse.x = x;
+            mouse.y = y;
+            mouse.active = true;
+        };
+
+        window.addEventListener('mousemove', e => updateMouse(e.clientX, e.clientY));
+        window.addEventListener('touchmove', e => {
+            e.preventDefault();
+            updateMouse(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+        
+        window.addEventListener('touchstart', e => {
+            updateMouse(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+
+        window.addEventListener('touchend', () => {
+            mouse.active = false;
+        });
+
+        // UI Logic
+        const buttons = document.querySelectorAll('.mood-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Update UI
+                buttons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+
+                // Update Mood
+                const newMood = e.target.getAttribute('data-mood');
+                if (currentMood !== newMood) {
+                    currentMood = newMood;
+                    // Re-init particles with new colors and physics
+                    initParticles();
+                }
+            });
+        });
+
+        // Initialize
+        resize();
+        animate();
+
+    </script>
+</body>
+</html>

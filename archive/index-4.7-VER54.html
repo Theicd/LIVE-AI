@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Lumen Hollow — Bioluminescent Crystal Cave</title>
+<style>
+  :root{
+    --bg:#040a0d;
+    --fg:#e6fbff;
+    --muted:#6a8a92;
+    --accent:#4ff0d0;
+    --accent2:#ffb066;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--fg);
+    font-family:'Courier New',monospace;cursor:none}
+  canvas{display:block}
+
+  /* HUD overlay */
+  .hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+  .hud .vignette{position:absolute;inset:0;
+    background:radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%)}
+  .hud .scanlines{position:absolute;inset:0;opacity:.08;
+    background:repeating-linear-gradient(0deg, transparent 0 2px, rgba(79,240,208,.4) 2px 3px)}
+
+  .crosshair{position:absolute;top:50%;left:50%;width:34px;height:34px;
+    transform:translate(-50%,-50%);}
+  .crosshair::before,.crosshair::after{content:"";position:absolute;background:var(--accent);
+    box-shadow:0 0 8px var(--accent)}
+  .crosshair::before{top:50%;left:0;width:100%;height:1px;transform:translateY(-50%)}
+  .crosshair::after{left:50%;top:0;width:1px;height:100%;transform:translateX(-50%)}
+  .crosshair .dot{position:absolute;top:50%;left:50%;width:4px;height:4px;border-radius:50%;
+    background:var(--accent2);transform:translate(-50%,-50%);
+    box-shadow:0 0 12px var(--accent2)}
+
+  .panel{position:absolute;padding:14px 18px;
+    background:rgba(4,10,13,.55);backdrop-filter:blur(6px);
+    border:1px solid rgba(79,240,208,.25);
+    box-shadow:0 0 24px rgba(79,240,208,.08) inset, 0 0 30px rgba(0,0,0,.5)}
+  .panel.tl{top:20px;left:20px}
+  .panel.tr{top:20px;right:20px;text-align:right}
+  .panel.bl{bottom:20px;left:20px;max-width:340px}
+  .panel.br{bottom:20px;right:20px}
+
+  .title{font-size:11px;letter-spacing:.4em;color:var(--accent);text-transform:uppercase;
+    margin-bottom:6px}
+  .sub{font-size:10px;color:var(--muted);letter-spacing:.2em}
+  .big{font-size:22px;font-weight:bold;letter-spacing:.15em;color:var(--fg);
+    text-shadow:0 0 12px rgba(79,240,208,.4)}
+  .row{display:flex;justify-content:space-between;gap:18px;font-size:10px;
+    color:var(--muted);letter-spacing:.15em;margin-top:4px}
+  .row b{color:var(--accent);font-weight:normal}
+
+  .pulse-bar{width:160px;height:3px;background:rgba(79,240,208,.15);
+    margin-top:8px;overflow:hidden;position:relative}
+  .pulse-bar i{position:absolute;left:0;top:0;height:100%;width:0;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    box-shadow:0 0 10px var(--accent)}
+
+  .hint{font-size:10px;color:var(--muted);letter-spacing:.25em;text-transform:uppercase}
+  .hint b{color:var(--accent2)}
+
+  .start{position:fixed;inset:0;background:rgba(2,6,8,.92);z-index:10;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    cursor:pointer;transition:opacity .8s ease}
+  .start h1{font-size:48px;letter-spacing:.5em;color:var(--accent);
+    text-shadow:0 0 30px rgba(79,240,208,.6);font-weight:normal;margin-bottom:12px}
+  .start p{color:var(--muted);letter-spacing:.3em;font-size:11px;text-transform:uppercase}
+  .start .blink{margin-top:30px;color:var(--accent2);font-size:10px;letter-spacing:.4em;
+    animation:blink 1.4s infinite}
+  @keyframes blink{50%{opacity:.2}}
+  .start.hide{opacity:0;pointer-events:none}
+
+  .corner{position:absolute;width:24px;height:24px;border:1px solid var(--accent);opacity:.5}
+  .corner.tl{top:8px;left:8px;border-right:none;border-bottom:none}
+  .corner.tr{top:8px;right:8px;border-left:none;border-bottom:none}
+  .corner.bl{bottom:8px;left:8px;border-right:none;border-top:none}
+  .corner.br{bottom:8px;right:8px;border-left:none;border-top:none}
+</style>
+</head>
+<body>
+
+<div class="start" id="start">
+  <h1>LUMEN HOLLOW</h1>
+  <p>Bioluminescent Survey · Sector 07-Δ</p>
+  <div class="blink">▸ CLICK TO BEGIN DESCENT</div>
+</div>
+
+<div class="hud">
+  <div class="vignette"></div>
+  <div class="scanlines"></div>
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+
+  <div class="crosshair"><div class="dot"></div></div>
+
+  <div class="panel tl">
+    <div class="title">Lumen Hollow</div>
+    <div class="sub">Depth: <span id="depth">-412.7m</span></div>
+  </div>
+
+  <div class="panel tr">
+    <div class="title">Biotelemetry</div>
+    <div class="big" id="bpm">68</div>
+    <div class="sub">BPM · CAVE RESONANCE</div>
+    <div class="pulse-bar"><i id="pulseBar"></i></div>
+  </div>
+
+  <div class="panel bl">
+    <div class="title">Field Log</div>
+    <div class="row"><span>Crystal Density</span><b id="cdensity">—</b></div>
+    <div class="row"><span>Ambient Pulse</span><b id="cpulse">—</b></div>
+    <div class="row"><span>Shard Activity</span><b id="cshard">—</b></div>
+    <div class="row"><span>Temperature</span><b>9.4°C</b></div>
+  </div>
+
+  <div class="panel br">
+    <div class="hint">MOVE <b>MOUSE</b> · LOOK</div>
+    <div class="hint" style="margin-top:6px">SCROLL · DRIFT</div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ---------- Scene setup ----------
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x040a0d, 0.045);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(0, 0.4, 0);
+
+const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x040a0d, 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+document.body.appendChild(renderer.domElement);
+
+// ---------- Lighting ----------
+const ambient = new THREE.AmbientLight(0x1a3a44, 0.6);
+scene.add(ambient);
+
+const keyLight = new THREE.PointLight(0x4ff0d0, 2.5, 30, 1.6);
+keyLight.position.set(0, 2, -4);
+scene.add(keyLight);
+
+const warmLight = new THREE.PointLight(0xffb066, 1.8, 18, 2.0);
+warmLight.position.set(3, 1, -8);
+scene.add(warmLight);
+
+// ---------- Cave geometry (low-poly voxel walls) ----------
+const caveGroup = new THREE.Group();
+scene.add(caveGroup);
+
+// Voxel stone blocks forming a tunnel
+const stoneGeo = new THREE.BoxGeometry(1, 1, 1);
+const stoneMat = new THREE.MeshStandardMaterial({
+  color: 0x0a1a1f, roughness: 0.95, metalness: 0.05, flatShading: true
+});
+
+// Procedural cave: ring of blocks with gaps
+const caveSegments = 40;
+const caveRadius = 4.2;
+for (let i = 0; i < caveSegments; i++) {
+  const z = -i * 2.2;
+  const ringCount = 14;
+  for (let j = 0; j < ringCount; j++) {
+    const angle = (j / ringCount) * Math.PI * 2;
+    // Skip some blocks to create organic gaps
+    if (Math.random() > 0.78) continue;
+    const r = caveRadius + (Math.random() - 0.5) * 1.6;
+    const x = Math.cos(angle) * r;
+    const y = Math.sin(angle) * r;
+    const block = new THREE.Mesh(stoneGeo, stoneMat);
+    block.position.set(x, y, z);
+    const s = 0.8 + Math.random() * 1.4;
+    block.scale.set(s, s, s);
+    block.rotation.set(Math.random()*0.3, Math.random()*0.3, Math.random()*0.3);
+    caveGroup.add(block);
+  }
+}
+
+// Floor stones
+for (let i = 0; i < 80; i++) {
+  const block = new THREE.Mesh(stoneGeo, stoneMat);
+  block.position.set(
+    (Math.random() - 0.5) * 8,
+    -caveRadius + 0.5 + Math.random() * 0.4,
+    -Math.random() * 90
+  );
+  const s = 0.6 + Math.random() * 1.2;
+  block.scale.set(s, 0.4, s);
+  caveGroup.add(block);
+}
+
+// ---------- Crystals (heartbeat-pulsing) ----------
+const crystals = [];
+const crystalGeo = new THREE.OctahedronGeometry(0.5, 0);
+
+function makeCrystal(x, y, z, scale, hue) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(hue, 0.7, 0.5),
+    emissive: new THREE.Color().setHSL(hue, 0.9, 0.4),
+    emissiveIntensity: 1.5,
+    roughness: 0.3,
+    metalness: 0.4,
+    flatShading: true,
+    transparent: true,
+    opacity: 0.92
+  });
+  const mesh = new THREE.Mesh(crystalGeo, mat);
+  mesh.position.set(x, y, z);
+  mesh.scale.setScalar(scale);
+  mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+  mesh.userData = {
+    basePhase: Math.random() * Math.PI * 2,
+    baseScale: scale,
+    hue: hue,
+    spinSpeed: (Math.random() - 0.5) * 0.6
+  };
+  scene.add(mesh);
+  crystals.push(mesh);
+  return mesh;
+}
+
+// Place crystals along the tunnel
+for (let i = 0; i < 35; i++) {
+  const z = -1 - i * 2.5 - Math.random() * 1.5;
+  const angle = Math.random() * Math.PI * 2;
+  const r = 1.5 + Math.random() * 2.8;
+  const x = Math.cos(angle) * r;
+  const y = Math.sin(angle) * r * 0.7;
+  const scale = 0.5 + Math.random() * 1.8;
+  const hue = 0.45 + Math.random() * 0.12; // teal-cyan range
+  makeCrystal(x, y, z, scale, hue);
+}
+
+// A few warm amber crystals
+for (let i = 0; i < 8; i++) {
+  const z = -3 - i * 5 - Math.random() * 3;
+  const angle = Math.random() * Math.PI * 2;
+  const r = 1 + Math.random() * 2.5;
+  makeCrystal(Math.cos(angle)*r, Math.sin(angle)*r*0.6, z, 0.6+Math.random()*1.2, 0.08);
+}
+
+// ---------- Floating shards (orbiting, gaze-responsive) ----------
+const shards = [];
+const shardGeos = [
+  new THREE.TetrahedronGeometry(0.3, 0),
+  new THREE.IcosahedronGeometry(0.25, 0),
+  new THREE.ConeGeometry(0.2, 0.5, 4, 1)
+];
+
+for (let i = 0; i < 60; i++) {
+  const geo = shardGeos[Math.floor(Math.random() * shardGeos.length)];
+  const hue = Math.random() > 0.7 ? 0.08 : 0.48 + Math.random() * 0.08;
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(hue, 0.8, 0.6),
+    emissive: new THREE.Color().setHSL(hue, 1.0, 0.5),
+    emissiveIntensity: 2.0,
+    roughness: 0.2,
+    metalness: 0.6,
+    flatShading: true
+  });
+  const s = new THREE.Mesh(geo, mat);
+  const z = -Math.random() * 90;
+  const angle = Math.random() * Math.PI * 2;
+  const r = 1 + Math.random() * 3;
+  s.position.set(Math.cos(angle)*r, Math.sin(angle)*r*0.8, z);
+  s.userData = {
+    orbitR: r,
+    orbitA: angle,
+    orbitSpeed: (Math.random() - 0.5) * 0.4 + 0.1,
+    yOff: Math.sin(angle) * r * 0.8,
+    yFreq: 0.5 + Math.random() * 1.5,
+    spinX: (Math.random()-0.5)*2,
+    spinY: (Math.random()-0.5)*2,
+    spinZ: (Math.random()-0.5)*2,
+    z: z,
+    gaze: 0
+  };
+  scene.add(s);
+  shards.push(s);
+}
+
+// ---------- Particle dust (atmosphere) ----------
+const particleCount = 1200;
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(particleCount * 3);
+const pCol = new Float32Array(particleCount * 3);
+const pSize = new Float32Array(particleCount);
+
+for (let i = 0; i < particleCount; i++) {
+  pPos[i*3]   = (Math.random()-0.5) * 10;
+  pPos[i*3+1] = (Math.random()-0.5) * 6;
+  pPos[i*3+2] = -Math.random() * 95;
+  const c = new THREE.Color().setHSL(0.48 + Math.random()*0.1, 0.8, 0.5 + Math.random()*0.3);
+  pCol[i*3] = c.r; pCol[i*3+1] = c.g; pCol[i*3+2] = c.b;
+  pSize[i] = 0.5 + Math.random() * 2;
+}
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute('aColor', new THREE.BufferAttribute(pCol, 3));
+pGeo.setAttribute('aSize', new THREE.BufferAttribute(pSize, 1));
+
+const pMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 } },
+  vertexShader: `
+    attribute vec3 aColor;
+    attribute float aSize;
+    varying vec3 vColor;
+    uniform float uTime;
+    void main(){
+      vColor = aColor;
+      vec3 p = position;
+      p.y += sin(uTime*0.5 + position.x*2.0) * 0.15;
+      p.x += cos(uTime*0.3 + position.z*1.5) * 0.1;
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      gl_PointSize = aSize * (200.0 / -mv.z);
+      gl_Position = projectionMatrix * mv;
+    }
+  `,
+  fragmentShader: `
+    varying vec3 vColor;
+    void main(){
+      vec2 c = gl_PointCoord - 0.5;
+      float d = length(c);
+      if (d > 0.5) discard;
+      float a = smoothstep(0.5, 0.0, d);
+      gl_FragColor = vec4(vColor, a * 0.7);
+    }
+  `,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending
+});
+const particles = new THREE.Points(pGeo, pMat);
+scene.add(particles);
+
+// ---------- Volumetric glow planes (light shafts) ----------
+const shaftGeo = new THREE.PlaneGeometry(8, 30);
+for (let i = 0; i < 4; i++) {
+  const shaftMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: {value:0}, uIdx: {value:i} },
+    vertexShader: `
+      varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+    `,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform float uIdx;
+      void main(){
+        float v = smoothstep(0.0, 0.5, vUv.y) * smoothstep(1.0, 0.5, vUv.y);
+        float flick = 0.7 + 0.3 * sin(uTime*1.5 + uIdx*2.0);
+        vec3 col = mix(vec3(0.31, 0.94, 0.82), vec3(1.0, 0.69, 0.4), step(0.5, uIdx*0.25));
+        gl_FragColor = vec4(col * v * flick * 0.25, v * 0.35);
+      }
+    `,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+  });
+  const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+  shaft.position.set((Math.random()-0.5)*4, 0, -10 - i*15);
+  shaft.rotation.y = Math.random() * Math.PI;
+  shaft.rotation.z = (Math.random()-0.5) * 0.3;
+  scene.add(shaft);
+}
+
+// ---------- Camera control (mouse look + auto drift) ----------
+let yaw = 0, pitch = 0;
+let targetYaw = 0, targetPitch = 0;
+let camZ = 0;
+let camDriftZ = 0;
+let started = false;
+
+addEventListener('mousemove', e => {
+  targetYaw   = -(e.clientX / innerWidth  - 0.5) * 0.9;
+  targetPitch = -(e.clientY / innerHeight - 0.5) * 0.5;
+});
+
+addEventListener('wheel', e => {
+  camDriftZ += e.deltaY * 0.005;
+  camDriftZ = Math.max(-30, Math.min(5, camDriftZ));
+}, {passive:true});
+
+document.getElementById('start').addEventListener('click', () => {
+  document.getElementById('start').classList.add('hide');
+  started = true;
+});
+
+// ---------- HUD elements ----------
+const bpmEl = document.getElementById('bpm');
+const pulseBar = document.getElementById('pulseBar');
+const depthEl = document.getElementById('depth');
+const cdensity = document.getElementById('cdensity');
+const cpulse = document.getElementById('cpulse');
+const cshard = document.getElementById('cshard');
+
+// ---------- Raycaster for gaze interaction ----------
+const ray = new THREE.Raycaster();
+const fwd = new THREE.Vector3(0, 0, -1);
+
+// ---------- Animation loop ----------
+const clock = new THREE.Clock();
+let bpm = 68, bpmTarget = 68;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  // Camera smoothing
+  yaw   += (targetYaw   - yaw)   * 0.05;
+  pitch += (targetPitch - pitch) * 0.05;
+  camZ  += (camDriftZ - camZ) * 0.04;
+
+  // Auto drift forward when started
+  if (started) {
+    camDriftZ -= 0.04; // slow forward drift
+  }
+
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+  camera.position.z = camZ;
+  camera.position.y = 0.4 + Math.sin(t * 0.8) * 0.05;
+  camera.position.x = Math.sin(t * 0.4) * 0.08;
+
+  // Heartbeat: 2-phase thump
+  const beatT = (t * (bpm/60)) % 1.0;
+  const beat = Math.exp(-Math.pow((beatT - 0.0)*8, 2)) * 1.0
+             + Math.exp(-Math.pow((beatT - 0.18)*10, 2)) * 0.6;
+  const pulse = beat;
+
+  // Crystals pulse with heartbeat
+  for (const c of crystals) {
+    const phase = c.userData.basePhase;
+    const local = Math.exp(-Math.pow(((t * (bpm/60) + phase/Math.PI/2) % 1.0 - 0.0)*6, 2)) * 0.6
+                + Math.exp(-Math.pow(((t * (bpm/60) + phase/Math.PI/2) % 1.0 - 0.18)*8, 2)) * 0.4;
+    const s = c.userData.baseScale * (1 + local * 0.25);
+    c.scale.setScalar(s);
+    c.material.emissiveIntensity = 1.0 + local * 3.5;
+    c.rotation.y += c.userData.spinSpeed * dt;
+    c.rotation.x += c.userData.spinSpeed * 0.5 * dt;
+  }
+
+  // Shards orbit and respond to gaze
+  fwd.set(0, 0, -1).applyQuaternion(camera.quaternion);
+  ray.set(camera.position, fwd);
+  const hits = ray.intersectObjects(shards, false);
+
+  for (const s of shards) {
+    const d = s.userData;
+    d.orbitA += d.orbitSpeed * dt * (1 + d.gaze * 2);
+    s.position.x = Math.cos(d.orbitA) * d.orbitR;
+    s.position.z = d.z + camZ * 0.3; // parallax-ish follow
+    s.position.y = d.yOff + Math.sin(t * d.yFreq + d.orbitA) * 0.4;
+    s.rotation.x += d.spinX * dt;
+    s.rotation.y += d.spinY * dt;
+    s.rotation.z += d.spinZ * dt;
+
+    // Gaze boost
+    let targeted = false;
+    for (const h of hits) { if (h.object === s) { targeted = true; break; } }
+    d.gaze += ((targeted ? 1 : 0) - d.gaze) * 0.1;
+    s.material.emissiveIntensity = 2.0 + d.gaze * 6.0;
+    const sc = 1 + d.gaze * 0.6;
+    s.scale.setScalar(sc);
+  }
+
+  // Particles
+  pMat.uniforms.uTime.value = t;
+  // Recycle particles that pass behind camera
+  const pos = pGeo.attributes.position.array;
+  for (let i = 0; i < particleCount; i++) {
+    if (pos[i*3+2] > camera.position.z + 2) {
+      pos[i*3+2] = camera.position.z - 90 - Math.random() * 10;
+      pos[i*3]   = (Math.random()-0.5) * 10;
+      pos[i*3+1] = (Math.random()-0.5) * 6;
+    }
+  }
+  pGeo.attributes.position.needsUpdate = true;
+
+  // Light flicker
+  keyLight.intensity = 2.0 + pulse * 1.5;
+  warmLight.position.x = 3 + Math.sin(t * 0.3) * 2;
+  warmLight.position.z = camera.position.z - 8;
+
+  // BPM drift
+  bpmTarget = 64 + Math.sin(t * 0.2) * 8 + Math.sin(t * 0.07) * 4;
+  bpm += (bpmTarget - bpm) * 0.02;
+
+  // HUD updates
+  if (Math.floor(t*4) % 2 === 0) {
+    bpmEl.textContent = Math.round(bpm);
+    depthEl.textContent = `-${(412.7 - camera.position.z).toFixed(1)}m`;
+    cdensity.textContent = crystals.length.toString().padStart(3,'0') + ' units';
+    cpulse.textContent = (pulse * 100).toFixed(0) + '%';
+    cshard.textContent = hits.length > 0 ? 'LOCKED' : 'nominal';
+  }
+  pulseBar.style.width = (pulse * 100) + '%';
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ---------- Resize ----------
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crystal Sanctum · 水晶圣殿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0a0612;
+    --bg-1:#1a0a18;
+    --fg:#f5e9dc;
+    --muted:#a08a7a;
+    --accent:#ff8a3d;
+    --accent-2:#06d6a0;
+    --accent-3:#f72585;
+    --border:rgba(255,138,61,0.18);
+    --glass:rgba(20,10,18,0.55);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-0);color:var(--fg);font-family:'Space Grotesk',sans-serif}
+  canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  canvas#scene:active{cursor:grabbing}
+
+  /* 顶部标题 */
+  .header{
+    position:fixed;top:32px;left:50%;transform:translateX(-50%);
+    text-align:center;pointer-events:none;z-index:10;
+    mix-blend-mode:screen;
+  }
+  .header h1{
+    font-family:'Cinzel',serif;font-weight:800;
+    font-size:clamp(28px,4.2vw,52px);
+    letter-spacing:0.35em;
+    color:var(--fg);
+    text-shadow:0 0 30px rgba(255,138,61,0.4);
+  }
+  .header .sub{
+    margin-top:8px;font-size:11px;letter-spacing:0.6em;
+    color:var(--accent);text-transform:uppercase;font-weight:500;
+    opacity:0.85;
+  }
+  .header .divider{
+    width:80px;height:1px;margin:14px auto 0;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  }
+
+  /* 控制面板 */
+  .panel{
+    position:fixed;top:50%;right:28px;transform:translateY(-50%);
+    width:280px;padding:24px 22px;
+    background:var(--glass);
+    backdrop-filter:blur(20px) saturate(140%);
+    -webkit-backdrop-filter:blur(20px) saturate(140%);
+    border:1px solid var(--border);
+    border-radius:2px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.05);
+    z-index:10;
+  }
+  .panel::before{
+    content:'';position:absolute;top:-1px;left:20px;right:20px;height:1px;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  }
+  .panel h2{
+    font-family:'Cinzel',serif;font-size:13px;font-weight:600;
+    letter-spacing:0.4em;color:var(--accent);
+    margin-bottom:22px;text-transform:uppercase;
+    display:flex;align-items:center;gap:10px;
+  }
+  .panel h2::before,.panel h2::after{
+    content:'';flex:1;height:1px;background:var(--border);
+  }
+
+  .control{margin-bottom:18px}
+  .control:last-child{margin-bottom:0}
+  .control label{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:10px;letter-spacing:0.25em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:8px;font-weight:500;
+  }
+  .control label .val{
+    color:var(--accent);font-family:'Cinzel',serif;font-weight:600;
+    letter-spacing:0.1em;font-size:11px;
+  }
+
+  /* 自定义滑块 */
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:2px;
+    background:linear-gradient(90deg,var(--accent) var(--p,50%),rgba(255,255,255,0.08) var(--p,50%));
+    outline:none;border-radius:2px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--fg);border:2px solid var(--accent);cursor:pointer;
+    box-shadow:0 0 12px var(--accent);transition:transform .2s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
+  input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;border-radius:50%;
+    background:var(--fg);border:2px solid var(--accent);cursor:pointer;
+    box-shadow:0 0 12px var(--accent);
+  }
+
+  /* 按钮 */
+  .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+  .btn{
+    padding:10px 12px;background:transparent;
+    border:1px solid var(--border);color:var(--fg);
+    font-family:'Space Grotesk',sans-serif;font-size:10px;
+    letter-spacing:0.25em;text-transform:uppercase;font-weight:500;
+    cursor:pointer;transition:all .3s ease;position:relative;overflow:hidden;
+  }
+  .btn:hover{
+    background:var(--accent);color:var(--bg-0);
+    border-color:var(--accent);
+    box-shadow:0 0 20px rgba(255,138,61,0.5);
+  }
+  .btn.active{
+    background:rgba(255,138,61,0.15);
+    border-color:var(--accent);color:var(--accent);
+  }
+  .btn.danger:hover{background:var(--accent-3);border-color:var(--accent-3);box-shadow:0 0 20px rgba(247,37,133,0.5)}
+
+  /* 切换开关 */
+  .toggle{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 0;border-top:1px solid var(--border);
+  }
+  .toggle:first-of-type{margin-top:6px}
+  .toggle span{
+    font-size:10px;letter-spacing:0.25em;text-transform:uppercase;
+    color:var(--muted);font-weight:500;
+  }
+  .switch{
+    position:relative;width:36px;height:18px;
+    background:rgba(255,255,255,0.08);border-radius:9px;
+    cursor:pointer;transition:background .3s;
+    border:1px solid var(--border);
+  }
+  .switch::after{
+    content:'';position:absolute;top:2px;left:2px;
+    width:12px;height:12px;border-radius:50%;
+    background:var(--muted);transition:all .3s;
+  }
+  .switch.on{background:rgba(255,138,61,0.2);border-color:var(--accent)}
+  .switch.on::after{left:20px;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+
+  /* 底部提示 */
+  .hint{
+    position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+    display:flex;gap:32px;z-index:10;
+    font-size:10px;letter-spacing:0.3em;text-transform:uppercase;
+    color:var(--muted);font-weight:500;
+    background:var(--glass);backdrop-filter:blur(12px);
+    padding:14px 28px;border:1px solid var(--border);
+  }
+  .hint .key{
+    display:inline-block;padding:2px 8px;margin-right:8px;
+    border:1px solid var(--border);color:var(--accent);
+    font-family:'Cinzel',serif;font-weight:600;letter-spacing:0.1em;
+  }
+
+  /* 加载状态 */
+  .loader{
+    position:fixed;inset:0;background:var(--bg-0);
+    display:flex;align-items:center;justify-content:center;
+    z-index:100;transition:opacity .8s;
+  }
+  .loader.hidden{opacity:0;pointer-events:none}
+  .loader .ring{
+    width:60px;height:60px;border:1px solid var(--border);
+    border-top-color:var(--accent);border-radius:50%;
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Toast */
+  .toast{
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) translateY(-20px);
+    padding:14px 28px;background:var(--glass);
+    backdrop-filter:blur(20px);border:1px solid var(--accent);
+    color:var(--accent);font-size:11px;letter-spacing:0.3em;
+    text-transform:uppercase;font-weight:500;
+    opacity:0;pointer-events:none;transition:all .4s;z-index:50;
+    font-family:'Cinzel',serif;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,-50%) translateY(0)}
+
+  @media (max-width:768px){
+    .panel{right:12px;left:12px;width:auto;transform:none;top:auto;bottom:90px}
+    .hint{font-size:8px;gap:14px;padding:10px 16px}
+    .header h1{letter-spacing:0.2em}
+  }
+</style>
+</head>
+<body>
+
+<div class="loader" id="loader"><div class="ring"></div></div>
+
+<canvas id="scene"></canvas>
+
+<header class="header">
+  <h1>CRYSTAL SANCTUM</h1>
+  <div class="sub">A garden of light · 水晶圣殿</div>
+  <div class="divider"></div>
+</header>
+
+<aside class="panel">
+  <h2>Atmosphere</h2>
+
+  <div class="control">
+    <label>Time of Day <span class="val" id="timeVal">Dusk</span></label>
+    <input type="range" id="timeSlider" min="0" max="100" value="60">
+  </div>
+
+  <div class="control">
+    <label>Crystal Density <span class="val" id="countVal">18</span></label>
+    <input type="range" id="countSlider" min="6" max="40" value="18">
+  </div>
+
+  <div class="control">
+    <label>Glow Intensity <span class="val" id="glowVal">1.0</span></label>
+    <input type="range" id="glowSlider" min="20" max="200" value="100">
+  </div>
+
+  <div class="toggle">
+    <span>Auto Rotate</span>
+    <div class="switch on" id="autoToggle"></div>
+  </div>
+  <div class="toggle">
+    <span>Particles</span>
+    <div class="switch on" id="partToggle"></div>
+  </div>
+
+  <div class="btn-row" style="margin-top:18px">
+    <button class="btn" id="regrowBtn">Regrow</button>
+    <button class="btn danger" id="shatterBtn">Shatter</button>
+  </div>
+</aside>
+
+<div class="hint">
+  <span><span class="key">DRAG</span>Orbit</span>
+  <span><span class="key">SCROLL</span>Zoom</span>
+  <span><span class="key">CLICK</span>Shatter</span>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{
+  "imports":{
+    "three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------- 基础场景 ----------
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x180a14, 0.028);
+
+const camera = new THREE.PerspectiveCamera(48, window.innerWidth/window.innerHeight, 0.1, 200);
+camera.position.set(9, 6.5, 13);
+camera.lookAt(0, 1, 0);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 6;
+controls.maxDistance = 28;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minPolarAngle = Math.PI * 0.12;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.4;
+controls.target.set(0, 1.2, 0);
+
+// ---------- 渐变天空穹顶 ----------
+const skyGeo = new THREE.SphereGeometry(80, 32, 32);
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  uniforms:{
+    uTime:{ value:0 },
+    uTopColor:{ value:new THREE.Color(0x0a0612) },
+    uMidColor:{ value:new THREE.Color(0x2a0a1a) },
+    uBotColor:{ value:new THREE.Color(0x4a1a08) },
+  },
+  vertexShader:`
+    varying vec3 vPos;
+    void main(){
+      vPos = position;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+    }
+  `,
+  fragmentShader:`
+    varying vec3 vPos;
+    uniform float uTime;
+    uniform vec3 uTopColor, uMidColor, uBotColor;
+    float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    void main(){
+      vec3 dir = normalize(vPos);
+      float h = clamp(dir.y*0.5+0.5, 0.0, 1.0);
+      vec3 col = mix(uBotColor, uMidColor, smoothstep(0.0, 0.55, h));
+      col = mix(col, uTopColor, smoothstep(0.5, 1.0, h));
+      // 星点
+      vec2 uv = dir.xz*80.0;
+      float s = hash(floor(uv));
+      float star = step(0.995, s) * (0.5+0.5*sin(uTime*1.5 + s*30.0));
+      col += vec3(star) * smoothstep(0.3, 1.0, h);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+});
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+// ---------- 六边形发光地面 ----------
+const groundGeo = new THREE.CircleGeometry(16, 96);
+const groundMat = new THREE.ShaderMaterial({
+  uniforms:{
+    uTime:{ value:0 },
+    uAccent:{ value:new THREE.Color(0xff8a3d) },
+    uAccent2:{ value:new THREE.Color(0xf72585) },
+  },
+  vertexShader:`
+    varying vec2 vUv;
+    void main(){
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+    }
+  `,
+  fragmentShader:`
+    varying vec2 vUv;
+    uniform float uTime;
+    uniform vec3 uAccent, uAccent2;
+    void main(){
+      vec2 p = vUv - 0.5;
+      float r = length(p) * 2.0;
+      // 六边形网格
+      vec2 h = vec2(1.0, 1.7320508);
+      vec2 a = mod(p*22.0, h) - h*0.5;
+      vec2 b = mod(p*22.0 + h*0.5, h) - h*0.5;
+      float d = min(length(a), length(b));
+      float hexLine = 1.0 - smoothstep(0.42, 0.45, d);
+      // 中心向外脉冲波
+      float wave = 0.5 + 0.5*sin(uTime*0.6 - r*6.0);
+      float fade = smoothstep(1.0, 0.15, r);
+      vec3 base = vec3(0.04, 0.02, 0.05);
+      vec3 col = mix(base, uAccent*0.4, hexLine*fade);
+      col += uAccent2 * 0.25 * wave * fade * hexLine;
+      // 中心暖光
+      col += uAccent * 0.15 * smoothstep(0.5, 0.0, r);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -2;
+scene.add(ground);
+
+// ---------- 光照 ----------
+const ambient = new THREE.AmbientLight(0x4a2030, 0.5);
+scene.add(ambient);
+
+const keyLight = new THREE.PointLight(0xff8a3d, 3.0, 35, 1.5);
+keyLight.position.set(6, 9, 6);
+scene.add(keyLight);
+
+const fillLight = new THREE.PointLight(0x06d6a0, 1.8, 30, 1.5);
+fillLight.position.set(-6, 5, -4);
+scene.add(fillLight);
+
+const rimLight = new THREE.PointLight(0xf72585, 1.2, 25, 1.5);
+rimLight.position.set(0, 3, -8);
+scene.add(rimLight);
+
+// ---------- 水晶集合 ----------
+const crystalColors = [
+  new THREE.Color(0xff8a3d), // 琥珀
+  new THREE.Color(0xffd23f), // 金黄
+  new THREE.Color(0x06d6a0), // 薄荷
+  new THREE.Color(0xef476f), // 玫红
+  new THREE.Color(0xf72585), // 品红
+  new THREE.Color(0xffba08), // 蜜橙
+];
+
+const crystals = [];
+let glowMultiplier = 1.0;
+
+function createCrystal(){
+  const types = [
+    () => new THREE.IcosahedronGeometry(0.5 + Math.random()*0.6, 0),
+    () => new THREE.OctahedronGeometry(0.55 + Math.random()*0.55, 0),
+    () => new THREE.TetrahedronGeometry(0.7 + Math.random()*0.5, 0),
+    () => new THREE.DodecahedronGeometry(0.45 + Math.random()*0.4, 0),
+  ];
+  const geo = types[Math.floor(Math.random()*types.length)]();
+  const color = crystalColors[Math.floor(Math.random()*crystalColors.length)];
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: color.clone().multiplyScalar(0.4),
+    emissive: color,
+    emissiveIntensity: 0.8,
+    metalness: 0.4,
+    roughness: 0.15,
+    flatShading: true,
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+
+  // 在圆盘内随机分布
+  const angle = Math.random() * Math.PI * 2;
+  const radius = 1.2 + Math.random() * 6.5;
+  const baseY = -0.5 + Math.random() * 3.5;
+  mesh.position.set(Math.cos(angle)*radius, baseY, Math.sin(angle)*radius);
+  mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+
+  mesh.userData = {
+    baseY,
+    phase: Math.random() * Math.PI * 2,
+    floatAmp: 0.15 + Math.random() * 0.25,
+    rotSpeed: new THREE.Vector3(
+      (Math.random()-0.5) * 0.6,
+      (Math.random()-0.5) * 0.6,
+      (Math.random()-0.5) * 0.6,
+    ),
+    color,
+    targetScale: 1,
+    currentScale: 0.01,
+    alive: true,
+    isHovered: false,
+  };
+  mesh.scale.setScalar(0.01);
+  scene.add(mesh);
+  crystals.push(mesh);
+  return mesh;
+}
+
+function buildCrystals(count){
+  // 清除旧的
+  crystals.forEach(c => {
+    c.geometry.dispose();
+    c.material.dispose();
+    scene.remove(c);
+  });
+  crystals.length = 0;
+  for (let i = 0; i < count; i++) createCrystal();
+}
+buildCrystals(18);
+
+// ---------- 漂浮粒子 ----------
+const particleCount = 500;
+const particleGeo = new THREE.BufferGeometry();
+const pPositions = new Float32Array(particleCount * 3);
+const pColors = new Float32Array(particleCount * 3);
+const pSizes = new Float32Array(particleCount);
+const pSpeeds = new Float32Array(particleCount);
+const pPhases = new Float32Array(particleCount);
+
+for (let i = 0; i < particleCount; i++){
+  pPositions[i*3]   = (Math.random()-0.5) * 22;
+  pPositions[i*3+1] = Math.random() * 10 - 2;
+  pPositions[i*3+2] = (Math.random()-0.5) * 22;
+  const c = crystalColors[Math.floor(Math.random()*crystalColors.length)];
+  pColors[i*3] = c.r; pColors[i*3+1] = c.g; pColors[i*3+2] = c.b;
+  pSizes[i] = 4 + Math.random() * 18;
+  pSpeeds[i] = 0.15 + Math.random() * 0.5;
+  pPhases[i] = Math.random() * Math.PI * 2;
+}
+particleGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+particleGeo.setAttribute('aColor', new THREE.BufferAttribute(pColors, 3));
+particleGeo.setAttribute('aSize', new THREE.BufferAttribute(pSizes, 1));
+
+const particleMat = new THREE.ShaderMaterial({
+  uniforms:{
+    uTime:{ value:0 },
+    uPixelRatio:{ value: renderer.getPixelRatio() },
+    uVisible:{ value: 1.0 },
+  },
+  vertexShader:`
+    attribute vec3 aColor;
+    attribute float aSize;
+    varying vec3 vColor;
+    varying float vAlpha;
+    uniform float uTime;
+    uniform float uPixelRatio;
+    uniform float uVisible;
+    void main(){
+      vColor = aColor;
+      vec3 p = position;
+      p.x += sin(uTime*0.4 + position.y*1.5) * 0.4;
+      p.z += cos(uTime*0.35 + position.y*1.2) * 0.4;
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      gl_PointSize = aSize * uPixelRatio * (15.0 / -mv.z) * uVisible;
+      vAlpha = uVisible;
+      gl_Position = projectionMatrix * mv;
+    }
+  `,
+  fragmentShader:`
+    varying vec3 vColor;
+    varying float vAlpha;
+    void main(){
+      vec2 c = gl_PointCoord - 0.5;
+      float d = length(c);
+      float a = smoothstep(0.5, 0.0, d);
+      a = pow(a, 2.5);
+      gl_FragColor = vec4(vColor * 1.5, a * vAlpha);
+    }
+  `,
+  transparent:true,
+  blending: THREE.AdditiveBlending,
+  depthWrite:false,
+});
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+// ---------- 爆裂粒子池 ----------
+const bursts = [];
+function spawnBurst(pos, color){
+  const n = 80;
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(n*3);
+  const velocities = new Float32Array(n*3);
+  const colArr = new Float32Array(n*3);
+  for (let i = 0; i < n; i++){
+    positions[i*3]   = pos.x;
+    positions[i*3+1] = pos.y;
+    positions[i*3+2] = pos.z;
+    const dir = new THREE.Vector3(
+      Math.random()-0.5, Math.random()-0.3, Math.random()-0.5
+    ).normalize().multiplyScalar(2 + Math.random()*4);
+    velocities[i*3]   = dir.x;
+    velocities[i*3+1] = dir.y + 1.5;
+    velocities[i*3+2] = dir.z;
+    colArr[i*3]   = color.r;
+    colArr[i*3+1] = color.g;
+    colArr[i*3+2] = color.b;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('aColor', new THREE.BufferAttribute(colArr, 3));
+
+  const mat = new THREE.ShaderMaterial({
+    uniforms:{ uLife:{ value:1.0 }, uPixelRatio:{ value:renderer.getPixelRatio() } },
+    vertexShader:`
+      attribute vec3 aColor;
+      varying vec3 vColor;
+      uniform float uLife;
+      uniform float uPixelRatio;
+      void main(){
+        vColor = aColor;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = 18.0 * uPixelRatio * uLife * (10.0 / -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader:`
+      varying vec3 vColor;
+      uniform float uLife;
+      void main(){
+        vec2 c = gl_PointCoord - 0.5;
+        float d = length(c);
+        float a = smoothstep(0.5, 0.0, d) * uLife;
+        gl_FragColor = vec4(vColor * 2.0, a);
+      }
+    `,
+    transparent:true,
+    blending: THREE.AdditiveBlending,
+    depthWrite:false,
+  });
+
+  const pts = new THREE.Points(geo, mat);
+  pts.userData = { velocities, life:0, maxLife:1.6, mat, geo };
+  scene.add(pts);
+  bursts.push(pts);
+}
+
+// ---------- 交互：射线检测 ----------
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2(-10, -10);
+let hovered = null;
+
+canvas.addEventListener('pointermove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+});
+
+canvas.addEventListener('pointerleave', () => { pointer.x = -10; pointer.y = -10; });
+
+canvas.addEventListener('click', () => {
+  if (hovered && hovered.userData.alive){
+    shatterCrystal(hovered);
+  }
+});
+
+function shatterCrystal(c){
+  spawnBurst(c.position.clone(), c.userData.color);
+  c.userData.alive = false;
+  c.userData.targetScale = 0;
+  c.userData.isHovered = false;
+  showToast('SHATTERED');
+  // 1.6 秒后在随机位置重生
+  setTimeout(() => {
+    if (!c.userData) return;
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 1.2 + Math.random() * 6.5;
+    const baseY = -0.5 + Math.random() * 3.5;
+    c.position.set(Math.cos(angle)*radius, baseY, Math.sin(angle)*radius);
+    c.userData.baseY = baseY;
+    c.userData.alive = true;
+    c.userData.targetScale = 1;
+    c.userData.currentScale = 0.01;
+    c.material.emissive.copy(c.userData.color);
+  }, 1600);
+}
+
+// ---------- UI 绑定 ----------
+const timeSlider = document.getElementById('timeSlider');
+const timeVal = document.getElementById('timeVal');
+const countSlider = document.getElementById('countSlider');
+const countVal = document.getElementById('countVal');
+const glowSlider = document.getElementById('glowSlider');
+const glowVal = document.getElementById('glowVal');
+const autoToggle = document.getElementById('autoToggle');
+const partToggle = document.getElementById('partToggle');
+const regrowBtn = document.getElementById('regrowBtn');
+const shatterBtn = document.getElementById('shatterBtn');
+const toastEl = document.getElementById('toast');
+
+function updateSliderFill(el){
+  const p = ((el.value - el.min) / (el.max - el.min)) * 100;
+  el.style.setProperty('--p', p + '%');
+}
+[timeSlider, countSlider, glowSlider].forEach(updateSliderFill);
+
+const timePresets = [
+  { name:'Dawn',  top:0x1a0a18, mid:0x6a2a1a, bot:0xff6a35, key:0xff5a2a, amb:0x4a2030, exp:1.0 },
+  { name:'Noon',  top:0x2a1a3a, mid:0x5a3a4a, bot:0x9a5a3a, key:0xffba08, amb:0x6a4a3a, exp:1.3 },
+  { name:'Dusk',  top:0x0a0612, mid:0x2a0a1a, bot:0x4a1a08, key:0xff8a3d, amb:0x4a2030, exp:1.15 },
+  { name:'Night', top:0x05030a, mid:0x10081a, bot:0x180a20, key:0x8a4af0, amb:0x20103a, exp:0.9 },
+];
+
+function applyTime(val){
+  // val 0..100 -> 在 4 个预设间插值
+  const t = val / 100 * (timePresets.length - 1);
+  const i = Math.floor(t);
+  const f = t - i;
+  const a = timePresets[i];
+  const b = timePresets[Math.min(i+1, timePresets.length-1)];
+  const lerpCol = (c1, c2) => new THREE.Color(c1).lerp(new THREE.Color(c2), f);
+
+  skyMat.uniforms.uTopColor.value.copy(lerpCol(a.top, b.top));
+  skyMat.uniforms.uMidColor.value.copy(lerpCol(a.mid, b.mid));
+  skyMat.uniforms.uBotColor.value.copy(lerpCol(a.bot, b.bot));
+  keyLight.color.copy(lerpCol(a.key, b.key));
+  ambient.color.copy(lerpCol(a.amb, b.amb));
+  renderer.toneMappingExposure = a.exp + (b.exp - a.exp) * f;
+
+  // 显示当前最近预设名
+  const nearest = (f < 0.5) ? a.name : b.name;
+  timeVal.textContent = nearest;
+}
+
+timeSlider.addEventListener('input', () => {
+  applyTime(timeSlider.value);
+  updateSliderFill(timeSlider);
+});
+applyTime(timeSlider.value);
+
+countSlider.addEventListener('input', () => {
+  countVal.textContent = countSlider.value;
+  updateSliderFill(countSlider);
+});
+countSlider.addEventListener('change', () => {
+  buildCrystals(parseInt(countSlider.value));
+});
+
+glowSlider.addEventListener('input', () => {
+  glowMultiplier = glowSlider.value / 100;
+  glowVal.textContent = glowMultiplier.toFixed(1);
+  updateSliderFill(glowSlider);
+});
+
+autoToggle.addEventListener('click', () => {
+  autoToggle.classList.toggle('on');
+  controls.autoRotate = autoToggle.classList.contains('on');
+});
+
+let particlesOn = true;
+partToggle.addEventListener('click', () => {
+  partToggle.classList.toggle('on');
+  particlesOn = partToggle.classList.contains('on');
+});
+
+regrowBtn.addEventListener('click', () => {
+  crystals.forEach(c => {
+    if (!c.userData.alive){
+      c.userData.alive = true;
+      c.userData.targetScale = 1;
+      c.userData.currentScale = 0.01;
+    }
+  });
+  showToast('REGROWN');
+});
+
+shatterBtn.addEventListener('click', () => {
+  let delay = 0;
+  crystals.forEach(c => {
+    if (c.userData.alive){
+      setTimeout(() => shatterCrystal(c), delay);
+      delay += 40;
+    }
+  });
+});
+
+let toastTimer;
+function showToast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1200);
+}
+
+// ---------- 窗口尺寸 ----------
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  particleMat.uniforms.uPixelRatio.value = renderer.getPixelRatio();
+});
+
+// ---------- 动画循环 ----------
+const clock = new THREE.Clock();
+
+function animate(){
+  const t = clock.getElapsedTime();
+
+  skyMat.uniforms.uTime.value = t;
+  groundMat.uniforms.uTime.value = t;
+  particleMat.uniforms.uTime.value = t;
+  particleMat.uniforms.uVisible.value += ((particlesOn ? 1 : 0) - particleMat.uniforms.uVisible.value) * 0.1;
+
+  // 粒子上升循环
+  const pos = particleGeo.attributes.position.array;
+  for (let i = 0; i < particleCount; i++){
+    pos[i*3+1] += pSpeeds[i] * 0.012;
+    if (pos[i*3+1] > 8){
+      pos[i*3+1] = -2;
+      pos[i*3]   = (Math.random()-0.5) * 22;
+      pos[i*3+2] = (Math.random()-0.5) * 22;
+    }
+  }
+  particleGeo.attributes.position.needsUpdate = true;
+
+  // 水晶更新
+  for (const c of crystals){
+    c.rotation.x += c.userData.rotSpeed.x * 0.008;
+    c.rotation.y += c.userData.rotSpeed.y * 0.008;
+    c.rotation.z += c.userData.rotSpeed.z * 0.008;
+    c.position.y = c.userData.baseY + Math.sin(t * 1.2 + c.userData.phase) * c.userData.floatAmp;
+
+    const targetScale = c.userData.alive ? (c.userData.isHovered ? 1.45 : 1.0) : 0;
+    c.userData.targetScale = targetScale;
+    c.userData.currentScale += (c.userData.targetScale - c.userData.currentScale) * 0.12;
+    c.scale.setScalar(Math.max(0.0001, c.userData.currentScale));
+
+    const pulse = 0.5 + 0.25 * Math.sin(t * 2 + c.userData.phase);
+    c.material.emissiveIntensity = (0.6 + pulse * 0.4) * glowMultiplier * (c.userData.isHovered ? 1.6 : 1.0);
+  }
+
+  // 射线检测悬停
+  raycaster.setFromCamera(pointer, camera);
+  const intersects = raycaster.intersectObjects(crystals.filter(c => c.userData.alive));
+  const newHover = intersects.length > 0 ? intersects[0].object : null;
+
+  if (newHover !== hovered){
+    if (hovered) hovered.userData.isHovered = false;
+    hovered = newHover;
+    if (hovered){
+      hovered.userData.isHovered = true;
+      canvas.style.cursor = 'pointer';
+    } else {
+      canvas.style.cursor = 'grab';
+    }
+  }
+
+  // 爆裂粒子更新
+  for (let i = bursts.length - 1; i >= 0; i--){
+    const b = bursts[i];
+    b.userData.life += 0.016;
+    const lifeRatio = 1 - b.userData.life / b.userData.maxLife;
+    b.userData.mat.uniforms.uLife.value = Math.max(0, lifeRatio);
+
+    const p = b.userData.geo.attributes.position.array;
+    const v = b.userData.velocities;
+    for (let j = 0; j < p.length / 3; j++){
+      p[j*3]   += v[j*3]   * 0.016;
+      p[j*3+1] += v[j*3+1] * 0.016;
+      p[j*3+2] += v[j*3+2] * 0.016;
+      v[j*3+1] -= 0.12; // 重力
+    }
+    b.userData.geo.attributes.position.needsUpdate = true;
+
+    if (b.userData.life >= b.userData.maxLife){
+      scene.remove(b);
+      b.userData.geo.dispose();
+      b.userData.mat.dispose();
+      bursts.splice(i, 1);
+    }
+  }
+
+  // 灯光轻微浮动
+  keyLight.position.x = Math.sin(t * 0.3) * 6;
+  keyLight.position.z = Math.cos(t * 0.3) * 6;
+  fillLight.position.x = Math.sin(t * 0.2 + 2) * -6;
+  fillLight.position.z = Math.cos(t * 0.2 + 2) * -6;
+
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+
+animate();
+
+// 移除加载层
+setTimeout(() => {
+  document.getElementById('loader').classList.add('hidden');
+}, 400);
+
+</script>
+</body>
+</html>

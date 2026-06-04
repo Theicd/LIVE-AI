@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Sea Exploration</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 800px;
+            height: 800px;
+            box-shadow: 0 0 50px rgba(0, 100, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        p {
+            font-size: 0.8rem;
+            margin: 5px 0 0 0;
+            color: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <canvas id="scene" width="800" height="800"></canvas>
+        <div id="ui-overlay">
+            <h1>Deep Sea Explorer</h1>
+            <p>Live Simulation • Canvas 2D API</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('scene');
+        const ctx = canvas.getContext('2d');
+
+        // --- Configuration ---
+        const WIDTH = 800;
+        const HEIGHT = 800;
+        const FPS = 60;
+
+        // --- State ---
+        let time = 0;
+        let frameCount = 0;
+
+        // --- Classes ---
+
+        // 1. Particle System (Dust & Bubbles)
+        class Particle {
+            constructor(type, x, y, z) {
+                this.type = type; // 'dust' or 'bubble'
+                this.x = x;
+                this.y = y;
+                this.z = z;
+                this.baseX = x;
+                this.baseY = y;
+                this.baseZ = z;
+                
+                if (type === 'bubble') {
+                    this.size = Math.random() * 2 + 1;
+                    this.speedY = Math.random() * 1 + 0.5;
+                    this.wobbleSpeed = Math.random() * 0.05 + 0.02;
+                    this.wobbleDist = Math.random() * 0.5 + 0.2;
+                } else {
+                    this.size = Math.random() * 1.5;
+                    this.speedY = Math.random() * 0.2 + 0.05;
+                    this.wobbleSpeed = Math.random() * 0.01 + 0.005;
+                    this.wobbleDist = Math.random() * 0.1;
+                }
+            }
+
+            update(cameraOffsetX, cameraOffsetY) {
+                // Parallax effect: particles move opposite to camera
+                this.x = this.baseX - cameraOffsetX * (this.type === 'bubble' ? 0.1 : 0.02);
+                this.y = this.baseY - cameraOffsetY * (this.type === 'bubble' ? 0.1 : 0.02);
+
+                // Animate
+                this.y -= this.speedY;
+                this.x += Math.sin(time * this.wobbleSpeed) * this.wobbleDist;
+
+                // Reset if off screen
+                if (this.y < -50) {
+                    this.y = HEIGHT + 50;
+                    this.x = Math.random() * WIDTH;
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.type === 'bubble' 
+                    ? `rgba(200, 230, 255, ${Math.random() * 0.4 + 0.2})` 
+                    : `rgba(255, 255, 255, ${Math.random() * 0.1 + 0.05})`;
+                ctx.fill();
+            }
+        }
+
+        // 2. God Rays (Light Shafts)
+        class GodRay {
+            constructor(x, y, width, height, angle) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.angle = angle;
+                this.speed = Math.random() * 0.0005 + 0.0002;
+            }
+
+            update() {
+                this.x += Math.sin(time * 0.5) * 0.2;
+                this.y += Math.cos(time * 0.3) * 0.2;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                
+                const grad = ctx.createLinearGradient(0, -this.height, 0, this.height);
+                grad.addColorStop(0, 'rgba(100, 150, 255, 0.15)');
+                grad.addColorStop(0.5, 'rgba(100, 150, 255, 0.05)');
+                grad.addColorStop(1, 'rgba(100, 150, 255, 0)');
+
+                ctx.fillStyle = grad;
+                ctx.fillRect(-this.width / 2, -this.height, this.width, this.height * 2);
+                ctx.restore();
+            }
+        }
+
+        // 3. The Submarine
+        class Submarine {
+            constructor() {
+                this.angle = 0;
+                this.radius = 350;
+                this.yBase = 600; // Height of the sub above seabed
+                this.propellerAngle = 0;
+                this.bubbles = [];
+            }
+
+            update() {
+                // Orbital movement
+                this.angle += 0.002;
+                
+                // Calculate 3D position
+                // x = r * cos(theta), z = r * sin(theta)
+                this.x = Math.cos(this.angle) * this.radius;
+                this.z = Math.sin(this.angle) * this.radius;
+                
+                // Calculate height based on angle (arc up and down slightly)
+                this.y = this.yBase + Math.sin(this.angle * 2) * 50;
+
+                // Bobbing
+                this.y += Math.sin(time * 2) * 2;
+
+                // Propeller spin
+                this.propellerAngle += 0.5;
+
+                // Generate bubbles
+                if (frameCount % 5 === 0) {
+                    this.bubbles.push(new Particle('bubble', this.x - 20, this.y, this.z));
+                }
+                
+                // Update bubbles
+                for (let i = this.bubbles.length - 1; i >= 0; i--) {
+                    let b = this.bubbles[i];
+                    b.update(this.x, this.y); // Use sub position for parallax ref
+                    if (b.y < -20) this.bubbles.splice(i, 1);
+                }
+            }
+
+            draw(ctx, cameraZ) {
+                // Perspective projection
+                const scale = 300 / (300 - this.z); // Simple perspective scale
+                const screenX = WIDTH / 2 + this.x * scale;
+                const screenY = HEIGHT / 2 + this.y * scale;
+                
+                // Save context for sub transformation
+                ctx.save();
+                ctx.translate(screenX, screenY);
+
+                // Calculate rotation to face direction of travel
+                // Tangent of circle is (-sin, cos)
+                const dirX = -Math.sin(this.angle);
+                const dirY = Math.cos(this.angle);
+                const rotation = Math.atan2(dirY, dirX);
+                
+                ctx.rotate(rotation);
+
+                // --- Draw Propeller (Behind) ---
+                ctx.save();
+                ctx.translate(-10, 0);
+                ctx.rotate(this.propellerAngle);
+                ctx.fillStyle = '#888';
+                ctx.fillRect(-2, -15, 4, 30);
+                ctx.restore();
+
+                // --- Draw Light Beam (Cone) ---
+                // We draw this in world space before translating to sub, 
+                // but to get the perspective right relative to the screen, 
+                // we actually need to draw it as an overlay or careful layering.
+                // For this effect, we'll draw it "inside" the sub context but projected out.
+                this.drawLightBeam(ctx, scale);
+
+                // --- Draw Sub Hull (3D Look) ---
+                // Body (Ellipse)
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 60 * scale, 25 * scale, 0, 0, Math.PI * 2);
+                const bodyGrad = ctx.createLinearGradient(-60, 0, 60, 0);
+                bodyGrad.addColorStop(0, '#4a5a6a');
+                bodyGrad.addColorStop(0.5, '#8faab8'); // Highlight
+                bodyGrad.addColorStop(1, '#4a5a6a');
+                ctx.fillStyle = bodyGrad;
+                ctx.fill();
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Tower (Conning Tower)
+                ctx.beginPath();
+                ctx.ellipse(25 * scale, -20 * scale, 15 * scale, 10 * scale, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#5e6e7e';
+                ctx.fill();
+                ctx.stroke();
+
+                // Periscope
+                ctx.beginPath();
+                ctx.moveTo(25 * scale, -25 * scale);
+                ctx.lineTo(25 * scale, -40 * scale);
+                ctx.lineTo(35 * scale, -40 * scale);
+                ctx.lineTo(35 * scale, -25 * scale);
+                ctx.fillStyle = '#5e6e7e';
+                ctx.fill();
+                ctx.stroke();
+
+                // Fins
+                ctx.beginPath();
+                ctx.moveTo(-40 * scale, 0);
+                ctx.lineTo(-50 * scale, 15 * scale);
+                ctx.lineTo(-30 * scale, 15 * scale);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(-40 * scale, 0);
+                ctx.lineTo(-50 * scale, -15 * scale);
+                ctx.lineTo(-30 * scale, -15 * scale);
+                ctx.fill();
+                ctx.stroke();
+
+                // Lights on tower
+                ctx.beginPath();
+                ctx.arc(35 * scale, -20 * scale, 2 * scale, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffeb3b';
+                ctx.fill();
+
+                ctx.restore();
+
+                // Draw bubbles (already updated with parallax offset relative to sub pos)
+                this.bubbles.forEach(b => b.draw(ctx));
+            }
+
+            drawLightBeam(ctx, scale) {
+                // The beam is a triangle/cone extending forward from the sub
+                // We draw it relative to the sub's local coordinates (which are already rotated)
+                
+                const beamLength = 600 * scale;
+                const beamWidthTop = 10 * scale;
+                const beamWidthBottom = 150 * scale; // Wide at wreck distance
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0); // Tip of sub
+                ctx.lineTo(beamLength, -beamWidthTop); // Top edge
+                ctx.lineTo(beamLength, beamWidthTop); // Bottom edge
+                ctx.closePath();
+
+                // Gradient for beam
+                const beamGrad = ctx.createLinearGradient(0, 0, beamLength, 0);
+                beamGrad.addColorStop(0, 'rgba(255, 255, 200, 0.4)'); // Bright at source
+                beamGrad.addColorStop(0.8, 'rgba(255, 255, 200, 0.1)');
+                beamGrad.addColorStop(1, 'rgba(255, 255, 200, 0)');
+
+                ctx.fillStyle = beamGrad;
+                ctx.fill();
+                
+                // Add a "cutout" mask effect for the beam to make it look like it cuts through water
+                // But for simple performance, the gradient fade is usually sufficient for "fake" 3D.
+                // However, to make it look like it illuminates the wreck, we rely on the contrast 
+                // of the beam drawing *over* the dark scene (lighter compositing).
+                ctx.globalCompositeOperation = 'screen';
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+            }
+        }
+
+        // 4. The Shipwreck
+        class Wreck {
+            constructor() {
+                this.rocks = [];
+                // Generate seabed rocks
+                for(let i=0; i<20; i++) {
+                    this.rocks.push({
+                        x: (Math.random() - 0.5) * 800,
+                        y: 650 + Math.random() * 100,
+                        z: -Math.random() * 200, // Depth variation
+                        size: 10 + Math.random() * 30
+                    });
+                }
+            }
+
+            draw(ctx, cameraZ) {
+                // Perspective Scale for wreck
+                // Wreck is at Z = 0 (mostly), Sub moves around it.
+                // Scale logic: 300 / (300 - z)
+                const baseScale = 300 / (300 - 0);
+                
+                // Draw Rocks (Seabed)
+                ctx.fillStyle = '#1a1a1a';
+                this.rocks.forEach(rock => {
+                    // Parallax for rocks
+                    const parallaxX = rock.x; 
+                    const parallaxY = rock.y;
+                    
+                    // Simple perspective squish
+                    const zScale = 300 / (300 - rock.z);
+                    const size = rock.size * zScale;
+
+                    ctx.beginPath();
+                    ctx.moveTo(parallaxX - size, parallaxY);
+                    ctx.lineTo(parallaxX + size, parallaxY);
+                    ctx.lineTo(parallaxX + size/2, parallaxY - size);
+                    ctx.lineTo(parallaxX - size/2, parallaxY - size);
+                    ctx.fill();
+                });
+
+                // Draw Main Hull (Tilted)
+                ctx.save();
+                ctx.translate(WIDTH/2, HEIGHT/2);
+                
+                // Tilt the wreck based on camera angle to simulate sub flying by
+                const tiltAngle = Math.sin(time * 0.1) * 0.1;
+                ctx.rotate(tiltAngle);
+
+                const hullScale = 1.5;
+                
+                // Main Hull Body
+                ctx.beginPath();
+                // Draw a long ellipse for the hull
+                ctx.ellipse(0, 0, 400 * hullScale, 80 * hullScale, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f1215'; // Dark silhouette
+                ctx.fill();
+                ctx.strokeStyle = '#2a2a2a';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Ribs (Inside hull)
+                ctx.beginPath();
+                for(let i = -200; i < 200; i+=40) {
+                    ctx.moveTo(i, -70 * hullScale);
+                    ctx.lineTo(i, 70 * hullScale);
+                }
+                ctx.strokeStyle = '#1a1a1a';
+                ctx.stroke();
+
+                // Broken Bow (Front)
+                ctx.beginPath();
+                ctx.moveTo(350 * hullScale, 0);
+                ctx.lineTo(450 * hullScale, -20 * hullScale);
+                ctx.lineTo(450 * hullScale, 20 * hullScale);
+                ctx.closePath();
+                ctx.fillStyle = '#0f1215';
+                ctx.fill();
+                ctx.stroke();
+
+                // Broken Mast (Rear)
+                ctx.beginPath();
+                ctx.moveTo(-200 * hullScale, -70 * hullScale);
+                ctx.lineTo(-300 * hullScale, -200 * hullScale);
+                ctx.lineTo(-250 * hullScale, -200 * hullScale);
+                ctx.lineTo(-150 * hullScale, -70 * hullScale);
+                ctx.closePath();
+                ctx.fillStyle = '#0f1215';
+                ctx.fill();
+                ctx.stroke();
+
+                // Debris scattered
+                ctx.fillStyle = '#1a1a1a';
+                // Box 1
+                ctx.fillRect(100 * hullScale, 50 * hullScale, 40 * hullScale, 20 * hullScale);
+                // Box 2
+                ctx.fillRect(-300 * hullScale, 80 * hullScale, 30 * hullScale, 30 * hullScale);
+                // Rope/String
+                ctx.beginPath();
+                ctx.moveTo(50 * hullScale, -60 * hullScale);
+                ctx.quadraticCurveTo(100 * hullScale, 0, 150 * hullScale, 20 * hullScale);
+                ctx.strokeStyle = '#222';
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        // --- Initialization ---
+
+        const sub = new Submarine();
+        const wreck = new Wreck();
+        
+        const particles = [];
+        const rayCount = 5;
+        const rays = [];
+
+        // Init Particles
+        for (let i = 0; i < 100; i++) {
+            particles.push(new Particle('dust', Math.random() * WIDTH, Math.random() * HEIGHT, 0));
+        }
+
+        // Init God Rays
+        for (let i = 0; i < rayCount; i++) {
+            rays.push(new GodRay(
+                Math.random() * WIDTH, 
+                Math.random() * HEIGHT * 0.5, 
+                200 + Math.random() * 300, 
+                1000 + Math.random() * 500, 
+                (Math.random() - 0.5) * 0.5
+            ));
+        }
+
+        // --- Main Loop ---
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+            frameCount++;
+
+            // Clear Screen
+            // Deep sea gradient background
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+            bgGrad.addColorStop(0, '#001e36'); // Deep Blue
+            bgGrad.addColorStop(0.5, '#000a12'); // Darker
+            bgGrad.addColorStop(1, '#000000'); // Abyss
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            // Update Sub
+            sub.update();
+
+            // Sort objects by Z depth (Painters Algorithm)
+            // We need to know the depth of the sub to decide if it's in front or behind the wreck.
+            // Sub Z is calculated in update.
+            // Wreck is conceptually at Z=0, but rocks have variation.
+            
+            // Draw Background (God Rays & Far Dust)
+            rays.forEach(ray => {
+                ray.update();
+                ray.draw(ctx);
+            });
+            particles.forEach(p => {
+                if (p.type === 'dust') {
+                    p.update(sub.x, sub.y); // Parallax relative to sub
+                    p.draw(ctx);
+                }
+            });
+
+            // Draw Wreck
+            // We want the wreck to appear mostly behind the sub when the sub is "in front" of it
+            // and in front when the sub is "behind" it.
+            // Since the sub orbits, its Z changes.
+            // If sub.z > 0 (closer to camera), draw wreck first.
+            // If sub.z < 0 (farther), draw sub first.
+            // Note: Z axis direction. Let's assume +Z is towards camera.
+            // In sub.update: z = sin(angle) * radius. 
+            // If angle is 0, z=0. If angle is PI/2, z=350 (Close).
+            
+            if (sub.z > 50) {
+                wreck.draw(ctx);
+            }
+
+            // Draw Submarine
+            sub.draw(ctx);
+
+            if (sub.z <= 50) {
+                wreck.draw(ctx);
+            }
+
+            // Draw Foreground Particles (Bubbles are part of sub, but let's add some ambient dust in front)
+            // Just for visual depth, let's draw the remaining dust on top if they happen to be in front
+            // (Simplified: particles already handled in sub or loop, but let's ensure bubbles are on top)
+            
+            // Draw Seabed Floor (Foreground rocks) - handled inside wreck for simplicity
+        }
+
+        // Start
+        animate();
+
+    </script>
+</body>
+</html>

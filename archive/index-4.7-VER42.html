@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORBITAL STATION 01 // COMMAND INTERFACE</title>
+    
+    <!-- Google Fonts for the Sci-Fi Look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --alert: #ff2a2a;
+            --bg-dark: #050a14;
+            --glass: rgba(5, 10, 20, 0.75);
+            --border: rgba(0, 243, 255, 0.3);
+            --font-tech: 'Share Tech Mono', monospace;
+            --font-ui: 'Rajdhani', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none; /* Prevent text selection for app-like feel */
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--primary);
+            font-family: var(--font-tech);
+            overflow: hidden; /* No scrollbars for the app feel */
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Background Starfield Canvas */
+        #starfield {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        /* Main Dashboard Container */
+        #dashboard {
+            position: relative;
+            z-index: 10;
+            width: 95vw;
+            height: 90vh;
+            max-width: 1400px;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.1), inset 0 0 50px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: grid;
+            grid-template-rows: 60px 1fr 80px;
+            grid-template-columns: 250px 1fr 300px;
+            padding: 15px;
+            gap: 15px;
+            opacity: 0;
+            animation: bootUp 1.5s ease-out forwards;
+            clip-path: polygon(
+                0 0, 100% 0, 
+                100% calc(100% - 20px), calc(100% - 20px) 100%, 
+                0 100%
+            );
+        }
+
+        @keyframes bootUp {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Header */
+        header {
+            grid-column: 1 / -1;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.1), transparent);
+        }
+
+        .brand {
+            font-family: var(--font-ui);
+            font-weight: 700;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            font-size: 0.9rem;
+        }
+
+        .indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+            box-shadow: 0 0 5px var(--primary);
+        }
+
+        .dot.alert { background: var(--alert); box-shadow: 0 0 5px var(--alert); }
+        .dot.secure { background: #0f0; box-shadow: 0 0 5px #0f0; }
+
+        /* Panels General */
+        .panel {
+            background: rgba(0, 20, 40, 0.4);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            border-radius: 4px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 10px; height: 10px;
+            border-top: 2px solid var(--primary);
+            border-left: 2px solid var(--primary);
+        }
+        .panel::after {
+            content: '';
+            position: absolute;
+            bottom: 0; right: 0; width: 10px; height: 10px;
+            border-bottom: 2px solid var(--primary);
+            border-right: 2px solid var(--primary);
+        }
+
+        .panel-title {
+            font-family: var(--font-ui);
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 5px;
+        }
+
+        /* Left Panel: Navigation & Stats */
+        .sidebar-left {
+            grid-column: 1 / 2;
+            grid-row: 2 / 3;
+        }
+
+        .nav-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .nav-item {
+            margin-bottom: 15px;
+        }
+
+        .nav-label {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.6);
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        /* Center Panel: Main Visualization */
+        .center-visual {
+            grid-column: 2 / 3;
+            grid-row: 2 / 3;
+            position: relative;
+            padding: 0; /* Canvas takes full space */
+            border: none;
+            background: transparent;
+        }
+
+        #station-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .overlay-data {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            pointer-events: none;
+        }
+
+        .data-line {
+            font-size: 0.9rem;
+            margin-bottom: 2px;
+            text-shadow: 0 0 2px #000;
+        }
+
+        /* Right Panel: Logs & Controls */
+        .sidebar-right {
+            grid-column: 3 / 4;
+            grid-row: 2 / 3;
+        }
+
+        .log-console {
+            flex-grow: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            padding: 10px;
+            font-size: 0.8rem;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            font-family: var(--font-tech);
+        }
+
+        .log-entry { margin-bottom: 5px; opacity: 0.8; }
+        .log-entry.new { color: #fff; opacity: 1; animation: flash 1s; }
+        .log-entry.error { color: var(--alert); }
+        
+        @keyframes flash { 0% { background: rgba(255,255,255,0.2); } 100% { background: transparent; } }
+
+        /* Footer Controls */
+        footer {
+            grid-column: 1 / -1;
+            grid-row: 3 / 4;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid var(--border);
+            background: linear-gradient(0deg, rgba(0, 243, 255, 0.1), transparent);
+            padding: 0 20px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 20px;
+            font-family: var(--font-tech);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+        }
+
+        .btn:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .btn.active {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .btn.alert-btn {
+            border-color: var(--alert);
+            color: var(--alert);
+        }
+        
+        .btn.alert-btn:hover {
+            background: var(--alert);
+            box-shadow: 0 0 15px var(--alert);
+        }
+
+        .clock {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 1024px) {
+            #dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: 60px 400px 1fr 80px;
+                height: 98vh;
+                padding: 10px;
+            }
+
+            .sidebar-left { grid-column: 1 / -1; grid-row: 2 / 3; flex-direction: row; gap: 20px; justify-content: space-around;}
+            .nav-list { display: flex; width: 100%; justify-content: space-around; }
+            .nav-item { margin: 0; width: 30%; text-align: center; }
+            
+            .center-visual { grid-column: 1 / -1; grid-row: 3 / 4; }
+            .sidebar-right { grid-column: 1 / -1; grid-row: 4 / 5; }
+            footer { flex-direction: column; gap: 10px; padding: 10px; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="starfield"></canvas>
+
+    <div id="dashboard">
+        <header>
+            <div class="brand">Orbital Station 01</div>
+            <div class="status-bar">
+                <div class="indicator"><div class="dot secure" id="nav-dot"></div> NETWORK: SECURE</div>
+                <div class="indicator"><div class="dot" id="sys-dot"></div> LIFE SUPPORT: 98%</div>
+                <div class="clock" id="main-clock">00:00:00</div>
+            </div>
+        </header>
+
+        <aside class="panel sidebar-left">
+            <div class="panel-title">Systems</div>
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <span class="nav-label">FUSION CORE</span>
+                    <div class="progress-track"><div class="progress-fill" id="core-fill" style="width: 85%"></div></div>
+                </li>
+                <li class="nav-item">
+                    <span class="nav-label">OXYGEN</span>
+                    <div class="progress-track"><div class="progress-fill" id="oxy-fill" style="width: 100%"></div></div>
+                </li>
+                <li class="nav-item">
+                    <span class="nav-label">GRAVITY</span>
+                    <div class="progress-track"><div class="progress-fill" id="grav-fill" style="width: 92%"></div></div>
+                </li>
+            </ul>
+        </aside>
+
+        <main class="panel center-visual">
+            <canvas id="station-canvas"></canvas>
+            <div class="overlay-data">
+                <div class="data-line">ORBITAL VELOCITY: 27,600 km/h</div>
+                <div class="data-line">DISTANCE TO EARTH: 420 km</div>
+                <div class="data-line">STATION ID: STN-001-ALPHA</div>
+            </div>
+        </main>
+
+        <aside class="panel sidebar-right">
+            <div class="panel-title">Event Log</div>
+            <div class="log-console" id="log-console">
+                <!-- Logs will be injected here via JS -->
+            </div>
+        </aside>
+
+        <footer>
+            <div class="control-group">
+                <button class="btn" id="btn-shields">Activate Shields</button>
+                <button class="btn" id="btn-comms">Comms Uplink</button>
+                <button class="btn alert-btn" id="btn-scram">Emergency Scram</button>
+            </div>
+            <div class="control-group">
+                <label>SYSTEM INTEGRITY</label>
+                <div class="progress-track" style="width: 100px;">
+                    <div class="progress-fill" id="footer-integrity" style="width: 100%"></div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        /* 
+         * SYSTEM: STARFIELD BACKGROUND
+         */
+        const starCanvas = document.getElementById('starfield');
+        const starCtx = starCanvas.getContext('2d');
+        let stars = [];
+
+        function resizeStarfield() {
+            starCanvas.width = window.innerWidth;
+            starCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeStarfield);
+        resizeStarfield();
+
+        class Star {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * starCanvas.width;
+                this.y = Math.random() * starCanvas.height;
+                this.z = Math.random() * 2 + 0.5; // Depth/Speed
+                this.size = Math.random() * 1.5;
+                this.opacity = Math.random();
+                this.blinkSpeed = Math.random() * 0.02 + 0.005;
+            }
+            update() {
+                // Move stars slowly to the left
+                this.x -= this.z * 0.2;
+                // Reset if off screen
+                if (this.x < 0) {
+                    this.x = starCanvas.width;
+                    this.y = Math.random() * starCanvas.height;
+                }
+                // Blink effect
+                this.opacity += this.blinkSpeed;
+                if (this.opacity > 1 || this.opacity < 0.2) this.blinkSpeed *= -1;
+            }
+            draw() {
+                starCtx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                starCtx.beginPath();
+                starCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                starCtx.fill();
+            }
+        }
+
+        // Initialize stars
+        for (let i = 0; i < 150; i++) {
+            stars.push(new Star());
+        }
+
+        /* 
+         * SYSTEM: STATION VISUALIZER (CANVAS)
+         */
+        const stnCanvas = document.getElementById('station-canvas');
+        const stnCtx = stnCanvas.getContext('2d');
+        let rotation = 0;
+
+        function resizeStation() {
+            const parent = stnCanvas.parentElement;
+            stnCanvas.width = parent.clientWidth;
+            stnCanvas.height = parent.clientHeight;
+        }
+        window.addEventListener('resize', resizeStation);
+        // Delay initial sizing to ensure layout is done
+        setTimeout(resizeStation, 100);
+
+        function drawStation() {
+            const w = stnCanvas.width;
+            const h = stnCanvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+
+            stnCtx.clearRect(0, 0, w, h);
+            
+            // Draw Central Body
+            stnCtx.save();
+            stnCtx.translate(cx, cy);
+            
+            // Glow
+            stnCtx.shadowBlur = 20;
+            stnCtx.shadowColor = 'rgba(0, 243, 255, 0.8)';
+            stnCtx.fillStyle = '#050a14';
+            stnCtx.beginPath();
+            stnCtx.arc(0, 0, 40, 0, Math.PI * 2);
+            stnCtx.fill();
+            stnCtx.strokeStyle = '#00f3ff';
+            stnCtx.lineWidth = 2;
+            stnCtx.stroke();
+
+            // Rotating Rings
+            rotation += 0.005;
+
+            // Ring 1 (Solid-ish)
+            stnCtx.rotate(rotation);
+            stnCtx.beginPath();
+            stnCtx.arc(0, 0, 70, 0, Math.PI * 1.5); // Open ring
+            stnCtx.strokeStyle = 'rgba(0, 243, 255, 0.5)';
+            stnCtx.lineWidth = 4;
+            stnCtx.stroke();
+
+            // Ring 2 (Thinner, faster)
+            stnCtx.restore(); // Reset rotation for independent ring
+            stnCtx.save();
+            stnCtx.translate(cx, cy);
+            stnCtx.rotate(-rotation * 2);
+            stnCtx.beginPath();
+            stnCtx.arc(0, 0, 90, 0, Math.PI * 2);
+            stnCtx.strokeStyle = 'rgba(188, 19, 254, 0.4)'; // Purple accent
+            stnCtx.lineWidth = 1;
+            stnCtx.setLineDash([10, 20]);
+            stnCtx.stroke();
+            stnCtx.restore();
+
+            // Orbiting Satellites (Simple dots)
+            const time = Date.now() * 0.001;
+            stnCtx.save();
+            stnCtx.translate(cx, cy);
+            stnCtx.rotate(Math.cos(time * 0.5) * 0.5); // Tilt axis
+            for(let i=0; i<3; i++) {
+                const angle = time * (1 + i * 0.3);
+                const r = 110 + i * 15;
+                const sx = Math.cos(angle) * r;
+                const sy = Math.sin(angle) * r;
+                
+                stnCtx.beginPath();
+                stnCtx.arc(sx, sy, 3, 0, Math.PI*2);
+                stnCtx.fillStyle = i === 1 ? '#ff2a2a' : '#00f3ff';
+                stnCtx.fill();
+                
+                // Connection line
+                stnCtx.beginPath();
+                stnCtx.moveTo(0,0);
+                stnCtx.lineTo(sx, sy);
+                stnCtx.strokeStyle = 'rgba(255,255,255,0.1)';
+                stnCtx.stroke();
+            }
+            stnCtx.restore();
+
+            requestAnimationFrame(drawStation);
+        }
+        drawStation();
+
+        /* 
+         * SYSTEM: UI LOGIC & INTERACTIVITY 
+         */
+        
+        // Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('main-clock').innerText = now.toLocaleTimeString('en-US', { hour12: false });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Log Console
+        const logs = [
+            "System initialized.",
+            "Connecting to comms satellite...",
+            "Telemetry data stream active.",
+            "Life support checks complete.",
+            "Atmospheric sensors calibrated.",
+            "External hull integrity: 99.8%.",
+            "Incoming data packet from Earth base.",
+            "Scanning for debris in orbital path.",
+            "Reactor output stabilizing.",
+            "Gravity generation: Nominal."
+        ];
+
+        const consoleDiv = document.getElementById('log-console');
+
+        function addLog(message, type = '') {
+            const div = document.createElement('div');
+            div.className = `log-entry new ${type}`;
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            div.innerText = `[${time}] ${message}`;
+            consoleDiv.prepend(div);
+            
+            // Cleanup old logs
+            if (consoleDiv.children.length > 20) {
+                consoleDiv.lastElementChild.remove();
+            }
+        }
+
+        // Initial logs
+        let logIndex = 0;
+        function autoLog() {
+            if (logIndex < logs.length) {
+                addLog(logs[logIndex]);
+                logIndex++;
+                setTimeout(autoLog, 1500 + Math.random() * 2000);
+            }
+        }
+        setTimeout(autoLog, 1000);
+
+        // Random Data Simulation
+        function randomizeStats() {
+            // Core
+            const core = document.getElementById('core-fill');
+            const currentCore = parseInt(core.style.width);
+            const newCore = Math.min(100, Math.max(60, currentCore + (Math.random() > 0.5 ? 2 : -2)));
+            core.style.width = newCore + '%';
+
+            // Footer Integrity
+            const integ = document.getElementById('footer-integrity');
+            integ.style.width = (85 + Math.random() * 15) + '%';
+        }
+        setInterval(randomizeStats, 2000);
+
+        // Buttons
+        let shieldsActive = false;
+        const shieldsBtn = document.getElementById('btn-shields');
+        shieldsBtn.addEventListener('click', () => {
+            shieldsActive = !shieldsActive;
+            shieldsBtn.classList.toggle('active');
+            if (shieldsActive) {
+                addLog("Shield generators: ENGAGED", "alert");
+                shieldsBtn.innerText = "Shields: ONLINE";
+                document.querySelector('.status-bar').style.color = "#0f0";
+            } else {
+                addLog("Shield generators: DISENGAGED");
+                shieldsBtn.innerText = "Activate Shields";
+                document.querySelector('.status-bar').style.color = "var(--primary)";
+            }
+        });
+
+        const commsBtn = document.getElementById('btn-comms');
+        commsBtn.addEventListener('click', () => {
+            addLog("Initiating Uplink...", "error");
+            setTimeout(() => {
+                addLog("Connection established with Command.");
+            }, 800);
+        });
+
+        const scramBtn = document.getElementById('btn-scram');
+        scramBtn.addEventListener('click', () => {
+            addLog("CRITICAL: EMERGENCY SCRAM INITIATED", "error");
+            document.body.style.animation = "shake 0.5s";
+            setTimeout(() => {
+                document.body.style.animation = "";
+                addLog("Systems cooling down...");
+            }, 2000);
+        });
+
+        // Add shake animation dynamically
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = `
+            @keyframes shake {
+                0% { transform: translate(1px, 1px) rotate(0deg); }
+                10% { transform: translate(-1px, -2px) rotate(-1deg); }
+                20% { transform: translate(-3px, 0px) rotate(1deg); }
+                30% { transform: translate(3px, 2px) rotate(0deg); }
+                40% { transform: translate(1px, -1px) rotate(1deg); }
+                50% { transform: translate(-1px, 2px) rotate(-1deg); }
+                60% { transform: translate(-3px, 1px) rotate(0deg); }
+                70% { transform: translate(3px, 1px) rotate(-1deg); }
+                80% { transform: translate(-1px, -1px) rotate(1deg); }
+                90% { transform: translate(1px, 2px) rotate(0deg); }
+                100% { transform: translate(1px, -2px) rotate(-1deg); }
+            }
+        `;
+        document.head.appendChild(styleSheet);
+
+    </script>
+</body>
+</html>

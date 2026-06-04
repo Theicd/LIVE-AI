@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Data Core - Interactive 3D Scene</title>
+    
+    <!-- Google Fonts for Sci-Fi look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS for UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        /* Custom UI Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Loading Screen Animation */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.8s ease-out;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #00ffff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* UI Transition */
+        .fade-in {
+            animation: fadeIn 1s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        canvas {
+            display: block;
+            outline: none;
+        }
+    </style>
+
+    <!-- Import Map for Three.js and Addons -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body class="text-white selection:bg-cyan-500 selection:text-black">
+
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="flex flex-col items-center gap-4">
+            <div class="spinner"></div>
+            <p class="text-cyan-400 font-orbitron tracking-widest text-sm animate-pulse">INITIALIZING CORE...</p>
+        </div>
+    </div>
+
+    <!-- UI Overlay -->
+    <main class="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-6 md:p-12">
+        
+        <!-- Header -->
+        <header class="flex justify-between items-start fade-in" style="animation-delay: 0.5s;">
+            <div>
+                <h1 class="text-4xl md:text-6xl font-orbitron font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-600 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">
+                    NEON CORE
+                </h1>
+                <p class="text-gray-400 mt-2 max-w-md text-sm md:text-base tracking-wide">
+                    Interactive WebGL Visualization. Drag to rotate. Scroll to zoom.
+                </p>
+            </div>
+            <div class="hidden md:block text-right">
+                <div class="text-xs text-gray-500 font-mono">SYS.STATUS: ONLINE</div>
+                <div class="text-xs text-gray-500 font-mono">FPS: <span id="fps-counter">60</span></div>
+            </div>
+        </header>
+
+        <!-- Controls Section -->
+        <aside class="pointer-events-auto w-full max-w-sm fade-in" style="animation-delay: 0.8s;">
+            <div class="glass-panel rounded-xl p-6">
+                <h2 class="text-lg font-orbitron mb-4 border-b border-white/10 pb-2 text-cyan-300">THEME CONTROL</h2>
+                
+                <div class="grid grid-cols-3 gap-3">
+                    <button onclick="changeTheme('cyberpunk')" class="group relative px-4 py-3 rounded-lg bg-gray-900/50 border border-cyan-500/30 hover:border-cyan-400 transition-all duration-300 overflow-hidden">
+                        <div class="absolute inset-0 bg-cyan-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                        <span class="relative text-sm font-bold tracking-wider text-cyan-400 group-hover:text-white">CYBER</span>
+                    </button>
+
+                    <button onclick="changeTheme('sunset')" class="group relative px-4 py-3 rounded-lg bg-gray-900/50 border border-orange-500/30 hover:border-orange-400 transition-all duration-300 overflow-hidden">
+                        <div class="absolute inset-0 bg-orange-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                        <span class="relative text-sm font-bold tracking-wider text-orange-400 group-hover:text-white">SUNSET</span>
+                    </button>
+
+                    <button onclick="changeTheme('matrix')" class="group relative px-4 py-3 rounded-lg bg-gray-900/50 border border-green-500/30 hover:border-green-400 transition-all duration-300 overflow-hidden">
+                        <div class="absolute inset-0 bg-green-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                        <span class="relative text-sm font-bold tracking-wider text-green-400 group-hover:text-white">MATRIX</span>
+                    </button>
+                </div>
+
+                <div class="mt-6 flex items-center justify-between text-xs text-gray-400 font-mono">
+                    <span>ROTATION SPEED</span>
+                    <input type="range" id="speed-slider" min="0" max="2" step="0.1" value="0.5" class="w-32 accent-cyan-500 cursor-pointer">
+                </div>
+            </div>
+        </aside>
+
+        <!-- Footer -->
+        <footer class="text-center md:text-left fade-in" style="animation-delay: 1s;">
+            <p class="text-xs text-gray-600 font-mono">
+                RENDERED WITH THREE.JS & WEBGL
+            </p>
+        </footer>
+    </main>
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 z-0 bg-black"></div>
+
+    <!-- Application Logic -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- Configuration ---
+        const config = {
+            rotationSpeed: 0.005,
+            particleCount: 2000,
+            colors: {
+                primary: 0x00ffff, // Cyan
+                secondary: 0xff00ff, // Magenta
+                ambient: 0x222222
+            }
+        };
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.02); // Depth fog
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 15);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        container.appendChild(renderer.domElement);
+
+        // --- Controls ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = false;
+        controls.enablePan = false;
+
+        // --- Objects ---
+
+        // 1. The Core (Icosahedron)
+        const geometryCore = new THREE.IcosahedronGeometry(3, 0);
+        const materialCore = new THREE.MeshStandardMaterial({
+            color: 0x111111,
+            roughness: 0.1,
+            metalness: 0.9,
+            emissive: config.colors.primary,
+            emissiveIntensity: 0.5,
+            wireframe: true
+        });
+        const core = new THREE.Mesh(geometryCore, materialCore);
+        scene.add(core);
+
+        // Inner glowing sphere
+        const innerGeo = new THREE.IcosahedronGeometry(2.5, 1);
+        const innerMat = new THREE.MeshBasicMaterial({
+            color: config.colors.secondary,
+            wireframe: false,
+            transparent: true,
+            opacity: 0.1
+        });
+        const innerSphere = new THREE.Mesh(innerGeo, innerMat);
+        scene.add(innerSphere);
+
+        // 2. The Outer Shell (Wireframe Sphere)
+        const geometryShell = new THREE.IcosahedronGeometry(5, 2);
+        const materialShell = new THREE.MeshBasicMaterial({
+            color: config.colors.primary,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.1
+        });
+        const shell = new THREE.Mesh(geometryShell, materialShell);
+        scene.add(shell);
+
+        // 3. Particle Field
+        const particlesGeometry = new THREE.BufferGeometry();
+        const posArray = new Float32Array(config.particleCount * 3);
+
+        for(let i = 0; i < config.particleCount * 3; i++) {
+            // Spread particles in a large volume
+            posArray[i] = (Math.random() - 0.5) * 60; 
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.05,
+            color: config.colors.primary,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(config.colors.ambient, 2);
+        scene.add(ambientLight);
+
+        const pointLight1 = new THREE.PointLight(config.colors.primary, 100, 50);
+        pointLight1.position.set(10, 10, 10);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(config.colors.secondary, 100, 50);
+        pointLight2.position.set(-10, -10, 10);
+        scene.add(pointLight2);
+
+        // --- Post-Processing (Bloom) ---
+        const renderScene = new RenderPass(scene, camera);
+        
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0.2;
+        bloomPass.strength = 1.2; // Intensity of glow
+        bloomPass.radius = 0.5;
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- Animation Loop ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = clock.getElapsedTime();
+            const delta = clock.getDelta();
+
+            // Rotate Core
+            core.rotation.x += config.rotationSpeed;
+            core.rotation.y += config.rotationSpeed * 1.5;
+
+            // Rotate Shell (Opposite direction)
+            shell.rotation.x -= config.rotationSpeed * 0.5;
+            shell.rotation.y -= config.rotationSpeed;
+
+            // Pulse Inner Sphere
+            const scale = 1 + Math.sin(time * 2) * 0.05;
+            innerSphere.scale.set(scale, scale, scale);
+
+            // Rotate Particles slowly
+            particlesMesh.rotation.y = time * 0.05;
+
+            // Interactive "Breathing" effect based on mouse distance (simulated here by time)
+            const scaleBreath = 1 + Math.sin(time * 3) * 0.1;
+            core.scale.set(scaleBreath, scaleBreath, scaleBreath);
+
+            controls.update();
+            composer.render();
+        }
+
+        // --- Interaction Logic ---
+        
+        // Resize Handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // FPS Counter (Simple approximation)
+        let lastTime = performance.now();
+        let frameCount = 0;
+        const fpsElement = document.getElementById('fps-counter');
+        
+        function updateFPS() {
+            const now = performance.now();
+            frameCount++;
+            if (now - lastTime >= 1000) {
+                fpsElement.innerText = frameCount;
+                frameCount = 0;
+                lastTime = now;
+            }
+            requestAnimationFrame(updateFPS);
+        }
+
+        // --- UI Functions ---
+        
+        window.changeTheme = (theme) => {
+            let primaryColor, secondaryColor, bgFog;
+
+            switch(theme) {
+                case 'sunset':
+                    primaryColor = 0xffaa00; // Orange
+                    secondaryColor = 0xff0055; // Pink
+                    bgFog = 0x2a0a0a;
+                    break;
+                case 'matrix':
+                    primaryColor = 0x00ff00; // Green
+                    secondaryColor = 0x003300; // Dark Green
+                    bgFog = 0x000500;
+                    break;
+                case 'cyberpunk':
+                default:
+                    primaryColor = 0x00ffff; // Cyan
+                    secondaryColor = 0xff00ff; // Magenta
+                    bgFog = 0x000000;
+                    break;
+            }
+
+            // Update Config
+            config.colors.primary = primaryColor;
+            config.colors.secondary = secondaryColor;
+
+            // Update Materials
+            materialCore.emissive.setHex(primaryColor);
+            materialShell.color.setHex(primaryColor);
+            particlesMaterial.color.setHex(primaryColor);
+            pointLight1.color.setHex(primaryColor);
+            
+            innerMat.color.setHex(secondaryColor);
+            pointLight2.color.setHex(secondaryColor);
+
+            // Update Fog
+            scene.fog.color.setHex(bgFog);
+            renderer.setClearColor(bgFog);
+        };
+
+        // Speed Slider
+        const speedSlider = document.getElementById('speed-slider');
+        speedSlider.addEventListener('input', (e) => {
+            config.rotationSpeed = parseFloat(e.target.value) * 0.01;
+        });
+
+        // --- Initialization ---
+        
+        // Hide loader when scene is ready
+        window.addEventListener('load', () => {
+            const loader = document.getElementById('loader');
+            setTimeout(() => {
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    animate();
+                    updateFPS();
+                }, 800);
+            }, 500);
+        });
+
+    </script>
+</body>
+</html>

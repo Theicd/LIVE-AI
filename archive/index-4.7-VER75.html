@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Nebula Core | Generative 3D Art</title>
+    <style>
+        /* CSS STYLING */
+        :root {
+            --bg-color: #050508;
+            --text-color: #ffffff;
+            --accent-color: #00f3ff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-color);
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            outline: none;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to 3D scene */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        header {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            font-weight: 300;
+            opacity: 0.9;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        .subtitle {
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-top: 5px;
+            font-weight: 300;
+        }
+
+        footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .interaction-hint {
+            font-size: 0.75rem;
+            opacity: 0.6;
+            border-left: 2px solid var(--accent-color);
+            padding-left: 10px;
+        }
+
+        /* Loading Overlay */
+        #loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            transition: opacity 1s ease-out;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive Text */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.2rem; }
+            .interaction-hint { display: none; }
+        }
+    </style>
+    
+    <!-- Import Map for Three.js and Post-processing -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <header>
+            <h1>The Nebula Core</h1>
+            <div class="subtitle">Generative Crystal Simulation</div>
+        </header>
+        
+        <footer>
+            <div class="interaction-hint">
+                Move cursor to rotate view<br>
+                Click and drag to explore
+            </div>
+            <div style="font-size: 0.8rem; opacity: 0.5;">v1.0.4</div>
+        </footer>
+    </div>
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- Configuration ---
+        const CONFIG = {
+            shardCount: 1500,
+            shardSize: 0.8,
+            rotationSpeed: 0.002,
+            bloomStrength: 1.2,
+            bloomRadius: 0.5,
+            bloomThreshold: 0.1,
+            colorA: new THREE.Color('#00f3ff'), // Cyan
+            colorB: new THREE.Color('#ff00aa'), // Magenta
+            bg: new THREE.Color('#050508')
+        };
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = CONFIG.bg;
+        scene.fog = new THREE.FogExp2(CONFIG.bg, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0, 18);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        // --- Post-Processing (Bloom) ---
+        const renderScene = new RenderPass(scene, camera);
+        
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            CONFIG.bloomStrength,
+            CONFIG.bloomRadius,
+            CONFIG.bloomThreshold
+        );
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- Controls ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enableZoom = true;
+        controls.autoRotate = false;
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        // Dynamic colored lights
+        const light1 = new THREE.PointLight(CONFIG.colorA, 5, 50);
+        const light2 = new THREE.PointLight(CONFIG.colorB, 5, 50);
+        const light3 = new THREE.PointLight(0xffffff, 2, 50);
+        
+        scene.add(light1, light2, light3);
+
+        // --- Geometry Creation (The Crystal Core) ---
+        // We use an Icosahedron as a base shape, then distort it
+        const geometry = new THREE.IcosahedronGeometry(4, 2); // Detail level 2 for sharpness
+        
+        // Material: High metalness, low roughness for a shiny crystal look
+        const material = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            metalness: 0.9,
+            roughness: 0.1,
+            transmission: 0, 
+            flatShading: true, // Gives it that low-poly sharp look
+            side: THREE.DoubleSide,
+            emissive: 0x000000
+        });
+
+        // Instead of a single mesh, we create an InstancedMesh for performance
+        const instancedMesh = new THREE.InstancedMesh(geometry, material, CONFIG.shardCount);
+        
+        // Generate random positions inside a sphere
+        const dummy = new THREE.Object3D();
+        const positions = [];
+        const randoms = []; // For offsetting animation
+
+        for (let i = 0; i < CONFIG.shardCount; i++) {
+            // Spherical distribution
+            const phi = Math.acos(-1 + (2 * i) / CONFIG.shardCount);
+            const theta = Math.sqrt(CONFIG.shardCount * Math.PI) * phi;
+            
+            const radius = 5 + Math.random() * 6; // Shell thickness 5 to 11
+            
+            const x = radius * Math.cos(theta) * Math.sin(phi);
+            const y = radius * Math.sin(theta) * Math.sin(phi);
+            const z = radius * Math.cos(phi);
+
+            dummy.position.set(x, y, z);
+            
+            // Random rotation for each shard
+            dummy.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            
+            // Random scale
+            const scale = Math.random() * CONFIG.shardSize;
+            dummy.scale.set(scale, scale, scale);
+
+            dummy.updateMatrix();
+            instancedMesh.setMatrixAt(i, dummy.matrix);
+
+            positions.push({x, y, z, originalPos: new THREE.Vector3(x, y, z)});
+            randoms.push(Math.random() * Math.PI * 2);
+        }
+
+        scene.add(instancedMesh);
+
+        // --- Particle System (Background Dust) ---
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 1000;
+        const posArray = new Float32Array(particlesCount * 3);
+        
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 60; // Spread wide
+        }
+        
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.05,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+        });
+        
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        // --- Animation State ---
+        let time = 0;
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+
+        // --- Event Listeners ---
+        window.addEventListener('resize', onWindowResize);
+        document.addEventListener('mousemove', onMouseMove);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+            bloomPass.setSize(new THREE.Vector2(window.innerWidth, window.innerHeight));
+        }
+
+        function onMouseMove(event) {
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        // --- Animation Loop ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            time += delta;
+
+            // 1. Animate Lights
+            light1.position.x = Math.sin(time * 0.5) * 10;
+            light1.position.z = Math.cos(time * 0.5) * 10;
+            light1.position.y = Math.sin(time * 0.3) * 5;
+
+            light2.position.x = Math.cos(time * 0.7) * 10;
+            light2.position.z = Math.sin(time * 0.7) * 10;
+            light2.position.y = Math.cos(time * 0.4) * 5;
+
+            light3.position.x = Math.sin(time * 0.2) * 15;
+            light3.position.y = Math.cos(time * 0.2) * 15;
+
+            // 2. Animate Shards (Breathing effect)
+            // We need to update the matrix for each instance, which can be expensive, 
+            // but for ~1500 objects it's fine on modern devices.
+            for (let i = 0; i < CONFIG.shardCount; i++) {
+                const pos = positions[i];
+                const random = randoms[i];
+                
+                // Calculate breathing offset
+                const offset = Math.sin(time * 1.5 + random) * 0.5;
+                
+                // Move shard outward slightly
+                const vector = pos.originalPos.clone().normalize();
+                vector.multiplyScalar(pos.originalPos.length() + offset);
+                
+                dummy.position.copy(vector);
+                
+                // Keep rotation somewhat related to original but perturbed
+                dummy.rotation.set(
+                    pos.originalPos.x + Math.sin(time + random),
+                    pos.originalPos.y + Math.cos(time + random),
+                    pos.originalPos.z
+                );
+
+                dummy.updateMatrix();
+                instancedMesh.setMatrixAt(i, dummy.matrix);
+            }
+            instancedMesh.instanceMatrix.needsUpdate = true;
+
+            // 3. Rotate entire group based on mouse
+            targetRotationX = mouseY * 0.5;
+            targetRotationY = mouseX * 0.5;
+            
+            // Smoothly interpolate camera rotation manually if needed, 
+            // but OrbitControls handles the heavy lifting for the view.
+            // We'll just add a subtle rotation to the particles.
+            particlesMesh.rotation.y = time * 0.05;
+
+            controls.update();
+            composer.render();
+        }
+
+        // --- Init ---
+        // Hide loader after a brief moment
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 1000);
+            animate();
+        }, 800);
+
+    </script>
+</body>
+</html>

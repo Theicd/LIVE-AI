@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETHER | Futuristic Portfolio & Museum</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-color: #e0e0e0;
+            --accent-primary: #00f3ff;
+            --accent-secondary: #bc13fe;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --font-display: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            overflow: hidden; /* Manage scrolling manually */
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* --- UTILITIES --- */
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 1s forwards; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* --- INTRO SECTION --- */
+        #intro-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        #intro-title {
+            font-size: 4rem;
+            font-family: var(--font-display);
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            color: var(--accent-primary);
+            text-shadow: 0 0 10px var(--accent-primary);
+            position: relative;
+        }
+
+        #intro-subtitle {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: #fff;
+            opacity: 0.7;
+        }
+
+        .glitch {
+            position: relative;
+        }
+        
+        .glitch::before, .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+        }
+
+        .glitch::before {
+            left: 2px;
+            text-shadow: -1px 0 var(--accent-secondary);
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+        }
+
+        .glitch::after {
+            left: -2px;
+            text-shadow: -1px 0 var(--accent-primary);
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 5s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim {
+            0% { clip: rect(38px, 9999px, 84px, 0); }
+            20% { clip: rect(12px, 9999px, 8px, 0); }
+            40% { clip: rect(58px, 9999px, 2px, 0); }
+            60% { clip: rect(23px, 9999px, 68px, 0); }
+            80% { clip: rect(7px, 9999px, 98px, 0); }
+            100% { clip: rect(92px, 9999px, 14px, 0); }
+        }
+        
+        @keyframes glitch-anim2 {
+            0% { clip: rect(15px, 9999px, 88px, 0); }
+            20% { clip: rect(42px, 9999px, 34px, 0); }
+            40% { clip: rect(6px, 9999px, 93px, 0); }
+            60% { clip: rect(78px, 9999px, 25px, 0); }
+            80% { clip: rect(33px, 9999px, 61px, 0); }
+            100% { clip: rect(5px, 9999px, 45px, 0); }
+        }
+
+        /* --- MAIN LAYOUT --- */
+        #main-content {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* --- NAV --- */
+        nav {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: #fff;
+        }
+
+        .status-badge {
+            font-size: 0.8rem;
+            color: var(--accent-primary);
+            border: 1px solid var(--accent-primary);
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+
+        /* --- PORTFOLIO SECTION --- */
+        #portfolio-section {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .portfolio-track {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+            /* Smooth transition for width changes */
+            transition: width 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .project-card {
+            min-width: 300px;
+            width: 300px;
+            height: 60%;
+            margin: 0 20px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.5s ease;
+            cursor: pointer;
+        }
+
+        .card-preview {
+            height: 50%;
+            background: #222;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Abstract CSS Animation for Preview */
+        .anim-preview {
+            width: 60%;
+            height: 60%;
+            border: 2px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 3s linear infinite;
+            box-shadow: 0 0 15px var(--accent-primary);
+        }
+        
+        .anim-preview::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%; height: 80%;
+            border: 2px dashed var(--accent-secondary);
+            border-radius: 50%;
+            animation: spin-reverse 5s linear infinite;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes spin-reverse { 100% { transform: rotate(-360deg); } }
+
+        .card-info {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: all 0.5s ease;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+
+        .card-desc {
+            font-size: 0.9rem;
+            color: #aaa;
+            line-height: 1.4;
+        }
+
+        /* Expanded State */
+        .project-card.expanded {
+            flex-grow: 1;
+            margin: 0 5%;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
+        }
+
+        .project-card.expanded .card-preview {
+            height: 70%;
+        }
+        
+        .project-card.expanded .card-desc {
+            font-size: 1.1rem;
+            text-align: justify;
+        }
+
+        .control-hint {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 0.8rem;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* --- MUSEUM SECTION --- */
+        #museum-section {
+            height: 100%;
+            position: relative;
+            background: #111;
+            display: none; /* Hidden until portfolio finishes */
+        }
+
+        .room-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .room-slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            object-fit: cover;
+        }
+
+        .room-slide.active {
+            opacity: 1;
+            z-index: 1;
+        }
+
+        /* Ken Burns Effect */
+        .room-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            animation: kenBurns 10s ease-out forwards;
+        }
+
+        @keyframes kenBurns {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.15) translate(-1%, -1%); }
+        }
+
+        .museum-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 40px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            z-index: 2;
+            text-align: center;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 1s ease;
+        }
+
+        .room-slide.active .museum-overlay {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .room-title {
+            font-size: 3rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .room-caption {
+            font-size: 1.2rem;
+            font-family: var(--font-display);
+            color: var(--accent-primary);
+        }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 768px) {
+            #intro-title { font-size: 2.5rem; }
+            .room-title { font-size: 2rem; }
+            .project-card { min-width: 80vw; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- INTRO OVERLAY -->
+    <div id="intro-screen">
+        <h1 class="glitch" data-text="AETHER / PORTFOLIO" id="intro-title">AETHER / PORTFOLIO</h1>
+        <div id="intro-subtitle">Initializing Neural Links...</div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main id="main-content">
+        <nav>
+            <div class="brand">AETHER</div>
+            <div class="status-badge">SYSTEM: ONLINE</div>
+        </nav>
+
+        <!-- 1. PORTFOLIO SECTION -->
+        <section id="portfolio-section">
+            <div class="portfolio-track" id="track">
+                <!-- Cards injected via JS or hardcoded below -->
+                <div class="project-card" data-id="1">
+                    <div class="card-preview">
+                        <div class="anim-preview"></div>
+                    </div>
+                    <div class="card-info">
+                        <h3 class="card-title">Neural Interface</h3>
+                        <p class="card-desc">Direct brain-computer interface design using electro-sensors.</p>
+                    </div>
+                </div>
+                <div class="project-card" data-id="2">
+                    <div class="card-preview">
+                        <div class="anim-preview" style="border-color: var(--accent-secondary); box-shadow: 0 0 15px var(--accent-secondary);"></div>
+                    </div>
+                    <div class="card-info">
+                        <h3 class="card-title">Cyber Security</h3>
+                        <p class="card-desc">Advanced encryption algorithms for the decentralized web.</p>
+                    </div>
+                </div>
+                <div class="project-card" data-id="3">
+                    <div class="card-preview">
+                        <div class="anim-preview" style="border-radius: 10%; animation: spin 4s linear infinite; border-width: 4px;"></div>
+                    </div>
+                    <div class="card-info">
+                        <h3 class="card-title">Data Visualization</h3>
+                        <p class="card-desc">Real-time processing of massive datasets into 3D holograms.</p>
+                    </div>
+                </div>
+                <div class="project-card" data-id="4">
+                    <div class="card-preview">
+                        <div class="anim-preview" style="border: none; background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary)); width: 50%; height: 50%;"></div>
+                    </div>
+                    <div class="card-info">
+                        <h3 class="card-title">AI Architecture</h3>
+                        <p class="card-desc">Building sentient autonomous agents for urban planning.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="control-hint">CLICK TO PAUSE AUTOMATION</div>
+        </section>
+
+        <!-- 2. MUSEUM SECTION -->
+        <section id="museum-section">
+            <div class="room-container">
+                <!-- Room 1: Ancient -->
+                <div class="room-slide active" id="room-ancient">
+                    <img src="https://picsum.photos/seed/ancient/1920/1080" alt="Ancient Tech">
+                    <div class="museum-overlay">
+                        <div class="room-title">The Archive</div>
+                        <div class="room-caption">Ancient Digital Artifacts</div>
+                    </div>
+                </div>
+                <!-- Room 2: Modern -->
+                <div class="room-slide" id="room-modern">
+                    <img src="https://picsum.photos/seed/moderncity/1920/1080" alt="Modern">
+                    <div class="museum-overlay">
+                        <div class="room-title">Metropolis</div>
+                        <div class="room-caption">20th Century Architecture</div>
+                    </div>
+                </div>
+                <!-- Room 3: Future -->
+                <div class="room-slide" id="room-future">
+                    <img src="https://picsum.photos/seed/space/1920/1080" alt="Future">
+                    <div class="museum-overlay">
+                        <div class="room-title">Nebula</div>
+                        <div class="room-caption">Extraterrestrial Horizons</div>
+                    </div>
+                </div>
+            </div>
+            <div class="control-hint">MANUAL VIEWING AVAILABLE</div>
+        </section>
+    </main>
+
+    <script>
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            introDuration: 5000,
+            demoDuration: 25000, // Total demo time for portfolio loop
+            demoInterval: 3000,  // Time per card
+            museumCycle: 6000    // Time per room
+        };
+
+        // --- STATE MANAGEMENT ---
+        let state = {
+            isPaused: false,
+            currentRoom: 0,
+            roomTimer: null,
+            autoScrollId: null
+        };
+
+        // --- DOM ELEMENTS ---
+        const els = {
+            intro: document.getElementById('intro-screen'),
+            track: document.getElementById('track'),
+            cards: document.querySelectorAll('.project-card'),
+            museum: document.getElementById('museum-section'),
+            rooms: [
+                document.getElementById('room-ancient'),
+                document.getElementById('room-modern'),
+                document.getElementById('room-future')
+            ]
+        };
+
+        // --- INTRO SEQUENCE ---
+        function startIntro() {
+            // 5s Intro Animation
+            setTimeout(() => {
+                els.intro.style.opacity = '0';
+                setTimeout(() => {
+                    els.intro.classList.add('hidden');
+                    startDemo();
+                }, 1000);
+            }, CONFIG.introDuration);
+        }
+
+        // --- DEMO CONTROLLER ---
+        function startDemo() {
+            let cardIndex = 0;
+            const totalCards = els.cards.length;
+            
+            // Helper: Reset all cards
+            function resetCards() {
+                els.cards.forEach(c => c.classList.remove('expanded'));
+            }
+
+            // Logic: Auto-expander
+            function nextCard() {
+                if (state.isPaused) return;
+
+                // 1. Reset all
+                resetCards();
+
+                // 2. Wait small moment for visual reset
+                setTimeout(() => {
+                    // 3. Expand current
+                    const current = els.cards[cardIndex];
+                    current.classList.add('expanded');
+
+                    // 4. Wait for "preview animation" (simulated by CSS animations)
+                    // Then switch to next
+                    state.autoScrollId = setTimeout(() => {
+                        cardIndex = (cardIndex + 1) % totalCards;
+                        nextCard();
+                    }, 3000); // 3s per card
+
+                }, 500);
+            }
+
+            // Start the loop
+            nextCard();
+
+            // After portfolio demo is done (approx 12s for 4 cards * 3s), move to museum
+            setTimeout(() => {
+                if(state.isPaused) return;
+                // Stop portfolio auto-scroll manually
+                clearTimeout(state.autoScrollId);
+                resetCards(); // Collapse the last card
+                enterMuseum();
+            }, CONFIG.demoDuration);
+        }
+
+        // --- MUSEUM CONTROLLER ---
+        function enterMuseum() {
+            // Switch sections
+            els.museum.style.display = 'block';
+            // Scroll to top of museum
+            els.museum.scrollIntoView({ behavior: 'smooth' });
+
+            // Start room cycling
+            state.roomTimer = setInterval(() => {
+                if (state.isPaused) return;
+                cycleRoom();
+            }, CONFIG.museumCycle);
+        }
+
+        function cycleRoom() {
+            // Remove active class from current
+            els.rooms[state.currentRoom].classList.remove('active');
+
+            // Calculate next
+            state.currentRoom = (state.currentRoom + 1) % els.rooms.length;
+
+            // Add active to next
+            els.rooms[state.currentRoom].classList.add('active');
+        }
+
+        // --- INTERACTION HANDLING ---
+        
+        // Manual Pause Toggle (Click on Track or Body)
+        document.body.addEventListener('click', () => {
+            state.isPaused = !state.isPaused;
+            const badge = document.querySelector('.status-badge');
+            badge.innerText = state.isPaused ? "SYSTEM: PAUSED" : "SYSTEM: ONLINE";
+            badge.style.color = state.isPaused ? "#ff3333" : "var(--accent-primary)";
+            badge.style.borderColor = state.isPaused ? "#ff3333" : "var(--accent-primary)";
+        });
+
+        // Click specific card to expand manually
+        els.cards.forEach(card => {
+            card.addEventListener('click', () => {
+                // If we are in auto mode and clicked, pause temporarily to let user read
+                if(!state.isPaused) {
+                    clearTimeout(state.autoScrollId); // Stop next expansion
+                    state.isPaused = true;
+                    setTimeout(() => {
+                         state.isPaused = false; // Resume after reading
+                    }, 5000); // Auto resume 5s after click
+                }
+            });
+        });
+
+        // Initialize
+        window.addEventListener('load', startIntro);
+
+    </script>
+</body>
+</html>

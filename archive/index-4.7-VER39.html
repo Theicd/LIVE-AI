@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS | System Command Interface</title>
+    <style>
+        /* --- RESET & VARIABLES --- */
+        :root {
+            --bg-dark: #050a14;
+            --bg-panel: rgba(10, 20, 35, 0.7);
+            --neon-cyan: #00f3ff;
+            --neon-pink: #ff0055;
+            --neon-green: #00ff41;
+            --neon-yellow: #fcee0a;
+            --text-main: #e0f7fa;
+            --text-muted: #546e7a;
+            --border-glow: 0 0 10px rgba(0, 243, 255, 0.3);
+            --font-mono: 'Courier New', Courier, monospace;
+            --font-tech: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-cyan) var(--bg-dark);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            color: var(--text-main);
+            font-family: var(--font-tech);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- UTILITIES --- */
+        .glow-text {
+            text-shadow: 0 0 5px var(--neon-cyan);
+        }
+        
+        .glass-panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+            animation: scanline 3s linear infinite;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 8px 16px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            background: var(--neon-cyan);
+            color: var(--bg-dark);
+            box-shadow: 0 0 15px var(--neon-cyan);
+        }
+
+        .btn.danger {
+            border-color: var(--neon-pink);
+            color: var(--neon-pink);
+        }
+
+        .btn.danger:hover {
+            background: var(--neon-pink);
+            color: white;
+            box-shadow: 0 0 15px var(--neon-pink);
+        }
+
+        /* --- LAYOUT --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            font-family: var(--font-mono);
+        }
+
+        .header-status {
+            display: flex;
+            gap: 20px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-dot.online { background-color: var(--neon-green); box-shadow: 0 0 5px var(--neon-green); }
+        .status-dot.busy { background-color: var(--neon-yellow); box-shadow: 0 0 5px var(--neon-yellow); }
+
+        main {
+            flex: 1;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 25% 50% 25%;
+            grid-template-rows: 60% 40%;
+            gap: 20px;
+            height: calc(100vh - 80px);
+        }
+
+        /* --- MODULES --- */
+        .panel {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--neon-cyan);
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0, 243, 255, 0.1);
+            padding-bottom: 5px;
+        }
+
+        /* LEFT COLUMN */
+        .cpu-stat {
+            margin-bottom: 20px;
+        }
+        .stat-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            margin-top: 5px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .stat-fill {
+            height: 100%;
+            background: var(--neon-cyan);
+            width: 0%;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+        
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            padding-right: 5px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            border-left: 2px solid transparent;
+            padding-left: 5px;
+        }
+        .log-entry.warn { border-color: var(--neon-yellow); color: var(--neon-yellow); }
+        .log-entry.err { border-color: var(--neon-pink); color: var(--neon-pink); }
+
+        /* CENTER COLUMN */
+        .center-visual {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border: 1px dashed rgba(0, 243, 255, 0.2);
+        }
+
+        .planet-ring {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 243, 255, 0.3);
+            position: absolute;
+            animation: spin 10s linear infinite;
+        }
+        .planet-ring:nth-child(2) {
+            width: 150px;
+            height: 150px;
+            border-color: rgba(255, 0, 85, 0.3);
+            animation-direction: reverse;
+            animation-duration: 7s;
+        }
+        .planet-core {
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, var(--neon-cyan), transparent);
+            border-radius: 50%;
+            box-shadow: 0 0 20px var(--neon-cyan);
+            z-index: 2;
+        }
+        
+        .data-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-family: var(--font-mono);
+        }
+        .data-overlay h2 {
+            font-size: 2rem;
+            font-weight: 300;
+        }
+        .data-overlay p {
+            font-size: 0.8rem;
+            color: var(--neon-cyan);
+            opacity: 0.8;
+        }
+
+        /* RIGHT COLUMN */
+        .network-viz {
+            flex: 1;
+            position: relative;
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        /* BOTTOM STRIP */
+        .bottom-strip {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            gap: 20px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+        }
+        
+        .progress-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .progress-track {
+            flex: 1;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-green));
+            width: 0%;
+            animation: pulseWidth 2s infinite alternate;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes scanline {
+            0% { top: 0%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        @keyframes pulseWidth {
+            0% { width: 40%; }
+            100% { width: 80%; }
+        }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: auto auto auto;
+                overflow-y: auto;
+            }
+            .center-visual {
+                grid-column: 1 / -1;
+                min-height: 300px;
+            }
+            .left-panel { grid-column: 1 / 2; grid-row: 2 / 3; }
+            .right-panel { grid-column: 2 / 3; grid-row: 2 / 3; }
+            .log-container { grid-column: 1 / -1; height: 100px; }
+        }
+
+        @media (max-width: 768px) {
+            main {
+                display: flex;
+                flex-direction: column;
+                height: auto;
+                overflow-y: auto;
+            }
+            body { overflow: auto; height: auto; }
+            .header-status { display: none; } /* Simplified on mobile */
+        }
+
+        /* --- TOAST --- */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            background: rgba(5, 10, 20, 0.95);
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 10px 20px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+            animation: slideIn 0.3s ease, fadeOut 0.5s ease 2.5s forwards;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateY(10px); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo glow-text">NEXUS // OS v4.2</div>
+        <div class="header-status">
+            <span><span class="status-dot online"></span>NET: SECURE</span>
+            <span><span class="status-dot busy"></span>CPU: 12%</span>
+            <span id="clock">00:00:00</span>
+        </div>
+    </header>
+
+    <main>
+        <!-- LEFT PANEL: Stats & Logs -->
+        <section class="panel glass-panel left-panel">
+            <div class="panel-header">
+                <span>CPU LOAD</span>
+                <span id="cpu-val">0%</span>
+            </div>
+            <div class="cpu-stat">
+                <div class="stat-bar">
+                    <div class="stat-fill" id="cpu-bar"></div>
+                </div>
+            </div>
+
+            <div class="panel-header" style="margin-top: 20px;">
+                <span>MEMORY</span>
+                <span id="mem-val">0%</span>
+            </div>
+            <div class="cpu-stat">
+                <div class="stat-bar">
+                    <div class="stat-fill" id="mem-bar" style="background: var(--neon-pink); box-shadow: 0 0 10px var(--neon-pink);"></div>
+                </div>
+            </div>
+
+            <div class="panel-header" style="margin-top: 20px; margin-bottom: 10px;">
+                <span>SYSTEM LOGS</span>
+                <button class="btn" onclick="clearLogs()">CLR</button>
+            </div>
+            <div class="log-container" id="system-log">
+                <!-- Logs injected via JS -->
+            </div>
+        </section>
+
+        <!-- CENTER PANEL: Core Visual -->
+        <section class="panel glass-panel center-visual">
+            <div class="planet-ring"></div>
+            <div class="planet-ring"></div>
+            <div class="planet-core"></div>
+            
+            <div class="data-overlay">
+                <h2 id="core-temp">34°C</h2>
+                <p>THREAT LEVEL: NORMAL</p>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: Network & Actions -->
+        <section class="panel glass-panel right-panel">
+            <div class="panel-header">
+                <span>NET TRAFFIC</span>
+                <span>Mbps</span>
+            </div>
+            <div class="network-viz">
+                <canvas id="networkCanvas"></canvas>
+            </div>
+
+            <div class="quick-actions">
+                <button class="btn" onclick="triggerAction('Scanning Sector 7...')">Scan</button>
+                <button class="btn" onclick="triggerAction('Encrypting Data Stream...')">Encrypt</button>
+                <button class="btn danger" onclick="triggerAction('Initiating Purge...', true)">Purge</button>
+                <button class="btn" onclick="triggerAction('Refreshing Nodes...')">Refresh</button>
+            </div>
+        </section>
+
+        <!-- BOTTOM STRIP -->
+        <div class="glass-panel bottom-strip">
+            <span>SYSTEM UPTIME</span>
+            <div class="progress-container">
+                <span>98.4%</span>
+                <div class="progress-track">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+            <span>V.4.2.0-build91</span>
+        </div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script>
+        /* --- CLOCK --- */
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('en-US', { hour12: false });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        /* --- LOG SYSTEM --- */
+        const logContainer = document.getElementById('system-log');
+        const logMessages = [
+            "Packet loss detected on port 8080.",
+            "Firewall handshake successful.",
+            "Background process daemon initiated.",
+            "Data synchronization pending...",
+            "Scanning for vulnerabilities...",
+            "User authentication verified.",
+            "Optimizing database shards...",
+            "Memory garbage collection complete.",
+            "Incoming connection from 192.168.0.x blocked.",
+            "System temperature nominal."
+        ];
+
+        function addLog(msg, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            entry.innerText = `[${time}] > ${msg}`;
+            logContainer.prepend(entry);
+            
+            // Limit log size
+            if (logContainer.children.length > 20) {
+                logContainer.lastElementChild.remove();
+            }
+        }
+
+        function clearLogs() {
+            logContainer.innerHTML = '';
+            addLog("Logs cleared by user.", "warn");
+        }
+
+        // Initial logs
+        logMessages.forEach(msg => addLog(msg));
+
+        /* --- DATA SIMULATION --- */
+        function simulateStats() {
+            // CPU
+            const cpu = Math.floor(Math.random() * 60) + 10;
+            document.getElementById('cpu-val').innerText = cpu + "%";
+            document.getElementById('cpu-bar').style.width = cpu + "%";
+
+            // Memory
+            const mem = Math.floor(Math.random() * 40) + 20;
+            document.getElementById('mem-val').innerText = mem + "%";
+            document.getElementById('mem-bar').style.width = mem + "%";
+
+            // Core Temp
+            const temp = Math.floor(Math.random() * 15) + 30;
+            document.getElementById('core-temp').innerText = temp + "°C";
+        }
+
+        setInterval(simulateStats, 2000);
+
+        /* --- CANVAS NETWORK GRAPH --- */
+        const canvas = document.getElementById('networkCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Resize canvas to fit parent
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.offsetWidth;
+            canvas.height = canvas.parentElement.offsetHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const wave = {
+            y: 0,
+            length: 0.01,
+            amplitude: 20,
+            frequency: 0.02,
+            offset: 0
+        };
+
+        function drawWave() {
+            ctx.fillStyle = 'rgba(0, 10, 20, 0.2)'; // Fade effect
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00f3ff';
+            ctx.beginPath();
+
+            const width = canvas.width;
+            const height = canvas.height;
+
+            for (let x = 0; x < width; x++) {
+                wave.y = height / 2 + Math.sin(x * wave.length + wave.offset) * wave.amplitude * Math.sin(wave.offset * 0.5);
+                ctx.lineTo(x, wave.y);
+            }
+
+            ctx.stroke();
+            wave.offset += wave.frequency;
+            requestAnimationFrame(drawWave);
+        }
+        drawWave();
+
+        /* --- TOAST NOTIFICATIONS --- */
+        function triggerAction(actionName, isDanger = false) {
+            addLog(actionName, isDanger ? 'err' : 'warn');
+            showToast(actionName, isDanger);
+            
+            // Visual feedback on button click
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = "DONE";
+            setTimeout(() => btn.innerText = originalText, 1000);
+        }
+
+        function showToast(message, isDanger) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            if(isDanger) {
+                toast.style.borderColor = 'var(--neon-pink)';
+                toast.style.color = 'var(--neon-pink)';
+            }
+            toast.innerText = `> ${message}`;
+            container.appendChild(toast);
+
+            // Remove from DOM after animation
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Simulate random system events
+        setInterval(() => {
+            if (Math.random() > 0.8) {
+                const randomLog = logMessages[Math.floor(Math.random() * logMessages.length)];
+                addLog(randomLog);
+            }
+        }, 5000);
+
+    </script>
+</body>
+</html>

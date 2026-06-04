@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>STACK NEON — Tower Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 20%, #2a0a5e 0%, #0a0420 55%, #050214 100%);
+    font-family: 'Space Grotesk', sans-serif;
+    color: #fff;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  #canvas { display: block; position: fixed; inset: 0; }
+
+  /* HUD */
+  .hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 22px 26px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 10;
+  }
+  .score-block { display: flex; flex-direction: column; }
+  .score-right { align-items: flex-end; }
+  .score-label {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 10px; letter-spacing: 5px;
+    color: rgba(255,255,255,0.45); margin-bottom: 4px;
+  }
+  .score-value {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 44px; line-height: 1;
+    color: #fff;
+    text-shadow: 0 0 22px rgba(255,45,149,0.7);
+    transition: transform 0.15s ease;
+  }
+  .score-value.pop { transform: scale(1.18); }
+  .best-value {
+    font-size: 26px;
+    color: #00f0ff;
+    text-shadow: 0 0 16px rgba(0,240,255,0.7);
+  }
+
+  .combo {
+    position: fixed; top: 115px; left: 50%;
+    transform: translateX(-50%) scale(1);
+    font-family: 'Audiowide', sans-serif;
+    font-size: 30px; letter-spacing: 3px;
+    color: #ffeb3b;
+    text-shadow: 0 0 22px rgba(255,235,59,0.9), 0 0 40px rgba(255,107,53,0.5);
+    opacity: 0; pointer-events: none; z-index: 10;
+  }
+  .combo.show { animation: comboPop 0.7s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes comboPop {
+    0%   { opacity: 0; transform: translateX(-50%) scale(0.4); }
+    40%  { opacity: 1; transform: translateX(-50%) scale(1.25); }
+    100% { opacity: 0; transform: translateX(-50%) scale(1.1) translateY(-10px); }
+  }
+
+  /* Overlays */
+  .overlay {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 20; padding: 24px; text-align: center;
+    background: radial-gradient(ellipse at center, rgba(10,4,32,0.55) 0%, rgba(5,2,20,0.95) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .hidden { display: none !important; }
+
+  .title {
+    font-family: 'Audiowide', sans-serif;
+    font-size: clamp(54px, 15vw, 110px);
+    letter-spacing: 10px;
+    background: linear-gradient(135deg, #ff2d95 0%, #ff6b35 45%, #ffeb3b 60%, #00f0ff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 4px;
+    filter: drop-shadow(0 0 30px rgba(255,45,149,0.5));
+    animation: titleShift 4s ease-in-out infinite alternate;
+  }
+  @keyframes titleShift {
+    0%   { filter: drop-shadow(0 0 25px rgba(255,45,149,0.6)); letter-spacing: 10px; }
+    100% { filter: drop-shadow(0 0 45px rgba(0,240,255,0.7)); letter-spacing: 14px; }
+  }
+  .subtitle {
+    font-size: 13px; letter-spacing: 8px;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 70px; text-transform: uppercase;
+  }
+
+  .play-btn {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 20px; letter-spacing: 7px;
+    padding: 22px 70px;
+    border: 2px solid #00f0ff;
+    background: linear-gradient(180deg, rgba(0,240,255,0.18), rgba(0,240,255,0.05));
+    color: #fff; cursor: pointer; border-radius: 4px;
+    transition: all 0.25s ease;
+    box-shadow: 0 0 35px rgba(0,240,255,0.35),
+                inset 0 0 25px rgba(0,240,255,0.12),
+                0 8px 30px rgba(0,0,0,0.5);
+    position: relative; overflow: hidden;
+  }
+  .play-btn::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+  }
+  .play-btn:hover::before, .play-btn:active::before { transform: translateX(100%); }
+  .play-btn:hover, .play-btn:active {
+    background: linear-gradient(180deg, rgba(0,240,255,0.35), rgba(0,240,255,0.1));
+    box-shadow: 0 0 55px rgba(0,240,255,0.7),
+                inset 0 0 35px rgba(0,240,255,0.25);
+    transform: scale(1.04);
+  }
+
+  .instructions {
+    margin-top: 50px;
+    font-size: 12px; letter-spacing: 3px;
+    color: rgba(255,255,255,0.4);
+    line-height: 2;
+  }
+  .instructions strong { color: #ffeb3b; letter-spacing: 4px; }
+
+  .gameover-label {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 12px; letter-spacing: 7px;
+    color: rgba(255,255,255,0.5);
+  }
+  .final-score {
+    font-family: 'Audiowide', sans-serif;
+    font-size: clamp(90px, 24vw, 180px);
+    line-height: 1;
+    background: linear-gradient(180deg, #fff 0%, #ff2d95 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 0 50px rgba(255,45,149,0.5);
+    margin: 8px 0 4px;
+    filter: drop-shadow(0 0 30px rgba(255,45,149,0.6));
+  }
+  .new-best {
+    font-family: 'Audiowide', sans-serif;
+    color: #ffeb3b; font-size: 15px; letter-spacing: 5px;
+    text-shadow: 0 0 18px rgba(255,235,59,0.9);
+    margin-top: 6px;
+    animation: pulse 1.2s ease infinite alternate;
+  }
+  @keyframes pulse {
+    from { opacity: 0.65; transform: scale(1); }
+    to   { opacity: 1; transform: scale(1.06); }
+  }
+
+  .stats-row {
+    display: flex; gap: 40px; margin-top: 30px;
+    font-family: 'Audiowide', sans-serif;
+  }
+  .stat { text-align: center; }
+  .stat-num { font-size: 22px; color: #00f0ff; text-shadow: 0 0 12px rgba(0,240,255,0.6); }
+  .stat-lbl { font-size: 9px; letter-spacing: 3px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+  .hint {
+    position: fixed; bottom: 36px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px; letter-spacing: 5px;
+    color: rgba(255,255,255,0.45);
+    pointer-events: none; z-index: 5;
+    animation: bob 1.8s ease infinite;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.45; }
+    50%      { transform: translateX(-50%) translateY(-8px); opacity: 0.9; }
+  }
+
+  .flash {
+    position: fixed; inset: 0;
+    background: radial-gradient(circle at center, rgba(255,235,59,0.4), transparent 70%);
+    opacity: 0; pointer-events: none; z-index: 15;
+  }
+  .flash.show { animation: flashAnim 0.35s ease-out; }
+  @keyframes flashAnim {
+    0%   { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+
+  /* Vignette */
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.55) 100%);
+    z-index: 4;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div class="hud">
+  <div class="score-block">
+    <div class="score-label">SCORE</div>
+    <div class="score-value" id="score">0</div>
+  </div>
+  <div class="score-block score-right">
+    <div class="score-label">BEST</div>
+    <div class="score-value best-value" id="best">0</div>
+  </div>
+</div>
+
+<div class="combo" id="combo">PERFECT x2</div>
+<div class="flash" id="flash"></div>
+
+<div class="overlay" id="startScreen">
+  <div class="title">STACK</div>
+  <div class="subtitle">Neon Tower</div>
+  <button class="play-btn" id="startBtn">PLAY</button>
+  <div class="instructions">
+    TAP TO DROP THE BLOCK<br>
+    STACK <strong>PERFECTLY</strong> TO BUILD A COMBO
+  </div>
+</div>
+
+<div class="overlay hidden" id="gameOver">
+  <div class="gameover-label">FINAL SCORE</div>
+  <div class="final-score" id="finalScore">0</div>
+  <div class="new-best hidden" id="newBest">NEW RECORD</div>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num" id="statCombo">0</div><div class="stat-lbl">BEST COMBO</div></div>
+    <div class="stat"><div class="stat-num" id="statBest">0</div><div class="stat-lbl">ALL-TIME</div></div>
+  </div>
+  <button class="play-btn" id="restartBtn" style="margin-top:46px">PLAY AGAIN</button>
+</div>
+
+<div class="hint hidden" id="hint">TAP ANYWHERE</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================================================
+   SCENE SETUP
+============================================================ */
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0a0420, 28, 75);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(16, 14, 16);
+camera.lookAt(0, 2, 0);
+
+/* Lights */
+scene.add(new THREE.AmbientLight(0x4a3a8a, 0.55));
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+dirLight.position.set(12, 25, 8);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(1024, 1024);
+dirLight.shadow.camera.left = -20;
+dirLight.shadow.camera.right = 20;
+dirLight.shadow.camera.top = 25;
+dirLight.shadow.camera.bottom = -5;
+dirLight.shadow.camera.near = 1;
+dirLight.shadow.camera.far = 60;
+scene.add(dirLight);
+
+const pinkLight = new THREE.PointLight(0xff2d95, 2, 35);
+pinkLight.position.set(-12, 6, -6);
+scene.add(pinkLight);
+
+const cyanLight = new THREE.PointLight(0x00f0ff, 2, 35);
+cyanLight.position.set(12, 6, 6);
+scene.add(cyanLight);
+
+/* Ground */
+const groundGeo = new THREE.PlaneGeometry(120, 120);
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x140730, metalness: 0.5, roughness: 0.6
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.01;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(120, 60, 0x5a1aaa, 0x2a0a5a);
+grid.material.transparent = true;
+grid.material.opacity = 0.55;
+grid.position.y = 0.001;
+scene.add(grid);
+
+/* Background stars */
+const starGeo = new THREE.BufferGeometry();
+const starCount = 300;
+const starPos = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount; i++) {
+  const r = 60 + Math.random() * 30;
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+  starPos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+  starPos[i*3+1] = Math.abs(r * Math.cos(phi)) * 0.6 + 5;
+  starPos[i*3+2] = r * Math.sin(phi) * Math.sin(theta);
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({
+  color: 0xffffff, size: 0.35, transparent: true, opacity: 0.8,
+  sizeAttenuation: true
+});
+const stars = new THREE.Points(starGeo, starMat);
+scene.add(stars);
+
+/* ============================================================
+   GAME STATE
+============================================================ */
+const BLOCK_HEIGHT = 1;
+const INITIAL_SIZE = 6;
+const BASE_SPEED   = 0.085;
+const PERFECT_TOL  = 0.18;
+
+let blocks = [];          // settled blocks
+let currentBlock = null;  // moving block
+let currentAxis = 'z';    // alternates each spawn
+let direction = 1;
+let score = 0;
+let combo = 0;
+let bestCombo = 0;
+let bestScore = parseInt(localStorage.getItem('stackNeonBest') || '0');
+let gameActive = false;
+let hue = 320;
+let fallingPieces = [];
+let particles = [];
+
+document.getElementById('best').textContent = bestScore;
+
+const hslColor = (h, s = 78, l = 56) => new THREE.Color(`hsl(${h}, ${s}%, ${l}%)`);
+
+function createBlock(x, y, z, sizeX, sizeZ, h) {
+  const color = hslColor(h);
+  const geo = new THREE.BoxGeometry(Math.max(0.01, sizeX), BLOCK_HEIGHT, Math.max(0.01, sizeZ));
+  const mat = new THREE.MeshStandardMaterial({
+    color, emissive: color, emissiveIntensity: 0.32,
+    metalness: 0.45, roughness: 0.35
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  return { mesh, sizeX, sizeZ, x, y, z, hue: h };
+}
+
+function disposeBlock(b) {
+  scene.remove(b.mesh);
+  b.mesh.geometry.dispose();
+  b.mesh.material.dispose();
+}
+
+function spawnInitialBlock() {
+  const b = createBlock(0, BLOCK_HEIGHT / 2, 0, INITIAL_SIZE, INITIAL_SIZE, hue);
+  blocks.push(b);
+  spawnNextBlock();
+}
+
+function spawnNextBlock() {
+  const last = blocks[blocks.length - 1];
+  const newY = last.y + BLOCK_HEIGHT;
+  currentAxis = currentAxis === 'x' ? 'z' : 'x';
+  hue = (hue + 14) % 360;
+
+  const travelRange = Math.max(last.sizeX, last.sizeZ) * 1.6;
+  let startX, startZ;
+  if (currentAxis === 'x') {
+    startX = -travelRange;
+    startZ = last.z;
+  } else {
+    startX = last.x;
+    startZ = -travelRange;
+  }
+
+  currentBlock = createBlock(startX, newY, startZ, last.sizeX, last.sizeZ, hue);
+  direction = 1;
+}
+
+function speedFactor() {
+  return 1 + Math.min(score * 0.018, 1.6);
+}
+
+function updateCurrentBlock() {
+  if (!currentBlock) return;
+  const last = blocks[blocks.length - 1];
+  const range = Math.max(last.sizeX, last.sizeZ) * 1.6;
+  const sp = BASE_SPEED * speedFactor();
+
+  if (currentAxis === 'x') {
+    currentBlock.x += direction * sp;
+    if (currentBlock.x > range) direction = -1;
+    if (currentBlock.x < -range) direction = 1;
+    currentBlock.mesh.position.x = currentBlock.x;
+  } else {
+    currentBlock.z += direction * sp;
+    if (currentBlock.z > range) direction = -1;
+    if (currentBlock.z < -range) direction = 1;
+    currentBlock.mesh.position.z = currentBlock.z;
+  }
+}
+
+function dropBlock() {
+  if (!currentBlock || !gameActive) return;
+  const last = blocks[blocks.length - 1];
+  const axis = currentAxis;
+  const curPos = currentBlock[axis];
+  const lastPos = last[axis];
+  const curSize = axis === 'x' ? currentBlock.sizeX : currentBlock.sizeZ;
+  const lastSize = axis === 'x' ? last.sizeX : last.sizeZ;
+
+  const overlapMin = Math.max(curPos - curSize / 2, lastPos - lastSize / 2);
+  const overlapMax = Math.min(curPos + curSize / 2, lastPos + lastSize / 2);
+  const overlap = overlapMax - overlapMin;
+
+  if (overlap <= 0) {
+    // Total miss — game over
+    makeFallingPiece(currentBlock, true, axis, last);
+    disposeBlock(currentBlock);
+    currentBlock = null;
+    endGame();
+    return;
+  }
+
+  const isPerfect = Math.abs(curPos - lastPos) < PERFECT_TOL;
+
+  if (isPerfect) {
+    // Snap to perfect center, no cut
+    currentBlock[axis] = lastPos;
+    currentBlock.mesh.position[axis] = lastPos;
+    combo++;
+    if (combo > bestCombo) bestCombo = combo;
+
+    if (combo >= 2) showCombo(combo);
+    flashScreen();
+    spawnParticles(currentBlock.x, currentBlock.y + BLOCK_HEIGHT / 2, currentBlock.z, currentBlock.hue);
+    playSound('perfect');
+
+    // Restore block size gradually when comboing (cap to last block size)
+    if (combo >= 3) {
+      const restoreAxis = axis;
+      const targetSize = Math.min(
+        INITIAL_SIZE,
+        (restoreAxis === 'x' ? currentBlock.sizeX : currentBlock.sizeZ) + 0.4
+      );
+      if (restoreAxis === 'x') {
+        currentBlock.sizeX = Math.min(targetSize, last.sizeX + 0.4);
+      } else {
+        currentBlock.sizeZ = Math.min(targetSize, last.sizeZ + 0.4);
+      }
+      currentBlock.mesh.geometry.dispose();
+      currentBlock.mesh.geometry = new THREE.BoxGeometry(currentBlock.sizeX, BLOCK_HEIGHT, currentBlock.sizeZ);
+    }
+
+    if (navigator.vibrate) navigator.vibrate(25);
+  } else {
+    combo = 0;
+    const newSize = overlap;
+    const newPos = (overlapMin + overlapMax) / 2;
+    const cutSize = curSize - newSize;
+    const cutOnPositive = curPos > lastPos;
+    const cutPos = cutOnPositive
+      ? curPos + curSize / 2 - cutSize / 2
+      : curPos - curSize / 2 + cutSize / 2;
+
+    // Update current block to overlap region
+    if (axis === 'x') {
+      currentBlock.sizeX = newSize;
+      currentBlock.x = newPos;
+      currentBlock.mesh.geometry.dispose();
+      currentBlock.mesh.geometry = new THREE.BoxGeometry(newSize, BLOCK_HEIGHT, currentBlock.sizeZ);
+      currentBlock.mesh.position.x = newPos;
+      makeFallingPiece({
+        x: cutPos, y: currentBlock.y, z: currentBlock.z,
+        sizeX: cutSize, sizeZ: currentBlock.sizeZ, hue: currentBlock.hue
+      }, false, 'x', last);
+    } else {
+      currentBlock.sizeZ = newSize;
+      currentBlock.z = newPos;
+      currentBlock.mesh.geometry.dispose();
+      currentBlock.mesh.geometry = new THREE.BoxGeometry(currentBlock.sizeX, BLOCK_HEIGHT, newSize);
+      currentBlock.mesh.position.z = newPos;
+      makeFallingPiece({
+        x: currentBlock.x, y: currentBlock.y, z: cutPos,
+        sizeX: currentBlock.sizeX, sizeZ: cutSize, hue: currentBlock.hue
+      }, false, 'z', last);
+    }
+
+    playSound('drop');
+    if (navigator.vibrate) navigator.vibrate(12);
+  }
+
+  blocks.push(currentBlock);
+  score++;
+  updateScoreUI();
+  currentBlock = null;
+
+  if (score > bestScore) {
+    bestScore = score;
+    document.getElementById('best').textContent = bestScore;
+    localStorage.setItem('stackNeonBest', bestScore);
+  }
+
+  setTimeout(() => { if (gameActive) spawnNextBlock(); }, 90);
+}
+
+function makeFallingPiece(data, isWhole, axis, lastBlock) {
+  const color = hslColor(data.hue);
+  const geo = new THREE.BoxGeometry(
+    Math.max(0.01, data.sizeX),
+    BLOCK_HEIGHT,
+    Math.max(0.01, data.sizeZ)
+  );
+  const mat = new THREE.MeshStandardMaterial({
+    color, emissive: color, emissiveIntensity: 0.32,
+    metalness: 0.45, roughness: 0.35
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(data.x, data.y, data.z);
+  mesh.castShadow = true;
+  scene.add(mesh);
+
+  // Tumble direction: away from last block
+  let push = 0;
+  if (axis === 'x') push = Math.sign(data.x - lastBlock.x) || (data.x > 0 ? 1 : -1);
+  else              push = Math.sign(data.z - lastBlock.z) || (data.z > 0 ? 1 : -1);
+
+  const v = 0.06 + Math.random() * 0.04;
+  fallingPieces.push({
+    mesh,
+    vx: axis === 'x' ? push * v : (Math.random() - 0.5) * 0.02,
+    vy: 0.02,
+    vz: axis === 'z' ? push * v : (Math.random() - 0.5) * 0.02,
+    rotX: (Math.random() - 0.5) * 0.18,
+    rotZ: (Math.random() - 0.5) * 0.18,
+    life: 200
+  });
+}
+
+function updateFallingPieces() {
+  for (let i = fallingPieces.length - 1; i >= 0; i--) {
+    const p = fallingPieces[i];
+    p.vy -= 0.018;
+    p.mesh.position.x += p.vx;
+    p.mesh.position.y += p.vy;
+    p.mesh.position.z += p.vz;
+    p.mesh.rotation.x += p.rotX;
+    p.mesh.rotation.z += p.rotZ;
+    p.life--;
+    if (p.mesh.position.y < -25 || p.life <= 0) {
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+      fallingPieces.splice(i, 1);
+    }
+  }
+}
+
+function spawnParticles(x, y, z, h) {
+  const color = hslColor(h);
+  for (let i = 0; i < 24; i++) {
+    const s = 0.12 + Math.random() * 0.12;
+    const geo = new THREE.BoxGeometry(s, s, s);
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    scene.add(m);
+    const angle = (i / 24) * Math.PI * 2 + Math.random() * 0.4;
+    const speed = 0.12 + Math.random() * 0.18;
+    particles.push({
+      mesh: m,
+      vx: Math.cos(angle) * speed,
+      vy: 0.12 + Math.random() * 0.2,
+      vz: Math.sin(angle) * speed,
+      rotX: Math.random() * 0.3,
+      rotY: Math.random() * 0.3,
+      life: 55,
+      maxLife: 55
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.vy -= 0.01;
+    p.mesh.position.x += p.vx;
+    p.mesh.position.y += p.vy;
+    p.mesh.position.z += p.vz;
+    p.mesh.rotation.x += p.rotX;
+    p.mesh.rotation.y += p.rotY;
+    p.mesh.material.opacity = Math.max(0, p.life / p.maxLife);
+    p.life--;
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+      particles.splice(i, 1);
+    }
+  }
+}
+
+/* ============================================================
+   UI / FEEDBACK
+============================================================ */
+function updateScoreUI() {
+  const el = document.getElementById('score');
+  el.textContent = score;
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+  setTimeout(() => el.classList.remove('pop'), 150);
+}
+
+function showCombo(n) {
+  const el = document.getElementById('combo');
+  el.textContent = `PERFECT  x${n}`;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+function flashScreen() {
+  const f = document.getElementById('flash');
+  f.classList.remove('show');
+  void f.offsetWidth;
+  f.classList.add('show');
+}
+
+/* ============================================================
+   AUDIO (synth)
+============================================================ */
+let audioCtx;
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { /* ignore */ }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function tone(freq, type, dur, gain = 0.12, slide = null) {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.type = type;
+  o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  if (slide !== null) o.frequency.exponentialRampToValueAtTime(slide, audioCtx.currentTime + dur);
+  g.gain.setValueAtTime(gain, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+  o.start();
+  o.stop(audioCtx.currentTime + dur);
+}
+
+function playSound(kind) {
+  if (!audioCtx) return;
+  if (kind === 'drop') {
+    tone(180 + Math.min(combo, 8) * 25, 'square', 0.13, 0.09);
+  } else if (kind === 'perfect') {
+    const base = 520 + Math.min(combo, 12) * 40;
+    tone(base, 'sine', 0.28, 0.13);
+    tone(base * 1.5, 'sine', 0.28, 0.09);
+    tone(base * 2, 'triangle', 0.2, 0.05);
+  } else if (kind === 'over') {
+    tone(220, 'sawtooth', 0.8, 0.16, 50);
+  }
+}
+
+/* ============================================================
+   GAME FLOW
+============================================================ */
+function clearWorld() {
+  blocks.forEach(disposeBlock);
+  blocks = [];
+  if (currentBlock) { disposeBlock(currentBlock); currentBlock = null; }
+  fallingPieces.forEach(p => {
+    scene.remove(p.mesh);
+    p.mesh.geometry.dispose();
+    p.mesh.material.dispose();
+  });
+  fallingPieces = [];
+  particles.forEach(p => {
+    scene.remove(p.mesh);
+    p.mesh.geometry.dispose();
+    p.mesh.material.dispose();
+  });
+  particles = [];
+}
+
+function startGame() {
+  ensureAudio();
+  clearWorld();
+  score = 0;
+  combo = 0;
+  bestCombo = 0;
+  hue = 320;
+  currentAxis = 'z';
+  document.getElementById('score').textContent = 0;
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameOver').classList.add('hidden');
+  const hint = document.getElementById('hint');
+  hint.classList.remove('hidden');
+  setTimeout(() => hint.classList.add('hidden'), 1800);
+
+  gameActive = true;
+  spawnInitialBlock();
+}
+
+function endGame() {
+  gameActive = false;
+  playSound('over');
+  if (navigator.vibrate) navigator.vibrate([40, 40, 90]);
+
+  setTimeout(() => {
+    const isNewBest = score > 0 && score >= bestScore;
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('statCombo').textContent = bestCombo;
+    document.getElementById('statBest').textContent = bestScore;
+    document.getElementById('newBest').classList.toggle('hidden', !isNewBest);
+    document.getElementById('gameOver').classList.remove('hidden');
+  }, 900);
+}
+
+/* ============================================================
+   CAMERA
+============================================================ */
+function updateCamera() {
+  const topY = currentBlock ? currentBlock.y
+              : (blocks.length ? blocks[blocks.length - 1].y : 0);
+  const targetCamY = topY + 12;
+  const targetLookY = topY - 1;
+  camera.position.y += (targetCamY - camera.position.y) * 0.06;
+  camera.position.x = 16;
+  camera.position.z = 16;
+  camera.lookAt(0, targetLookY, 0);
+}
+
+/* ============================================================
+   LOOP
+============================================================ */
+function animate() {
+  requestAnimationFrame(animate);
+  if (gameActive) updateCurrentBlock();
+  updateFallingPieces();
+  updateParticles();
+  updateCamera();
+
+  // Orbit accent lights for atmosphere
+  const t = performance.now() * 0.0005;
+  pinkLight.position.x = Math.cos(t) * 14;
+  pinkLight.position.z = Math.sin(t) * 14;
+  pinkLight.position.y = 4 + (currentBlock ? currentBlock.y * 0.5 : 0);
+  cyanLight.position.x = Math.cos(t + Math.PI) * 14;
+  cyanLight.position.z = Math.sin(t + Math.PI) * 14;
+  cyanLight.position.y = 4 + (currentBlock ? currentBlock.y * 0.5 : 0);
+
+  // Twinkle stars
+  stars.rotation.y = t * 0.05;
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ============================================================
+   INPUT
+============================================================ */
+function handleTap(e) {
+  // Don't drop if clicking an overlay button (they stopPropagation)
+  if (e && e.target && e.target.closest('.play-btn')) return;
+  if (e) e.preventDefault();
+  if (!gameActive) return;
+  ensureAudio();
+  dropBlock();
+}
+
+window.addEventListener('mousedown', handleTap);
+window.addEventListener('touchstart', handleTap, { passive: false });
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'Enter') {
+    e.preventDefault();
+    if (gameActive) dropBlock();
+  }
+});
+
+document.getElementById('startBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  startGame();
+});
+document.getElementById('restartBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  startGame();
+});
+
+animate();
+</script>
+</body>
+</html>

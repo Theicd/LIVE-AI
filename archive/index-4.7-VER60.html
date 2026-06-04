@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Velvet Hours · Ambient Scenes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400;1,500&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --gold: #d4a574;
+    --gold-soft: #e8c89a;
+    --gold-bright: #f5d8a8;
+    --ink: #0a0807;
+    --glass: rgba(18, 14, 12, 0.5);
+    --glass-border: rgba(212, 165, 116, 0.16);
+  }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    color: var(--gold-soft);
+    font-family: 'Manrope', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #scene {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    touch-action: none;
+  }
+  .vignette {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 120% 90% at center 40%, transparent 35%, rgba(0,0,0,0.55) 100%),
+      linear-gradient(to bottom, rgba(0,0,0,0.25), transparent 20%, transparent 75%, rgba(0,0,0,0.4));
+    z-index: 2;
+  }
+  .grain {
+    position: fixed; inset: -10%;
+    pointer-events: none;
+    opacity: 0.07;
+    z-index: 3;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.7 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+  }
+  .ui {
+    position: fixed; inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: max(22px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
+  }
+  .ui > * { pointer-events: auto; }
+
+  /* TOP */
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .brand { display: flex; flex-direction: column; gap: 6px; }
+  .brand .mark {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    color: var(--gold-bright);
+    line-height: 1;
+  }
+  .brand .mark::first-letter {
+    color: var(--gold);
+    font-style: italic;
+  }
+  .brand .sub {
+    font-size: 9.5px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(232, 200, 154, 0.5);
+    font-weight: 400;
+  }
+  .meta {
+    text-align: right;
+    font-size: 9.5px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(232, 200, 154, 0.5);
+    line-height: 1.9;
+    font-weight: 400;
+  }
+  .meta .live { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .meta .live::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+  .meta .clock {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+    letter-spacing: 0.15em;
+    color: var(--gold-soft);
+    text-transform: none;
+  }
+
+  /* CENTER */
+  .center {
+    align-self: center;
+    text-align: center;
+    pointer-events: none;
+    max-width: 92%;
+    margin-bottom: 8vh;
+  }
+  .theme-label {
+    font-size: 10px;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: rgba(232, 200, 154, 0.55);
+    margin-bottom: 18px;
+    transition: opacity 0.5s ease;
+  }
+  .theme-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(44px, 10vw, 96px);
+    font-weight: 300;
+    letter-spacing: 0.005em;
+    line-height: 0.95;
+    color: #f5e6d0;
+    text-shadow: 0 4px 40px rgba(0,0,0,0.55);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .theme-title em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--gold);
+  }
+  .theme-tagline {
+    margin-top: 18px;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(232, 200, 154, 0.4);
+    transition: opacity 0.5s ease;
+  }
+  .changing .theme-title,
+  .changing .theme-label,
+  .changing .theme-tagline {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  /* BOTTOM */
+  .bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .progress {
+    display: flex;
+    gap: 5px;
+  }
+  .progress span {
+    width: 14px; height: 2px;
+    background: rgba(232, 200, 154, 0.18);
+    border-radius: 2px;
+    transition: all 0.5s cubic-bezier(.4,0,.2,1);
+  }
+  .progress span.active {
+    width: 36px;
+    background: var(--gold);
+    box-shadow: 0 0 12px rgba(212, 165, 116, 0.5);
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: var(--glass);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    border: 1px solid var(--glass-border);
+    border-radius: 100px;
+    padding: 7px;
+    box-shadow:
+      0 12px 48px rgba(0,0,0,0.5),
+      0 0 0 1px rgba(255,255,255,0.02),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .btn {
+    background: transparent;
+    border: none;
+    color: var(--gold-soft);
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(.4,0,.2,1);
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  .btn:active { transform: scale(0.9); }
+  .btn:hover { background: rgba(212, 165, 116, 0.12); color: #fff; }
+  .btn.primary {
+    background: linear-gradient(140deg, var(--gold-bright) 0%, var(--gold) 50%, #a87a4a 100%);
+    color: #1a1208;
+    width: 54px; height: 54px;
+    box-shadow:
+      0 6px 24px rgba(212, 165, 116, 0.4),
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 -2px 4px rgba(0,0,0,0.15);
+  }
+  .btn.primary:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 8px 28px rgba(212, 165, 116, 0.55),
+      inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .btn.primary:active { transform: scale(0.94); }
+  .btn svg { width: 18px; height: 18px; }
+  .btn.primary svg { width: 22px; height: 22px; }
+  .btn.primary::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1px solid rgba(212, 165, 116, 0.3);
+    animation: ring 3s ease-out infinite;
+    pointer-events: none;
+  }
+  @keyframes ring {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    100% { transform: scale(1.3); opacity: 0; }
+  }
+  .hint {
+    font-size: 9.5px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(232, 200, 154, 0.32);
+    text-align: center;
+  }
+  .hint kbd {
+    font-family: inherit;
+    background: rgba(212, 165, 116, 0.1);
+    border: 1px solid rgba(212, 165, 116, 0.2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--gold-soft);
+    margin: 0 2px;
+    font-size: 9px;
+  }
+
+  /* Equalizer (decorative) */
+  .eq {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 10px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .eq span {
+    width: 2px;
+    background: var(--gold);
+    border-radius: 1px;
+    animation: eq 1.2s ease-in-out infinite;
+  }
+  .eq span:nth-child(1) { height: 30%; animation-delay: 0s; }
+  .eq span:nth-child(2) { height: 70%; animation-delay: 0.15s; }
+  .eq span:nth-child(3) { height: 50%; animation-delay: 0.3s; }
+  .eq span:nth-child(4) { height: 90%; animation-delay: 0.45s; }
+  @keyframes eq {
+    0%, 100% { transform: scaleY(0.4); }
+    50% { transform: scaleY(1); }
+  }
+
+  @media (max-width: 520px) {
+    .brand .mark { font-size: 19px; }
+    .brand .sub { font-size: 8.5px; letter-spacing: 0.28em; }
+    .meta { font-size: 8.5px; }
+    .meta .clock { font-size: 12px; }
+    .theme-title { font-size: clamp(40px, 12vw, 64px); }
+    .theme-label { font-size: 9px; letter-spacing: 0.36em; }
+    .theme-tagline { font-size: 9.5px; letter-spacing: 0.24em; }
+    .btn { width: 40px; height: 40px; }
+    .btn.primary { width: 48px; height: 48px; }
+    .controls { padding: 6px; }
+    .hint { font-size: 8.5px; letter-spacing: 0.24em; }
+    .hint kbd { display: none; }
+    .center { margin-bottom: 4vh; }
+    .ui { padding: 16px; }
+  }
+  @media (max-height: 600px) {
+    .center { margin-bottom: 2vh; }
+    .theme-tagline { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<div class="ui" id="ui">
+  <header class="top">
+    <div class="brand">
+      <div class="mark">Velvet Hours</div>
+      <div class="sub">Late Night · Ambient Jazz</div>
+    </div>
+    <div class="meta">
+      <div class="live">Now Playing<span class="eq"><span></span><span></span><span></span><span></span></span></div>
+      <div class="clock" id="clock">--:--</div>
+    </div>
+  </header>
+
+  <section class="center" id="center">
+    <div class="theme-label" id="themeLabel">Scene One</div>
+    <h1 class="theme-title" id="themeTitle">Loading</h1>
+    <div class="theme-tagline" id="themeTagline">A quiet moment, in motion</div>
+  </section>
+
+  <footer class="bottom">
+    <div class="progress" id="progress"></div>
+    <nav class="controls" aria-label="Scene controls">
+      <button class="btn" id="prevBtn" aria-label="Previous scene">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="btn primary" id="shuffleBtn" aria-label="Shuffle scene">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+      </button>
+      <button class="btn" id="nextBtn" aria-label="Next scene">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </nav>
+    <div class="hint">Tap shuffle · Swipe <kbd>←</kbd><kbd>→</kbd> · Press <kbd>Space</kbd></div>
+  </footer>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const TAU = Math.PI * 2;
+  const canvas = document.getElementById('scene');
+  const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+  let W = 0, H = 0, DPR = 1;
+
+  // ---------- helpers ----------
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 1.6);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (currentTheme) currentTheme.init();
+  }
+
+  // Pre-render a soft glow disc (reused across themes)
+  const glowDisc = (() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.35, 'rgba(255,255,255,0.45)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+    return c;
+  })();
+
+  function drawGlow(x, y, r, color, alpha = 1) {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(0.5, r), 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // ============================================================
+  // THEMES — each: { id, name, label, tagline, init(), draw(t,dt) }
+  // ============================================================
+  const themes = [];
+
+  // ---------- 1. Moonlit Ocean ----------
+  themes.push({
+    id: 'ocean',
+    name: 'Moonlit <em>Ocean</em>',
+    label: 'Scene One',
+    tagline: 'Tides beneath a silver eye',
+    init() {
+      const n = Math.floor(60 + (W * H) / 30000);
+      this.stars = Array.from({ length: n }, () => ({
+        x: rand(0, W), y: rand(0, H * 0.55),
+        r: rand(0.2, 1.2), tw: rand(0, TAU), s: rand(0.001, 0.003)
+      }));
+    },
+    draw(t) {
+      // sky
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#06091c');
+      sky.addColorStop(0.45, '#0f1a36');
+      sky.addColorStop(0.65, '#1a2a48');
+      sky.addColorStop(1, '#0a1428');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // stars
+      for (const s of this.stars) {
+        const a = 0.35 + 0.5 * Math.sin(t * s.s + s.tw);
+        ctx.fillStyle = `rgba(220,232,255,${a * 0.75})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
+      }
+
+      // moon
+      const mx = W * 0.72, my = H * 0.26, mr = Math.min(W, H) * 0.055;
+      const halo = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 9);
+      halo.addColorStop(0, 'rgba(255,238,210,0.32)');
+      halo.addColorStop(0.18, 'rgba(255,220,180,0.14)');
+      halo.addColorStop(1, 'rgba(255,200,150,0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(mx - mr * 9, my - mr * 9, mr * 18, mr * 18);
+
+      ctx.fillStyle = '#f7ecd6';
+      ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.fill();
+      // moon shadow side
+      ctx.fillStyle = 'rgba(40,30,20,0.12)';
+      ctx.beginPath(); ctx.arc(mx + mr * 0.25, my - mr * 0.1, mr * 0.95, 0, TAU); ctx.fill();
+
+      // sea
+      const seaY = H * 0.56;
+      const sea = ctx.createLinearGradient(0, seaY, 0, H);
+      sea.addColorStop(0, '#1a2a44');
+      sea.addColorStop(0.5, '#0c1428');
+      sea.addColorStop(1, '#03060e');
+      ctx.fillStyle = sea; ctx.fillRect(0, seaY, W, H - seaY);
+
+      // moon reflection on water
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 28; i++) {
+        const yp = i / 28;
+        const y = seaY + yp * (H - seaY);
+        const w = mr * (1 + yp * 2.2) + Math.sin(t * 0.0018 + i * 0.7) * 10;
+        const a = (1 - yp) * 0.13;
+        ctx.fillStyle = `rgba(255,225,180,${a})`;
+        ctx.fillRect(mx - w / 2, y, w, 1.8);
+      }
+      ctx.restore();
+
+      // wave layers
+      for (let l = 0; l < 5; l++) {
+        const by = seaY + l * (H - seaY) * 0.16;
+        const amp = 3 + l * 1.6;
+        ctx.beginPath(); ctx.moveTo(0, by);
+        for (let x = 0; x <= W; x += 6) {
+          const y = by
+            + Math.sin(x * 0.008 + l + t * 0.0006 * (l + 1)) * amp
+            + Math.sin(x * 0.022 + t * 0.0011) * amp * 0.4;
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+        ctx.fillStyle = `rgba(6,12,26,${0.18 + l * 0.12})`;
+        ctx.fill();
+      }
+    }
+  });
+
+  // ---------- 2. Amber Dunes ----------
+  themes.push({
+    id: 'desert',
+    name: 'Amber <em>Dunes</em>',
+    label: 'Scene Two',
+    tagline: 'Where the sand keeps time',
+    init() {
+      const n = Math.floor(20 + (W * H) / 60000);
+      this.motes = Array.from({ length: n }, () => ({
+        x: rand(0, W), y: rand(H * 0.2, H),
+        vx: rand(0.15, 0.45), vy: rand(-0.04, 0.04),
+        r: rand(0.4, 1.6), a: rand(0.15, 0.5)
+      }));
+    },
+    draw(t) {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#2a1238');
+      sky.addColorStop(0.25, '#6a2c4a');
+      sky.addColorStop(0.5, '#c8624a');
+      sky.addColorStop(0.72, '#e89866');
+      sky.addColorStop(1, '#b86848');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // sun
+      const sx = W * 0.5, sy = H * 0.56;
+      const sr = Math.min(W, H) * 0.12;
+      const halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr * 4.5);
+      halo.addColorStop(0, 'rgba(255,228,170,0.65)');
+      halo.addColorStop(0.25, 'rgba(255,180,110,0.28)');
+      halo.addColorStop(1, 'rgba(255,140,80,0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(sx - sr * 4.5, sy - sr * 4.5, sr * 9, sr * 9);
+
+      const sun = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+      sun.addColorStop(0, '#fff4d4');
+      sun.addColorStop(0.6, '#ffd094');
+      sun.addColorStop(1, '#ff8c50');
+      ctx.fillStyle = sun;
+      ctx.beginPath(); ctx.arc(sx, sy, sr, 0, TAU); ctx.fill();
+
+      // dunes
+      const dunes = [
+        { y: 0.62, c: '#a04c3a', amp: 28, f: 0.0032, ph: 0 },
+        { y: 0.7,  c: '#82382a', amp: 24, f: 0.0042, ph: 1.6 },
+        { y: 0.78, c: '#5e2820', amp: 20, f: 0.0054, ph: 3.1 },
+        { y: 0.86, c: '#3a1814', amp: 18, f: 0.0066, ph: 4.6 },
+        { y: 0.94, c: '#1e0c0a', amp: 14, f: 0.008, ph: 6.0 }
+      ];
+      for (const d of dunes) {
+        const by = H * d.y;
+        ctx.beginPath(); ctx.moveTo(0, by);
+        for (let x = 0; x <= W; x += 8) {
+          const y = by + Math.sin(x * d.f + d.ph) * d.amp + Math.sin(x * d.f * 2.4 + d.ph * 1.6) * d.amp * 0.35;
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+        ctx.fillStyle = d.c; ctx.fill();
+      }
+
+      // motes
+      for (const m of this.motes) {
+        m.x += m.vx; m.y += m.vy + Math.sin(t * 0.001 + m.r * 5) * 0.05;
+        if (m.x > W + 5) m.x = -5;
+        ctx.fillStyle = `rgba(255,220,170,${m.a})`;
+        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
+      }
+    }
+  });
+
+  // ---------- 3. Emerald Forest ----------
+  themes.push({
+    id: 'forest',
+    name: 'Emerald <em>Forest</em>',
+    label: 'Scene Three',
+    tagline: 'Fireflies among the pines',
+    init() {
+      const fn = Math.floor(28 + (W * H) / 50000);
+      this.fireflies = Array.from({ length: fn }, () => ({
+        x: rand(0, W), y: rand(H * 0.3, H * 0.95),
+        vx: rand(-0.25, 0.25), vy: rand(-0.15, 0.15),
+        r: rand(0.8, 1.8), ph: rand(0, TAU), sp: rand(0.5, 1.4)
+      }));
+      this.trees = [];
+      for (let l = 0; l < 4; l++) {
+        const layer = [];
+        const count = 7 + l * 5;
+        for (let i = 0; i < count; i++) {
+          layer.push({
+            x: (i / count) * W + rand(-W / count * 0.5, W / count * 0.5),
+            h: H * rand(0.28, 0.5) * (1 - l * 0.08),
+            w: rand(18, 38) + l * 8,
+            top: rand(0.85, 1.05)
+          });
+        }
+        this.trees.push(layer);
+      }
+    },
+    draw(t) {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#1a2a22');
+      sky.addColorStop(0.4, '#2a3a2c');
+      sky.addColorStop(0.7, '#1a2620');
+      sky.addColorStop(1, '#0a1410');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // soft glow
+      const glow = ctx.createRadialGradient(W * 0.3, H * 0.18, 0, W * 0.3, H * 0.18, W * 0.7);
+      glow.addColorStop(0, 'rgba(180,220,180,0.18)');
+      glow.addColorStop(1, 'rgba(180,220,180,0)');
+      ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+
+      // mist layers
+      for (let i = 0; i < 4; i++) {
+        const my = H * (0.55 + i * 0.09);
+        ctx.fillStyle = `rgba(160,190,160,0.05)`;
+        ctx.beginPath();
+        ctx.ellipse(W * 0.5 + Math.sin(t * 0.0003 + i) * 120, my, W * 0.7, 28, 0, 0, TAU);
+        ctx.fill();
+      }
+
+      // trees
+      const cols = ['#1c2a22', '#16241c', '#0e1a14', '#070e0a'];
+      for (let l = 0; l < this.trees.length; l++) {
+        ctx.fillStyle = cols[l];
+        const baseY = H * (0.58 + l * 0.1);
+        for (const tr of this.trees[l]) {
+          // layered triangle (pine)
+          const cx = tr.x, h = tr.h * tr.top, w = tr.w;
+          for (let s = 0; s < 3; s++) {
+            const sy = baseY - s * h * 0.28;
+            const sw = w * (1 - s * 0.22);
+            ctx.beginPath();
+            ctx.moveTo(cx, sy - h * 0.42);
+            ctx.lineTo(cx - sw / 2, sy);
+            ctx.lineTo(cx + sw / 2, sy);
+            ctx.closePath(); ctx.fill();
+          }
+          ctx.fillRect(cx - 1.5, baseY, 3, 6);
+        }
+      }
+
+      // fireflies
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const f of this.fireflies) {
+        f.x += f.vx + Math.sin(t * 0.001 * f.sp + f.ph) * 0.4;
+        f.y += f.vy + Math.cos(t * 0.0008 * f.sp + f.ph) * 0.25;
+        if (f.x < -10) f.x = W + 10; if (f.x > W + 10) f.x = -10;
+        if (f.y < H * 0.2) f.y = H * 0.95; if (f.y > H) f.y = H * 0.3;
+        const a = 0.35 + 0.55 * Math.sin(t * 0.003 + f.ph);
+        const r = f.r;
+        // glow via cached disc
+        ctx.globalAlpha = a * 0.7;
+        ctx.drawImage(glowDisc, f.x - r * 7, f.y - r * 7, r * 14, r * 14);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = `rgba(255,235,150,${a})`;
+        ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    }
+  });
+
+  // ---------- 4. Violet Peaks ----------
+  themes.push({
+    id: 'mountains',
+    name: 'Violet <em>Peaks</em>',
+    label: 'Scene Four',
+    tagline: 'The last light over the range',
+    init() {
+      this.stars = Array.from({ length: 50 }, () => ({
+        x: rand(0, W), y: rand(0, H * 0.4),
+        r: rand(0.2, 0.9), tw: rand(0, TAU), s: rand(0.001, 0.003)
+      }));
+      this.birds = Array.from({ length: 6 }, () => ({
+        x: rand(0, W), y: rand(H * 0.25, H * 0.42),
+        v: rand(0.15, 0.35), ph: rand(0, TAU)
+      }));
+      this.layers = [];
+      for (let l = 0; l < 5; l++) {
+        const pts = [];
+        const segs = 10 + l * 5;
+        for (let i = 0; i <= segs; i++) {
+          pts.push({
+            x: (i / segs) * W,
+            y: H * (0.42 + l * 0.075) - Math.random() * H * (0.13 - l * 0.018)
+          });
+        }
+        this.layers.push(pts);
+      }
+    },
+    draw(t) {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#180c2c');
+      sky.addColorStop(0.28, '#48205a');
+      sky.addColorStop(0.5, '#b8446a');
+      sky.addColorStop(0.72, '#e88a5a');
+      sky.addColorStop(1, '#5a2848');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // sun glow
+      const sg = ctx.createRadialGradient(W * 0.5, H * 0.62, 0, W * 0.5, H * 0.62, W * 0.55);
+      sg.addColorStop(0, 'rgba(255,200,140,0.45)');
+      sg.addColorStop(1, 'rgba(255,150,100,0)');
+      ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
+
+      // stars
+      for (const s of this.stars) {
+        const a = 0.3 + 0.45 * Math.sin(t * s.s + s.tw);
+        ctx.fillStyle = `rgba(255,240,220,${a * 0.6})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
+      }
+
+      // mountains
+      const cols = ['#5a2848', '#482040', '#381a36', '#281428', '#180e1c'];
+      for (let l = 0; l < this.layers.length; l++) {
+        ctx.fillStyle = cols[l];
+        ctx.beginPath();
+        ctx.moveTo(0, H);
+        const drift = Math.sin(t * 0.0003 + l) * 1.5;
+        for (const p of this.layers[l]) ctx.lineTo(p.x, p.y + drift);
+        ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+
+        // snow caps on the farthest visible peaks (first 2 layers)
+        if (l < 2) {
+          ctx.fillStyle = `rgba(255,220,200,${0.15 - l * 0.06})`;
+          for (const p of this.layers[l]) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y + drift);
+            ctx.lineTo(p.x - 12, p.y + drift + 16);
+            ctx.lineTo(p.x + 12, p.y + drift + 16);
+            ctx.closePath(); ctx.fill();
+          }
+        }
+      }
+
+      // birds
+      ctx.strokeStyle = 'rgba(20,8,18,0.55)';
+      ctx.lineWidth = 1.4;
+      for (const b of this.birds) {
+        b.x += b.v;
+        if (b.x > W + 20) b.x = -20;
+        const flap = Math.sin(t * 0.012 + b.ph) * 4;
+        ctx.beginPath();
+        ctx.moveTo(b.x - 7, b.y);
+        ctx.quadraticCurveTo(b.x - 3.5, b.y - flap, b.x, b.y);
+        ctx.quadraticCurveTo(b.x + 3.5, b.y - flap, b.x + 7, b.y);
+        ctx.stroke();
+      }
+    }
+  });
+
+  // ---------- 5. Indigo Storm ----------
+  themes.push({
+    id: 'storm',
+    name: 'Indigo <em>Storm</em>',
+    label: 'Scene Five',
+    tagline: 'Rain on a tin roof',
+    init() {
+      const n = Math.floor(70 + (W * H) / 25000);
+      this.rain = Array.from({ length: n }, () => ({
+        x: rand(-W * 0.1, W * 1.1),
+        y: rand(-H * 0.2, H),
+        l: rand(8, 18), v: rand(7, 13)
+      }));
+      this.clouds = Array.from({ length: 9 }, (_, i) => ({
+        x: rand(0, W), y: H * 0.08 + i * H * 0.055,
+        r: rand(80, 200), v: rand(0.08, 0.22),
+        a: rand(0.18, 0.32)
+      }));
+      this.flash = 0;
+      this.nextFlash = rand(2500, 6000);
+      this.flashX = W * 0.5;
+    },
+    draw(t, dt) {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#080a18');
+      sky.addColorStop(0.5, '#181e30');
+      sky.addColorStop(1, '#080c18');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // lightning
+      this.nextFlash -= dt;
+      if (this.nextFlash <= 0) {
+        this.flash = 1;
+        this.flashX = rand(W * 0.2, W * 0.8);
+        this.nextFlash = rand(3500, 8000);
+      }
+      this.flash *= 0.9;
+      if (this.flash > 0.04) {
+        const fg = ctx.createRadialGradient(this.flashX, H * 0.3, 0, this.flashX, H * 0.3, W * 0.6);
+        fg.addColorStop(0, `rgba(200,220,255,${this.flash * 0.45})`);
+        fg.addColorStop(1, 'rgba(200,220,255,0)');
+        ctx.fillStyle = fg; ctx.fillRect(0, 0, W, H);
+      }
+
+      // clouds
+      for (const c of this.clouds) {
+        c.x += c.v;
+        if (c.x - c.r > W) c.x = -c.r;
+        const cg = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+        cg.addColorStop(0, `rgba(40,48,68,${c.a})`);
+        cg.addColorStop(0.7, `rgba(40,48,68,${c.a * 0.3})`);
+        cg.addColorStop(1, 'rgba(40,48,68,0)');
+        ctx.fillStyle = cg;
+        ctx.fillRect(c.x - c.r, c.y - c.r, c.r * 2, c.r * 2);
+      }
+
+      // rain
+      ctx.strokeStyle = 'rgba(180,200,235,0.42)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const r of this.rain) {
+        r.x -= r.v * 0.32; r.y += r.v;
+        if (r.y > H) { r.y = -r.l; r.x = rand(-W * 0.1, W * 1.1); }
+        if (r.x < -20) r.x = W + 10;
+        ctx.moveTo(r.x, r.y);
+        ctx.lineTo(r.x - r.v * 0.32, r.y - r.l);
+      }
+      ctx.stroke();
+    }
+  });
+
+  // ---------- 6. Rose Clouds ----------
+  themes.push({
+    id: 'clouds',
+    name: 'Rose <em>Clouds</em>',
+    label: 'Scene Six',
+    tagline: 'Drifting, weightless',
+    init() {
+      this.clouds = Array.from({ length: 14 }, () => ({
+        x: rand(-W * 0.2, W * 1.2),
+        y: rand(H * 0.1, H * 0.85),
+        r: rand(70, 180),
+        v: rand(0.08, 0.28),
+        a: rand(0.18, 0.32),
+        tint: Math.random()
+      }));
+    },
+    draw(t) {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#3a1838');
+      sky.addColorStop(0.35, '#8a4a5c');
+      sky.addColorStop(0.65, '#d89880');
+      sky.addColorStop(1, '#e8b890');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // sun glow
+      const sg = ctx.createRadialGradient(W * 0.7, H * 0.42, 0, W * 0.7, H * 0.42, W * 0.55);
+      sg.addColorStop(0, 'rgba(255,225,180,0.42)');
+      sg.addColorStop(1, 'rgba(255,200,150,0)');
+      ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
+
+      // clouds
+      for (const c of this.clouds) {
+        c.x += c.v;
+        if (c.x - c.r * 2 > W) c.x = -c.r * 2;
+        const tint = c.tint < 0.5 ? [255, 205, 185] : [255, 180, 160];
+        const cg = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+        cg.addColorStop(0, `rgba(${tint[0]},${tint[1]},${tint[2]},${c.a})`);
+        cg.addColorStop(0.55, `rgba(${tint[0]},${tint[1]},${tint[2]},${c.a * 0.4})`);
+        cg.addColorStop(1, `rgba(${tint[0]},${tint[1]},${tint[2]},0)`);
+        ctx.fillStyle = cg;
+        ctx.fillRect(c.x - c.r, c.y - c.r, c.r * 2, c.r * 2);
+      }
+
+      // soft horizon haze
+      const haze = ctx.createLinearGradient(0, H * 0.7, 0, H);
+      haze.addColorStop(0, 'rgba(255,200,160,0)');
+      haze.addColorStop(1, 'rgba(120,60,80,0.4)');
+      ctx.fillStyle = haze; ctx.fillRect(0, H * 0.7, W, H * 0.3);
+    }
+  });
+
+  // ---------- 7. Aurora Borealis ----------
+  themes.push({
+    id: 'aurora',
+    name: 'Aurora <em>Borealis</em>',
+    label: 'Scene Seven',
+    tagline: 'Light that breathes',
+    init() {
+      this.stars = Array.from({ length: 130 }, () => ({
+        x: rand(0, W), y: rand(0, H * 0.7),
+        r: rand(0.2, 1.1), tw: rand(0, TAU), s: rand(0.001, 0.003)
+      }));
+    },
+    draw(t) {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#040612');
+      sky.addColorStop(0.5, '#0a1428');
+      sky.addColorStop(1, '#020408');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // stars
+      for (const s of this.stars) {
+        const a = 0.3 + 0.55 * Math.sin(t * s.s + s.tw);
+        ctx.fillStyle = `rgba(220,232,255,${a * 0.75})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
+      }
+
+      // aurora ribbons
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const colors = [[80, 255, 180], [120, 180, 255], [200, 130, 255]];
+      for (let r = 0; r < 3; r++) {
+        const grad = ctx.createLinearGradient(0, H * 0.15, 0, H * 0.72);
+        const c = colors[r];
+        grad.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},0)`);
+        grad.addColorStop(0.35, `rgba(${c[0]},${c[1]},${c[2]},0.28)`);
+        grad.addColorStop(0.65, `rgba(${c[0]},${c[1]},${c[2]},0.18)`);
+        grad.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        const segs = 32;
+        const baseY = H * 0.32 + r * 36;
+        const height = 220 + r * 30;
+        for (let i = 0; i <= segs; i++) {
+          const x = (i / segs) * W;
+          const y = baseY
+            + Math.sin(x * 0.005 + t * 0.0005 + r) * 60
+            + Math.sin(x * 0.013 + t * 0.0009 + r * 2) * 28;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        for (let i = segs; i >= 0; i--) {
+          const x = (i / segs) * W;
+          const y = baseY
+            + Math.sin(x * 0.005 + t * 0.0005 + r) * 60
+            + Math.sin(x * 0.013 + t * 0.0009 + r * 2) * 28
+            + height + Math.sin(x * 0.008 + t * 0.0006 + r) * 70;
+          ctx.lineTo(x, y);
+        }
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+
+      // mountains silhouette
+      ctx.fillStyle = '#020408';
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      const segs = 22;
+      for (let i = 0; i <= segs; i++) {
+        const x = (i / segs) * W;
+        const y = H * 0.78 - Math.sin(i * 1.3) * 28 - Math.sin(i * 0.55 + 1.2) * 46;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+
+      // reflection on still water
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = '#0a3050';
+      ctx.fillRect(0, H * 0.78, W, H * 0.22);
+      ctx.restore();
+    }
+  });
+
+  // ---------- 8. Silk Currents (Abstract) ----------
+  themes.push({
+    id: 'abstract',
+    name: 'Silk <em>Currents</em>',
+    label: 'Scene Eight',
+    tagline: 'Color in slow motion',
+    init() {
+      const n = Math.floor(50 + (W * H) / 60000);
+      this.particles = Array.from({ length: n }, () => ({
+        x: rand(0, W), y: rand(0, H),
+        r: rand(1, 2.4), ph: rand(0, TAU),
+        hue: rand(15, 55)
+      }));
+    },
+    draw(t) {
+      const bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#1a0814');
+      bg.addColorStop(1, '#080406');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // flowing silk
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const curves = 7;
+      for (let c = 0; c < curves; c++) {
+        ctx.beginPath();
+        const segs = 50;
+        for (let i = 0; i <= segs; i++) {
+          const px = (i / segs) * W;
+          const py = H * 0.5
+            + Math.sin(px * 0.005 + t * 0.0005 + c * 0.9) * H * 0.22
+            + Math.sin(px * 0.013 + t * 0.0008 + c * 1.7) * H * 0.09
+            + (c - curves / 2) * 22;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        const grad = ctx.createLinearGradient(0, 0, W, 0);
+        const hue = 18 + c * 7;
+        grad.addColorStop(0, `hsla(${hue}, 75%, 50%, 0)`);
+        grad.addColorStop(0.5, `hsla(${hue}, 85%, 62%, 0.14)`);
+        grad.addColorStop(1, `hsla(${hue + 35}, 75%, 50%, 0)`);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 50 + c * 12;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // particles
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const p of this.particles) {
+        p.x += Math.sin(t * 0.001 + p.ph) * 0.5 + 0.25;
+        p.y += Math.cos(t * 0.0008 + p.ph * 1.3) * 0.3;
+        if (p.x > W + 5) p.x = -5;
+        if (p.y > H + 5) p.y = -5;
+        if (p.y < -5) p.y = H + 5;
+        const a = 0.4 + 0.45 * Math.sin(t * 0.002 + p.ph);
+        ctx.globalAlpha = a * 0.6;
+        ctx.drawImage(glowDisc, p.x - p.r * 7, p.y - p.r * 7, p.r * 14, p.r * 14);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = `hsla(${p.hue}, 85%, 75%, ${a})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    }
+  });
+
+  // ---------- 9. Golden Bokeh ----------
+  themes.push({
+    id: 'bokeh',
+    name: 'Golden <em>Bokeh</em>',
+    label: 'Scene Nine',
+    tagline: 'Soft lights, late hours',
+    init() {
+      const n = Math.floor(22 + (W * H) / 80000);
+      this.particles = Array.from({ length: n }, () => ({
+        x: rand(0, W), y: rand(0, H),
+        r: rand(20, 75),
+        vx: rand(-0.18, 0.18), vy: rand(-0.14, 0.14),
+        hue: rand(25, 55), a: rand(0.18, 0.32)
+      }));
+      // tiny sparkles
+      this.sparkles = Array.from({ length: 60 }, () => ({
+        x: rand(0, W), y: rand(0, H),
+        r: rand(0.3, 1.2), ph: rand(0, TAU), s: rand(0.001, 0.004)
+      }));
+    },
+    draw(t) {
+      const bg = ctx.createRadialGradient(W * 0.5, H * 0.55, 0, W * 0.5, H * 0.5, W * 0.85);
+      bg.addColorStop(0, '#2a1814');
+      bg.addColorStop(0.5, '#160a08');
+      bg.addColorStop(1, '#060302');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // sparkles
+      for (const s of this.sparkles) {
+        const a = 0.3 + 0.6 * Math.sin(t * s.s + s.ph);
+        ctx.fillStyle = `rgba(255,220,170,${a * 0.6})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
+      }
+
+      // bokeh
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (const p of this.particles) {
+        p.x += p.vx + Math.sin(t * 0.0005 + p.r) * 0.08;
+        p.y += p.vy + Math.cos(t * 0.0007 + p.r) * 0.06;
+        if (p.x < -p.r) p.x = W + p.r;
+        if (p.x > W + p.r) p.x = -p.r;
+        if (p.y < -p.r) p.y = H + p.r;
+        if (p.y > H + p.r) p.y = -p.r;
+        const gg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        gg.addColorStop(0, `hsla(${p.hue}, 75%, 65%, ${p.a})`);
+        gg.addColorStop(0.45, `hsla(${p.hue - 8}, 75%, 55%, ${p.a * 0.4})`);
+        gg.addColorStop(1, `hsla(${p.hue}, 75%, 45%, 0)`);
+        ctx.fillStyle = gg;
+        ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+      }
+      ctx.restore();
+    }
+  });
+
+  // ---------- 10. Neon Horizon ----------
+  themes.push({
+    id: 'future',
+    name: 'Neon <em>Horizon</em>',
+    label: 'Scene Ten',
+    tagline: 'A future that never slept',
+    init() {
+      this.stars = Array.from({ length: 70 }, () => ({
+        x: rand(0, W), y: rand(0, H * 0.5),
+        r: rand(0.2, 1.1), tw: rand(0, TAU), s: rand(0.001, 0.003)
+      }));
+    },
+    draw(t) {
+      // sky
+      const sky = ctx.createLinearGradient(0, 0, 0, H * 0.55);
+      sky.addColorStop(0, '#080418');
+      sky.addColorStop(0.5, '#2a0a3a');
+      sky.addColorStop(1, '#5a1a48');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H * 0.55);
+
+      // stars
+      for (const s of this.stars) {
+        const a = 0.3 + 0.5 * Math.sin(t * s.s + s.tw);
+        ctx.fillStyle = `rgba(255,255,255,${a * 0.65})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
+      }
+
+      // sun
+      const sx = W * 0.5, sy = H * 0.5;
+      const sr = Math.min(W, H) * 0.17;
+      const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+      sg.addColorStop(0, '#fff2a8');
+      sg.addColorStop(0.5, '#ff8050');
+      sg.addColorStop(1, '#ff3060');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(sx, sy, sr, 0, TAU); ctx.fill();
+      // sun stripes
+      ctx.fillStyle = '#080418';
+      for (let i = 0; i < 5; i++) {
+        const y = sy + sr * 0.32 + i * (sr * 0.135);
+        ctx.fillRect(sx - sr, y, sr * 2, sr * 0.07);
+      }
+
+      // ground
+      const ground = ctx.createLinearGradient(0, H * 0.55, 0, H);
+      ground.addColorStop(0, '#1a0820');
+      ground.addColorStop(1, '#06020a');
+      ctx.fillStyle = ground; ctx.fillRect(0, H * 0.55, W, H * 0.45);
+
+      // grid
+      ctx.strokeStyle = '#ff4a98';
+      ctx.lineWidth = 1;
+      // horizontal scrolling lines
+      const gridLines = 18;
+      const offset = (t * 0.00025) % 1;
+      for (let i = 0; i < gridLines; i++) {
+        let z = (i / gridLines + offset) % 1;
+        const y = H * 0.55 + Math.pow(z, 2.4) * H * 0.45;
+        ctx.globalAlpha = z * 0.85;
+        ctx.beginPath();
+        ctx.moveTo(0, y); ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+      // vertical lines
+      ctx.globalAlpha = 0.55;
+      const cx = W * 0.5;
+      for (let i = -12; i <= 12; i++) {
+        const xb = cx + i * (W * 0.08);
+        ctx.beginPath();
+        ctx.moveTo(cx + i * 4, H * 0.55);
+        ctx.lineTo(xb, H);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // horizon glow
+      const hg = ctx.createLinearGradient(0, H * 0.53, 0, H * 0.6);
+      hg.addColorStop(0, 'rgba(255,90,180,0)');
+      hg.addColorStop(0.5, 'rgba(255,90,180,0.55)');
+      hg.addColorStop(1, 'rgba(255,90,180,0)');
+      ctx.fillStyle = hg; ctx.fillRect(0, H * 0.53, W, H * 0.07);
+    }
+  });
+
+  // ============================================================
+  // MAIN
+  // ============================================================
+  let currentTheme = null;
+  let currentIdx = -1;
+  let lastTime = performance.now();
+  const transition = { active: false, next: null, t: 0, duration: 900 };
+
+  const titleEl = document.getElementById('themeTitle');
+  const labelEl = document.getElementById('themeLabel');
+  const taglineEl = document.getElementById('themeTagline');
+  const centerEl = document.getElementById('center');
+  const progressEl = document.getElementById('progress');
+
+  function buildProgress() {
+    progressEl.innerHTML = '';
+    for (let i = 0; i < themes.length; i++) {
+      const s = document.createElement('span');
+      progressEl.appendChild(s);
+    }
+  }
+  function updateProgress() {
+    progressEl.querySelectorAll('span').forEach((s, i) => {
+      s.classList.toggle('active', i === currentIdx);
+    });
+  }
+
+  function setTheme(idx, animate = true) {
+    const newIdx = ((idx % themes.length) + themes.length) % themes.length;
+    if (newIdx === currentIdx) return;
+    currentIdx = newIdx;
+    const next = themes[currentIdx];
+    next.init();
+
+    // title fade
+    centerEl.classList.add('changing');
+    setTimeout(() => {
+      titleEl.innerHTML = next.name;
+      labelEl.textContent = next.label;
+      taglineEl.textContent = next.tagline;
+      centerEl.classList.remove('changing');
+    }, 380);
+
+    if (animate && currentTheme) {
+      transition.next = next;
+      transition.t = 0;
+      transition.active = true;
+    } else {
+      currentTheme = next;
+    }
+    updateProgress();
+  }
+
+  function loop(now) {
+    const dt = Math.min(50, now - lastTime);
+    lastTime = now;
+
+    if (transition.active) {
+      transition.t += dt / transition.duration;
+      if (transition.t >= 0.5 && currentTheme !== transition.next) {
+        currentTheme = transition.next;
+      }
+      currentTheme.draw(now, dt);
+      const fade = transition.t < 0.5
+        ? transition.t * 2 * 0.7
+        : (1 - transition.t) * 2 * 0.7;
+      ctx.fillStyle = `rgba(0,0,0,${fade})`;
+      ctx.fillRect(0, 0, W, H);
+      if (transition.t >= 1) transition.active = false;
+    } else if (currentTheme) {
+      currentTheme.draw(now, dt);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // Clock
+  function updateClock() {
+    const d = new Date();
+    document.getElementById('clock').textContent =
+      String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+  setInterval(updateClock, 10000);
+  updateClock();
+
+  // Controls
+  document.getElementById('prevBtn').addEventListener('click', () => setTheme(currentIdx - 1));
+  document.getElementById('nextBtn').addEventListener('click', () => setTheme(currentIdx + 1));
+  document.getElementById('shuffleBtn').addEventListener('click', () => {
+    let n;
+    do { n = Math.floor(Math.random() * themes.length); } while (n === currentIdx && themes.length > 1);
+    setTheme(n);
+  });
+
+  // Keyboard
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') setTheme(currentIdx - 1);
+    else if (e.key === 'ArrowRight') setTheme(currentIdx + 1);
+    else if (e.key === ' ') { e.preventDefault(); document.getElementById('shuffleBtn').click(); }
+  });
+
+  // Touch swipe
+  let tx = 0, ty = 0, swiping = false;
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      tx = e.touches[0].clientX; ty = e.touches[0].clientY; swiping = true;
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchend', e => {
+    if (!swiping) return;
+    swiping = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - tx, dy = t.clientY - ty;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      setTheme(currentIdx + (dx > 0 ? -1 : 1));
+    }
+  }, { passive: true });
+
+  // Auto-rotate (subtle, every 90s)
+  let autoTimer = setInterval(() => {
+    if (!document.hidden) setTheme(currentIdx + 1);
+  }, 90000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) lastTime = performance.now();
+  });
+
+  // Init
+  window.addEventListener('resize', () => {
+    clearTimeout(window._rt);
+    window._rt = setTimeout(resize, 120);
+  });
+  resize();
+  buildProgress();
+  setTheme(Math.floor(Math.random() * themes.length), false);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

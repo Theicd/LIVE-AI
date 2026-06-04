@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroNet // Commercial Showcase</title>
+    <style>
+        :root {
+            --bg-color: #050510;
+            --primary: #00f3ff; /* Cyan */
+            --secondary: #ff00ff; /* Magenta */
+            --text-color: #e0e0e0;
+            --panel-bg: rgba(10, 20, 40, 0.85);
+            --border-glow: 0 0 10px rgba(0, 243, 255, 0.5);
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none; /* Prevent selection for "video" feel */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+        }
+
+        /* CRT Effect Overlay */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.6;
+        }
+
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.9) 100%);
+            pointer-events: none;
+            z-index: 998;
+        }
+
+        /* Main Container */
+        #main-container {
+            width: 90%;
+            max-width: 1200px;
+            height: 90vh;
+            background: var(--panel-bg);
+            border: 2px solid var(--primary);
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--border-glow);
+            transform-style: preserve-3d;
+        }
+
+        /* Common Section Styles */
+        .section {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            pointer-events: none;
+        }
+
+        .section.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        h1, h2, h3 {
+            text-transform: uppercase;
+            text-align: center;
+            letter-spacing: 2px;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 5px var(--primary);
+        }
+
+        p {
+            max-width: 800px;
+            text-align: center;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+
+        .highlight {
+            color: var(--primary);
+        }
+
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+
+        /* --- INTRO --- */
+        #intro-screen {
+            background: radial-gradient(circle, #1a1a3a 0%, #000 100%);
+            z-index: 100;
+        }
+
+        .boot-text {
+            font-size: 1.2rem;
+            color: var(--secondary);
+        }
+
+        /* --- MARKETPLACE --- */
+        #marketplace {
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        .market-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .item-card {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #333;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .item-card.selected {
+            border-color: var(--secondary);
+            box-shadow: 0 0 15px var(--secondary);
+            transform: scale(1.05);
+        }
+
+        .item-img {
+            width: 100%;
+            height: 80px;
+            background: #222;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: #555;
+        }
+
+        .price-tag {
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .cart-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--secondary);
+            color: black;
+            padding: 2px 8px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            border-radius: 2px;
+        }
+
+        /* --- PRODUCT CAROUSEL --- */
+        #product-carousel {
+            perspective: 1000px;
+            background: rgba(0,0,0,0.8);
+        }
+
+        .carousel-container {
+            display: flex;
+            gap: 40px;
+            width: 100%;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        .card-wrapper {
+            width: 150px;
+            height: 200px;
+            position: relative;
+            transition: transform 0.5s;
+        }
+
+        .product-card {
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e;
+            border: 1px solid var(--primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
+            backface-visibility: hidden;
+        }
+
+        .product-card.expanded {
+            position: absolute;
+            z-index: 10;
+            width: 400px;
+            height: 500px;
+            border-color: var(--secondary);
+            box-shadow: 0 0 30px var(--secondary);
+            background: #0f0f1a;
+        }
+
+        .product-card.expanded img {
+            height: 200px;
+            width: 200px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+        }
+
+        .specs-panel {
+            margin-top: 20px;
+            text-align: left;
+            width: 90%;
+            height: 0;
+            overflow: hidden;
+            transition: height 0.5s ease;
+            background: rgba(255,255,255,0.05);
+            padding: 0 10px;
+        }
+
+        .product-card.expanded .specs-panel {
+            height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .spec-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        /* --- PITCH --- */
+        #pitch-section {
+            background: #000;
+            justify-content: flex-start;
+        }
+
+        .slide-container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 200px;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            margin: 20px 0;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 5px;
+        }
+
+        .bar {
+            flex: 1;
+            background: var(--primary);
+            transition: height 1s ease-out;
+            position: relative;
+            opacity: 0.7;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .bar.active {
+            opacity: 1;
+            height: 0; /* Starts at 0 for animation */
+        }
+
+        .bar span {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+        }
+
+        .metrics-grid {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+        }
+
+        .metric-box {
+            text-align: center;
+        }
+
+        .metric-number {
+            font-size: 2.5rem;
+            color: var(--secondary);
+            text-shadow: 0 0 10px var(--secondary);
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .cta-button {
+            margin-top: 20px;
+            padding: 15px 40px;
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            font-family: var(--font-main);
+            font-size: 1.2rem;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        .cta-button:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        .pulse {
+            animation: pulse-border 1.5s infinite;
+        }
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(0, 243, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0); }
+        }
+
+        /* Utilities */
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: var(--secondary);
+            width: 0%;
+            transition: width 0.1s linear;
+            z-index: 200;
+        }
+
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <div id="main-container">
+        
+        <!-- PROGRESS BAR -->
+        <div id="progress" class="progress-bar"></div>
+
+        <!-- SECTION 1: INTRO -->
+        <section id="intro-screen" class="section active">
+            <div style="font-size: 4rem; margin-bottom: 20px;">◈</div>
+            <h1 class="blink">SYSTEM BOOT</h1>
+            <div id="boot-log" class="boot-text">Initializing Neural Interface...</div>
+            <div class="boot-text" style="margin-top: 10px; color: #666;">Waiting for user authorization...</div>
+        </section>
+
+        <!-- SECTION 2: MARKETPLACE -->
+        <section id="marketplace" class="section">
+            <h2>Cyber-Terminal <span class="highlight">v4.0</span></h2>
+            <p>Marketplace Scanner: Analyzing assets...</p>
+            <div class="market-grid" id="market-grid">
+                <!-- Items injected by JS -->
+            </div>
+            <div id="cart-display" style="margin-top: 20px; font-size: 1.5rem;">
+                Cart: <span class="highlight" id="cart-count">0</span>
+            </div>
+        </section>
+
+        <!-- SECTION 3: PRODUCT CAROUSEL -->
+        <section id="product-carousel" class="section">
+            <h2>Artifact Analysis</h2>
+            <p>Inspecting deployed hardware.</p>
+            <div class="carousel-container" id="carousel-viewport">
+                <!-- Cards injected by JS -->
+            </div>
+        </section>
+
+        <!-- SECTION 4: PITCH -->
+        <section id="pitch-section" class="section">
+            <div class="slide-container">
+                <h2 style="color: var(--secondary);">Problem Statement</h2>
+                <p>Global data latency exceeds 400ms. Decentralized trust is compromised.</p>
+                
+                <div class="chart-container" id="chart-bars">
+                    <!-- Bars injected by JS -->
+                </div>
+                <p id="chart-label" style="color: var(--primary);">Initializing metrics...</p>
+
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-number" id="metric-1">0</div>
+                        <div class="metric-label">Efficiency</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-number" id="metric-2">0%</div>
+                        <div class="metric-label">Global Coverage</div>
+                    </div>
+                </div>
+
+                <div id="cta-box" class="hidden">
+                    <h3>Ready to upgrade?</h3>
+                    <button class="cta-button pulse" id="cta-btn">Initialize Protocol</button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            introTime: 5000,
+            marketTime: 25000,
+            productTime: 8000,
+            pitchTime: 8000,
+        };
+
+        // --- DOM ELEMENTS ---
+        const mainContainer = document.getElementById('main-container');
+        const progressEl = document.getElementById('progress');
+        
+        const sections = {
+            intro: document.getElementById('intro-screen'),
+            market: document.getElementById('marketplace'),
+            products: document.getElementById('product-carousel'),
+            pitch: document.getElementById('pitch-section')
+        };
+
+        // --- INTRO SEQUENCE ---
+        function startIntro() {
+            updateProgress(CONFIG.introTime);
+            setTimeout(() => {
+                switchSection('intro', 'market');
+                runMarketplace();
+            }, CONFIG.introTime);
+        }
+
+        // --- MARKETPLACE LOGIC ---
+        function runMarketplace() {
+            const grid = document.getElementById('market-grid');
+            const countDisplay = document.getElementById('cart-count');
+            let cartCount = 0;
+            
+            // Items
+            const items = [
+                { name: "Neural Chip", price: "250 CR", icon: "◈" },
+                { name: "Plasma Cell", price: "500 CR", icon: "❖" },
+                { name: "Data Key", price: "1,200 CR", icon: "⌘" },
+                { name: "Optic Cam", price: "800 CR", icon: "◉" }
+            ];
+
+            // Render
+            grid.innerHTML = '';
+            items.forEach((item, index) => {
+                const el = document.createElement('div');
+                el.className = 'item-card';
+                el.id = `item-${index}`;
+                el.innerHTML = `
+                    <div class="cart-status hidden">+1</div>
+                    <div class="item-img">${item.icon}</div>
+                    <div style="font-size: 0.8rem;">${item.name}</div>
+                    <div class="price-tag">${item.price}</div>
+                `;
+                grid.appendChild(el);
+            });
+
+            // Cycle Logic
+            let currentIdx = -1;
+            
+            function cycle() {
+                // Remove selection
+                if(currentIdx !== -1) {
+                    const old = document.getElementById(`item-${currentIdx}`);
+                    old.classList.remove('selected');
+                    old.style.transform = 'scale(1)';
+                    old.querySelector('.cart-status').classList.add('hidden');
+                }
+
+                currentIdx = (currentIdx + 1) % items.length;
+                const next = document.getElementById(`item-${currentIdx}`);
+                
+                // Select
+                next.classList.add('selected');
+                next.style.transform = 'scale(1.05)';
+                
+                // Simulate "Adding to Cart" visually
+                setTimeout(() => {
+                    next.querySelector('.cart-status').classList.remove('hidden');
+                    cartCount++;
+                    countDisplay.innerText = cartCount;
+                }, 400);
+
+                // Move to next
+                setTimeout(cycle, 2500); // 2.5s per item * 4 items = 10s, plus pauses
+            }
+
+            setTimeout(cycle, 2000); // Start after 2s
+
+            setTimeout(() => {
+                switchSection('market', 'products');
+                runCarousel();
+            }, CONFIG.marketTime);
+        }
+
+        // --- CAROUSEL LOGIC ---
+        function runCarousel() {
+            const viewport = document.getElementById('carousel-viewport');
+            const products = [
+                { name: "TITAN ARM", type: "Exo-Skeleton", power: "1200kW", range: "50km" },
+                { name: "SPECTRE V", type: "Vision Unit", power: "64TB/s", range: "4K" },
+                { name: "CORE CPU", type: "Processing", power: "Quantum", range: "Zero Latency" }
+            ];
+
+            viewport.innerHTML = '';
+            const wrappers = products.map((p, i) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                wrapper.innerHTML = `
+                    <div class="product-card" id="card-${i}">
+                        <h3>${p.name}</h3>
+                        <div style="font-size:3rem; margin-bottom:10px;">▲</div>
+                        <div class="specs-panel">
+                            <div class="spec-row"><span>Type</span> <span class="highlight">${p.type}</span></div>
+                            <div class="spec-row"><span>Power Output</span> <span>${p.power}</span></div>
+                            <div class="spec-row"><span>Range</span> <span>${p.range}</span></div>
+                            <div class="spec-row"><span>Warranty</span> <span>Void</span></div>
+                        </div>
+                    </div>
+                `;
+                return wrapper;
+            });
+            viewport.append(...wrappers);
+
+            // Sequence: Show Grid -> Expand 1 -> Reset -> Expand 2 -> Reset -> Expand 3
+            let activeIndex = 0;
+            
+            function processCard(idx) {
+                const card = document.getElementById(`card-${idx}`);
+                const others = Array.from(document.querySelectorAll('.card-wrapper'));
+
+                // Reset all
+                others.forEach(el => {
+                    el.style.transform = 'translateX(0)';
+                    el.style.opacity = '0.5';
+                });
+
+                // Expand current
+                activeIndex = idx;
+                card.parentElement.style.transform = `translateX(${idx * 200}px) scale(2)`;
+                card.classList.add('expanded');
+                card.style.opacity = '1';
+                card.querySelector('h3').style.color = 'var(--secondary)';
+                
+                // Spin Animation
+                card.style.transform += " rotateZ(360deg)";
+                setTimeout(() => {
+                    card.style.transform = card.style.transform.replace(" rotateZ(360deg)", "");
+                }, 600);
+
+                setTimeout(() => {
+                    // Go to next
+                    if (idx < products.length - 1) {
+                        processCard(idx + 1);
+                    } else {
+                        // End carousel
+                        switchSection('products', 'pitch');
+                        runPitch();
+                    }
+                }, 3000); // 3s per demo
+            }
+
+            // Start with grid visible, but focus first
+            setTimeout(() => {
+                processCard(0);
+            }, 1000);
+        }
+
+        // --- PITCH LOGIC ---
+        function runPitch() {
+            const barsContainer = document.getElementById('chart-bars');
+            const label = document.getElementById('chart-label');
+            const m1 = document.getElementById('metric-1');
+            const m2 = document.getElementById('metric-2');
+            const cta = document.getElementById('cta-box');
+
+            barsContainer.innerHTML = '';
+            // Create 4 bars
+            for(let i=0; i<4; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.innerHTML = `<span>${100-i*20}%</span>`;
+                barsContainer.appendChild(bar);
+            }
+
+            let delay = 0;
+
+            // Problem
+            setTimeout(() => {
+                label.innerText = "Before: Legacy Systems";
+                label.style.color = "#ff4444";
+            }, delay);
+            delay += 2000;
+
+            // Build Chart (Solution)
+            const chartBars = document.querySelectorAll('.bar');
+            setTimeout(() => {
+                label.innerText = "After: Neuro-Net Integration";
+                label.style.color = "var(--primary)";
+                chartBars.forEach((b, i) => {
+                    setTimeout(() => b.classList.add('active'), i * 300);
+                });
+            }, delay);
+            delay += 2500;
+
+            // Metrics
+            setTimeout(() => {
+                animateValue(m1, 0, 98, 2000);
+            }, delay);
+            delay += 2200;
+
+            setTimeout(() => {
+                animateValue(m2, 0, 99, 2000);
+            }, delay);
+            delay += 2200;
+
+            // CTA
+            setTimeout(() => {
+                cta.classList.remove('hidden');
+                cta.classList.add('pulse');
+            }, delay);
+            
+            setTimeout(() => {
+                // Loop for demonstration purposes or stop
+                // reset for continuous loop effect
+                cta.classList.remove('pulse');
+                cta.style.opacity = '0';
+                cta.style.pointerEvents = 'none';
+                
+                // Fade out container
+                mainContainer.style.opacity = '0';
+                setTimeout(() => {
+                   mainContainer.style.opacity = '1';
+                   // Restart
+                   resetDemo();
+                }, 2000);
+            }, delay + 3000);
+        }
+
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = Math.floor(progress * (end - start) + start) + (obj.id === 'metric-2' ? '%' : '');
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        // --- UTILS ---
+        function switchSection(hideId, showId) {
+            const hide = sections[hideId];
+            const show = sections[showId];
+            
+            hide.classList.remove('active');
+            setTimeout(() => {
+                hide.classList.add('hidden');
+                show.classList.remove('hidden');
+                // Force reflow
+                void show.offsetWidth; 
+                show.classList.add('active');
+            }, 1000);
+        }
+
+        function updateProgress(duration) {
+            const start = Date.now();
+            const interval = setInterval(() => {
+                const elapsed = Date.now() - start;
+                const pct = (elapsed / duration) * 100;
+                progressEl.style.width = Math.min(pct, 100) + "%";
+                if (elapsed >= duration) clearInterval(interval);
+            }, 16);
+        }
+
+        function resetDemo() {
+            progressEl.style.width = "0%";
+            document.getElementById('cart-count').innerText = "0";
+            switchSection('pitch', 'intro');
+            startIntro();
+        }
+
+        // --- INIT ---
+        window.addEventListener('load', () => {
+            // Boot sequence delay
+            setTimeout(startIntro, 1000);
+        });
+
+    </script>
+</body>
+</html>

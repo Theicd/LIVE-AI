@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jazz Landscape Generator</title>
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text-color: #ffffff;
+            --accent: #ffcc00;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            color: var(--text-color);
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            z-index: 10;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            opacity: 0;
+            animation: fadeIn 2s ease-out forwards;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: 0.2em;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            margin-bottom: 0.5rem;
+        }
+
+        .scene-title {
+            font-size: 1.2rem;
+            font-style: italic;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .controls {
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 12px 24px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 30px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            outline: none;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 1s ease;
+        }
+
+        .loading-text {
+            font-size: 1.5rem;
+            letter-spacing: 0.5em;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; }
+            .btn-group { gap: 0.5rem; }
+            button { padding: 10px 16px; font-size: 0.8rem; }
+            #ui-layer { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loading-overlay" id="loader">
+        <div class="loading-text">INITIALIZING JAZZ ENGINE</div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="header">
+            <h1>Jazz Landscape</h1>
+            <div class="scene-title" id="scene-name">Select a Scene</div>
+        </div>
+
+        <div class="controls">
+            <div class="btn-group">
+                <button id="btn-audio">Start Music</button>
+                <button id="btn-scene">Next Scene</button>
+            </div>
+            <div class="btn-group">
+                <button onclick="app.setTheme('relaxing')">Relaxing</button>
+                <button onclick="app.setTheme('dramatic')">Dramatic</button>
+                <button onclick="app.setTheme('dark')">Dark</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * AUDIO ENGINE
+         * Generates procedural ambient jazz using Web Audio API.
+         * No external samples.
+         */
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.isPlaying = false;
+                this.masterGain = null;
+                this.chords = [];
+                this.currentNoteIndex = 0;
+                this.timerID = null;
+                
+                // Jazz Chords (Root, Type)
+                this.jazzChords = [
+                    ['C', 'maj7'], ['F', 'maj7'], ['Bb', '7'], ['Eb', 'maj7'],
+                    ['Dm', '7'], ['G', '7'], ['C', '7'], ['Am', '7'],
+                    ['Gm7', '7b5'], ['Cm7', '5'], ['Fm7', '7b9'], ['Bbmaj7', '7']
+                ];
+            }
+
+            init() {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.4;
+                this.masterGain.connect(this.ctx.destination);
+                
+                // Add a subtle delay for "Jazz" space
+                const delay = this.ctx.createDelay();
+                delay.delayTime.value = 0.4;
+                const feedback = this.ctx.createGain();
+                feedback.gain.value = 0.3;
+                const delayFilter = this.ctx.createBiquadFilter();
+                delayFilter.frequency.value = 1000;
+
+                this.masterGain.connect(delay);
+                delay.connect(delayFilter);
+                delayFilter.connect(feedback);
+                feedback.connect(delay);
+                delay.connect(this.ctx.destination);
+            }
+
+            playNote(freq, type = 'sine', duration = 2) {
+                if (!this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = type;
+                osc.frequency.value = freq;
+
+                // Envelope
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 2); // Attack
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration); // Decay
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playChord(chordName) {
+                // Simple map for root frequencies
+                const roots = {
+                    'C': 261.63, 'D': 293.66, 'E': 329.63, 'F': 349.23,
+                    'G': 392.00, 'A': 440.00, 'B': 493.88, 'Db': 277.18,
+                    'Eb': 311.13, 'Gb': 369.99, 'Ab': 415.30, 'Bb': 466.16,
+                    'Dm': 293.66, 'Gm': 392.00, 'Cm': 130.81, 'Fm': 174.61
+                };
+
+                const rootFreq = roots[chordName[0]];
+                if (!rootFreq) return;
+
+                // Add Root
+                this.playNote(rootFreq, 'sine', 8);
+
+                // Add 3rd (Major or Minor)
+                let thirdFreq = rootFreq * 1.25; // Approx for Major 3rd
+                if (chordName.includes('m')) thirdFreq = rootFreq * 1.2; // Minor 3rd
+                this.playNote(thirdFreq, 'sine', 8);
+
+                // Add 7th
+                let seventhFreq = rootFreq * 1.5;
+                if (chordName.includes('maj7')) seventhFreq = rootFreq * 1.88; // Major 7
+                else if (chordName.includes('7')) seventhFreq = rootFreq * 1.89; // Dom 7
+                else if (chordName.includes('5')) seventhFreq = rootFreq * 1.5; // 5
+                this.playNote(seventhFreq, 'triangle', 8);
+
+                // Add 9th (Subtle)
+                let ninthFreq = rootFreq * 1.125; // Just slightly above root
+                this.playNote(ninthFreq, 'sine', 8);
+            }
+
+            toggle() {
+                if (!this.ctx) this.init();
+                
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+
+                if (!this.isPlaying) {
+                    this.isPlaying = true;
+                    this.scheduleNextChord();
+                    return true;
+                } else {
+                    this.isPlaying = false;
+                    clearTimeout(this.timerID);
+                    return false;
+                }
+            }
+
+            scheduleNextChord() {
+                if (!this.isPlaying) return;
+                
+                const chord = this.jazzChords[this.currentNoteIndex];
+                this.playChord(chord);
+                this.currentNoteIndex = (this.currentNoteIndex + 1) % this.jazzChords.length;
+
+                // Randomize timing slightly for "loose" jazz feel (1.5s to 4s)
+                const delay = 1500 + Math.random() * 2500;
+                this.timerID = setTimeout(() => this.scheduleNextChord(), delay);
+            }
+        }
+
+        /**
+         * VISUAL ENGINE
+         * Canvas 2D procedural generation.
+         */
+        class Landscape {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.width = window.innerWidth;
+                this.height = window.innerHeight;
+                this.time = 0;
+                this.sceneIndex = 0;
+                this.particles = [];
+                this.clouds = [];
+                this.resize();
+
+                // Themes
+                this.themes = {
+                    relaxing: { hue: 200, sat: 60, light: 90 },
+                    dramatic: { hue: 240, sat: 80, light: 80 },
+                    dark: { hue: 280, sat: 40, light: 60 }
+                };
+                this.currentTheme = this.themes.relaxing;
+
+                // Define Scenes
+                this.scenes = [
+                    { name: "Sunset Boulevard", type: "sunset", colors: ["#ff9a9e", "#fecfef", "#feada6"], particle: "dust" },
+                    { name: "Midnight Ocean", type: "ocean", colors: ["#2c3e50", "#4ca1af", "#c4e0e5"], particle: "rain" },
+                    { name: "Emerald Forest", type: "forest", colors: ["#134e5e", "#71b280", "#e0f7fa"], particle: "leaves" },
+                    { name: "Golden Desert", type: "desert", colors: ["#f12711", "#f5af19", "#fff"], particle: "sand" },
+                    { name: "Starry Night", type: "night", colors: ["#0f2027", "#203a43", "#2c5364"], particle: "stars" },
+                    { name: "Mountain Peaks", type: "mountain", colors: ["#3e5151", "#decba4", "#f2d0ba"], particle: "snow" },
+                    { name: "Coastal Road", type: "road", colors: ["#87CEEB", "#E0F6FF", "#8B4513"], particle: "sea_mist" },
+                    { name: "Sunrise Valley", type: "sunrise", colors: ["#FF512F", "#DD2476", "#FDFBFB"], particle: "dust" },
+                    { name: "Canyon River", type: "river", colors: ["#3E5151", "#DECBA4", "#000000"], particle: "splash" },
+                    { name: "Island Paradise", type: "island", colors: ["#00c6ff", "#0072ff", "#ffffff"], particle: "birds" },
+                    { name: "Countryside", type: "countryside", colors: ["#f6d365", "#fda085", "#ffffff"], particle: "pollen" },
+                    { name: "Waterfall", type: "waterfall", colors: ["#000000", "#434343", "#8E9EAB"], particle: "mist" }
+                ];
+            }
+
+            resize() {
+                this.width = window.innerWidth;
+                this.height = window.innerHeight;
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+                this.initClouds();
+            }
+
+            initClouds() {
+                this.clouds = [];
+                for(let i=0; i<5; i++) {
+                    this.clouds.push({
+                        x: Math.random() * this.width,
+                        y: Math.random() * (this.height * 0.4),
+                        scale: 0.5 + Math.random() * 1.5,
+                        speed: 0.2 + Math.random() * 0.5
+                    });
+                }
+            }
+
+            setTheme(themeName) {
+                this.currentTheme = this.themes[themeName];
+            }
+
+            switchScene() {
+                this.sceneIndex = (this.sceneIndex + 1) % this.scenes.length;
+                const scene = this.scenes[this.sceneIndex];
+                
+                // Reset particles
+                this.particles = [];
+                for (let i = 0; i < 100; i++) {
+                    this.particles.push(this.createParticle(scene.particle));
+                }
+                
+                return scene;
+            }
+
+            createParticle(type) {
+                return {
+                    x: Math.random() * this.width,
+                    y: Math.random() * this.height,
+                    speedX: (Math.random() - 0.5) * 2,
+                    speedY: (Math.random() - 0.5) * 2,
+                    size: Math.random() * 3 + 1,
+                    life: Math.random(),
+                    type: type
+                };
+            }
+
+            updateParticles() {
+                const scene = this.scenes[this.sceneIndex];
+                
+                this.particles.forEach(p => {
+                    p.life -= 0.005;
+                    if (p.life <= 0) {
+                        Object.assign(p, this.createParticle(scene.particle));
+                    }
+
+                    if (scene.type === 'ocean') {
+                        p.y += 2; // Rain down
+                        p.x += Math.sin(this.time + p.y) * 0.5;
+                        if (p.y > this.height) p.y = 0;
+                    } else if (scene.type === 'forest') {
+                        p.y += 1; // Fall down
+                        p.x += Math.sin(this.time * 2 + p.y * 0.05) * 0.5; // Wind sway
+                        if (p.y > this.height * 0.6) p.life = 0;
+                    } else if (scene.type === 'desert') {
+                        p.x -= 1; // Move left
+                        if (p.x < 0) p.x = this.width;
+                    } else if (scene.type === 'night') {
+                        // Twinkle
+                        p.life = (Math.sin(this.time * 5 + p.x) + 1) / 2;
+                        if (Math.random() > 0.99) p.x += 5; // Shooting star
+                    } else {
+                        // Generic drift
+                        p.x += p.speedX;
+                        p.y += p.speedY;
+                    }
+                });
+            }
+
+            drawSky() {
+                const scene = this.scenes[this.sceneIndex];
+                const grad = this.ctx.createLinearGradient(0, 0, 0, this.height);
+                grad.addColorStop(0, scene.colors[0]);
+                grad.addColorStop(0.5, scene.colors[1]);
+                grad.addColorStop(1, scene.colors[2]);
+                this.ctx.fillStyle = grad;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+
+                // Celestial Body
+                this.ctx.save();
+                this.ctx.globalCompositeOperation = 'overlay';
+                let sunX = this.width * 0.8;
+                let sunY = this.height * 0.3;
+                
+                if (scene.type === 'ocean') {
+                    sunX = this.width * 0.5;
+                    sunY = this.height * 0.7; // Reflection
+                }
+
+                // Sun/Moon Glow
+                const glow = this.ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 300);
+                glow.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+                glow.addColorStop(0.4, 'rgba(255, 255, 255, 0.2)');
+                glow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                
+                this.ctx.fillStyle = glow;
+                this.ctx.beginPath();
+                this.ctx.arc(sunX, sunY, 400, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            }
+
+            drawClouds() {
+                const scene = this.scenes[this.sceneIndex];
+                if (scene.type === 'night' || scene.type === 'sunrise') return;
+
+                this.ctx.save();
+                this.clouds.forEach(c => {
+                    c.x += c.speed;
+                    if (c.x > this.width + 100) c.x = -100;
+
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${0.3 * c.scale})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(c.x, c.y, 40 * c.scale, 0, Math.PI * 2);
+                    this.ctx.arc(c.x + 30 * c.scale, c.y - 10 * c.scale, 50 * c.scale, 0, Math.PI * 2);
+                    this.ctx.arc(c.x + 70 * c.scale, c.y, 40 * c.scale, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+                this.ctx.restore();
+            }
+
+            drawTerrain() {
+                const h = this.height;
+                const w = this.width;
+                const t = this.time * 0.5;
+                
+                this.ctx.save();
+                
+                // Layer 1: Far Mountains (Slowest)
+                this.drawLayer(w, h * 0.4, t * 0.1, 0.6, this.scenes[this.sceneIndex].colors[0], 1);
+                
+                // Layer 2: Mid Ground (Medium)
+                this.drawLayer(w, h * 0.6, t * 0.2, 0.8, this.scenes[this.sceneIndex].colors[1], 1.5);
+                
+                // Layer 3: Foreground (Fastest)
+                this.drawLayer(w, h * 0.8, t * 0.5, 1.0, this.scenes[this.sceneIndex].colors[2], 3);
+
+                // Special: Water Surface
+                if (this.scenes[this.sceneIndex].type === 'ocean' || this.scenes[this.sceneIndex].type === 'coastal') {
+                    this.drawWater(h);
+                }
+
+                // Special: Road
+                if (this.scenes[this.sceneIndex].type === 'road') {
+                    this.drawRoad(w, h);
+                }
+
+                this.ctx.restore();
+            }
+
+            drawLayer(w, yBase, offset, perspective, color, detail) {
+                this.ctx.fillStyle = color;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, this.height);
+                this.ctx.lineTo(0, yBase);
+
+                let x = 0;
+                let y = yBase;
+                
+                // Procedural Terrain Generation using Perlin-ish noise (Simplex)
+                for (x = 0; x <= w; x += w / 50) {
+                    // Combine sine waves for organic look
+                    const noise = Math.sin(x * 0.002 + offset) * 50 + 
+                                  Math.sin(x * 0.005 - offset * 1.5) * 30 +
+                                  Math.sin(x * 0.01 + offset * 0.5) * 10;
+                    
+                    // Add detail based on perspective
+                    const pY = yBase + noise * perspective;
+                    this.ctx.lineTo(x, pY);
+                }
+
+                this.ctx.lineTo(w, this.height);
+                this.ctx.closePath();
+                this.ctx.fill();
+            }
+
+            drawWater(h) {
+                this.ctx.save();
+                this.ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                
+                // Draw multiple wave lines
+                for (let i = 0; i < 5; i++) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, h * 0.8 + i * 15);
+                    for (let x = 0; x <= this.width; x += 20) {
+                        const y = h * 0.8 + i * 15 + Math.sin(x * 0.01 + this.time + i) * 10;
+                        this.ctx.lineTo(x, y);
+                    }
+                    this.ctx.lineTo(this.width, this.height);
+                    this.ctx.lineTo(0, this.height);
+                    this.ctx.fill();
+                }
+                this.ctx.restore();
+            }
+
+            drawRoad(w, h) {
+                this.ctx.save();
+                // Road perspective
+                this.ctx.fillStyle = "#333";
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, h);
+                this.ctx.lineTo(w * 0.4, h * 0.7); // Vanishing point area
+                this.ctx.lineTo(w * 0.6, h * 0.7);
+                this.ctx.lineTo(w, h);
+                this.ctx.fill();
+
+                // Lane markers
+                this.ctx.strokeStyle = "rgba(255,255,255,0.5)";
+                this.ctx.setLineDash([20, 30]);
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(w * 0.45, h * 0.72);
+                this.ctx.lineTo(w * 0.55, h * 0.72);
+                this.ctx.stroke();
+                this.ctx.restore();
+            }
+
+            drawParticles() {
+                const scene = this.scenes[this.sceneIndex];
+                this.ctx.save();
+                
+                this.particles.forEach(p => {
+                    this.ctx.globalAlpha = p.life;
+                    
+                    if (scene.type === 'night') {
+                        // Stars
+                        this.ctx.fillStyle = "#FFF";
+                        this.ctx.beginPath();
+                        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    } else if (scene.type === 'ocean') {
+                        // Rain
+                        this.ctx.strokeStyle = "rgba(255,255,255,0.4)";
+                        this.ctx.lineWidth = 1;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(p.x, p.y);
+                        this.ctx.lineTo(p.x + 5, p.y + 10);
+                        this.ctx.stroke();
+                    } else if (scene.type === 'forest') {
+                        // Leaves
+                        this.ctx.fillStyle = "#4a3b2a";
+                        this.ctx.beginPath();
+                        this.ctx.ellipse(p.x, p.y, p.size, p.size/2, this.time, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    } else if (scene.type === 'desert') {
+                        // Sand
+                        this.ctx.fillStyle = "#ffd700";
+                        this.ctx.beginPath();
+                        this.ctx.arc(p.x, p.y, p.size/2, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    } else {
+                        // Generic white dots
+                        this.ctx.fillStyle = "rgba(255,255,255,0.5)";
+                        this.ctx.beginPath();
+                        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                });
+                
+                this.ctx.restore();
+            }
+
+            drawFog() {
+                // Volumetric fog effect at bottom
+                const scene = this.scenes[this.sceneIndex];
+                if (scene.type === 'night' || scene.type === 'mountain') {
+                    this.ctx.save();
+                    this.ctx.globalCompositeOperation = 'overlay';
+                    const grad = this.ctx.createLinearGradient(0, this.height * 0.7, 0, this.height);
+                    grad.addColorStop(0, 'rgba(0,0,0,0)');
+                    grad.addColorStop(1, 'rgba(0,0,0,0.6)');
+                    this.ctx.fillStyle = grad;
+                    this.ctx.fillRect(0, 0, this.width, this.height);
+                    this.ctx.restore();
+                }
+            }
+
+            render() {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+                this.time += 0.01;
+
+                this.drawSky();
+                this.drawClouds();
+                this.drawTerrain();
+                this.updateParticles();
+                this.drawParticles();
+                this.drawFog();
+
+                requestAnimationFrame(() => this.render());
+            }
+        }
+
+        /**
+         * APP CONTROLLER
+         */
+        const app = {
+            audio: new AudioEngine(),
+            landscape: null,
+            currentSceneName: "Loading...",
+
+            init() {
+                const canvas = document.getElementById('canvas');
+                this.landscape = new Landscape(canvas);
+                this.landscape.render();
+
+                // Event Listeners
+                window.addEventListener('resize', () => this.landscape.resize());
+                
+                document.getElementById('btn-audio').addEventListener('click', (e) => {
+                    const isPlaying = this.audio.toggle();
+                    e.target.textContent = isPlaying ? "Stop Music" : "Start Music";
+                    e.target.classList.toggle('active', isPlaying);
+                });
+
+                document.getElementById('btn-scene').addEventListener('click', () => {
+                    this.switchScene();
+                });
+
+                // Remove loader
+                setTimeout(() => {
+                    document.getElementById('loader').style.opacity = '0';
+                    setTimeout(() => {
+                        document.getElementById('loader').style.display = 'none';
+                    }, 1000);
+                }, 1500);
+            },
+
+            switchScene() {
+                const scene = this.landscape.switchScene();
+                this.currentSceneName = scene.name;
+                document.getElementById('scene-name').textContent = this.currentSceneName;
+                
+                // Flash effect on change
+                this.landscape.ctx.fillStyle = "white";
+                this.landscape.ctx.fillRect(0,0,this.landscape.width, this.landscape.height);
+            },
+
+            setTheme(themeName) {
+                this.landscape.setTheme(themeName);
+            }
+        };
+
+        // Start App
+        window.onload = () => app.init();
+
+    </script>
+</body>
+</html>

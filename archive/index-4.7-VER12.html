@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neural Harmonic Engine | ZAI 3D Experience</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg-deep: #050508;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-deep);
+            font-family: 'Rajdhani', sans-serif;
+            color: white;
+        }
+
+        /* Canvas Container */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        h1 {
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #fff, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: rgba(0, 243, 255, 0.1);
+            backdrop-filter: blur(5px);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .controls-info {
+            text-align: center;
+            opacity: 0.7;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            animation: fadeIn 3s ease-in-out infinite alternate;
+        }
+
+        .controls-info span {
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin: 0 5px;
+            background: rgba(0,0,0,0.5);
+        }
+
+        /* Custom Cursor */
+        .cursor {
+            width: 20px;
+            height: 20px;
+            border: 2px solid white;
+            border-radius: 50%;
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+            transform: translate(-50%, -50%);
+            transition: width 0.2s, height 0.2s, background 0.2s;
+            mix-blend-mode: difference;
+        }
+        .cursor.active {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--secondary);
+        }
+
+        /* Interaction Hint */
+        #interaction-hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        .pulse-ring {
+            width: 60px;
+            height: 60px;
+            border: 2px solid var(--secondary);
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            position: relative;
+        }
+        
+        .pulse-ring::after {
+            content: '';
+            position: absolute;
+            top: -5px; left: -5px; right: -5px; bottom: -5px;
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            animation: ripple 2s infinite;
+        }
+
+        @keyframes ripple {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0.4; }
+            to { opacity: 1; }
+        }
+
+        /* Loader */
+        #loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-deep);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1s ease-out;
+        }
+        .loader-text {
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            color: var(--primary);
+            animation: pulse 1s infinite;
+        }
+
+    </style>
+    
+    <!-- Import Maps for clean module loading -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="loader-text">INITIALIZING CORE...</div>
+    </div>
+
+    <!-- Custom Cursor -->
+    <div class="cursor" id="cursor"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <header>
+            <div>
+                <h1>Neural<span style="color:white; font-weight:300">Harmonic</span></h1>
+                <div style="font-size: 0.8rem; opacity: 0.6; margin-top:5px;">SYS.VER.4.0.2</div>
+            </div>
+            <div class="status-badge" id="status">ONLINE</div>
+        </header>
+
+        <div id="interaction-hint">
+            <div class="pulse-ring"></div>
+            <div style="font-size: 0.8rem; letter-spacing: 2px;">TOUCH CORE</div>
+        </div>
+
+        <footer>
+            <div class="controls-info">
+                <span>DRAG</span> TO ROTATE &nbsp;|&nbsp; <span>TAP</span> TO OVERCLOCK
+            </div>
+        </footer>
+    </div>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- Configuration ---
+        const config = {
+            bloomStrength: 1.5,
+            bloomRadius: 0.4,
+            bloomThreshold: 0.1,
+            rotationSpeed: 0.2,
+            baseColor: new THREE.Color('#00f3ff'),
+            alertColor: new THREE.Color('#ff0055')
+        };
+
+        // --- Globals ---
+        let scene, camera, renderer, composer;
+        let coreMesh, shellGroup, particlesSystem;
+        let time = 0;
+        let isOverclocked = false;
+        let clock = new THREE.Clock();
+        
+        // --- Initialization ---
+        function init() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050508, 0.02);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.z = 8;
+            camera.position.y = 2;
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ReinhardToneMapping;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // Post Processing (Bloom)
+            const renderScene = new RenderPass(scene, camera);
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            bloomPass.threshold = config.bloomThreshold;
+            bloomPass.strength = config.bloomStrength;
+            bloomPass.radius = config.bloomRadius;
+
+            composer = new EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+
+            // Objects
+            createCore();
+            createShells();
+            createParticles();
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(config.baseColor, 10, 50);
+            pointLight.position.set(2, 3, 4);
+            scene.add(pointLight);
+
+            const pointLight2 = new THREE.PointLight(0xbc13fe, 5, 30);
+            pointLight2.position.set(-3, -2, 2);
+            scene.add(pointLight2);
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('touchmove', onTouchMove, { passive: false });
+            document.addEventListener('mousedown', onMouseDown);
+            document.addEventListener('touchstart', onTouchDown);
+            document.addEventListener('mouseup', onMouseUp);
+            document.addEventListener('touchend', onMouseUp);
+
+            // Remove Loader
+            setTimeout(() => {
+                document.getElementById('loader').style.opacity = '0';
+                setTimeout(() => document.getElementById('loader').remove(), 1000);
+                document.getElementById('interaction-hint').style.opacity = '1';
+            }, 1000);
+
+            // Start Loop
+            animate();
+        }
+
+        // --- Custom Shaders for Core ---
+        // GLSL Noise functions and shader logic
+        const vertexShader = `
+            uniform float uTime;
+            varying vec2 vUv;
+            varying float vDistortion;
+            varying vec3 vNormal;
+
+            // Simplex Noise 3D
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+            float snoise(vec3 v) {
+                const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+                const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+
+                // First corner
+                vec3 i  = floor(v + dot(v, C.yyy) );
+                vec3 x0 = v - i + dot(i, C.xxx) ;
+
+                // Other corners
+                vec3 g = step(x0.yzx, x0.xyz);
+                vec3 l = 1.0 - g;
+                vec3 i1 = min( g.xyz, l.zxy );
+                vec3 i2 = max( g.xyz, l.zxy );
+
+                vec3 x1 = x0 - i1 + C.xxx;
+                vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
+                vec3 x3 = x0 - D.yyy;      // -1.0+3.0*C.x = -0.5 = -D.y
+
+                // Permutations
+                i = mod289(i);
+                vec4 p = permute( permute( permute(
+                            i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                        + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+                        + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+                // Gradients: 7x7 points over a square, mapped onto an octahedron.
+                // The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+                float n_ = 0.142857142857; // 1.0/7.0
+                vec3  ns = n_ * D.wyz - D.xzx;
+
+                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);  //  mod(p,7*7)
+
+                vec4 x_ = floor(j * ns.z);
+                vec4 y_ = floor(j - 7.0 * x_ );    // mod(j,N)
+
+                vec4 x = x_ *ns.x + ns.yyyy;
+                vec4 y = y_ *ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+
+                vec4 b0 = vec4( x.xy, y.xy );
+                vec4 b1 = vec4( x.zw, y.zw );
+
+                vec4 s0 = floor(b0)*2.0 + 1.0;
+                vec4 s1 = floor(b1)*2.0 + 1.0;
+                vec4 sh = -step(h, vec4(0.0));
+
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+                vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+                vec3 p0 = vec3(a0.xy,h.x);
+                vec3 p1 = vec3(a0.zw,h.y);
+                vec3 p2 = vec3(a1.xy,h.z);
+                vec3 p3 = vec3(a1.zw,h.w);
+
+                //Normalise gradients
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+                p0 *= norm.x;
+                p1 *= norm.y;
+                p2 *= norm.z;
+                p3 *= norm.w;
+
+                // Mix final noise value
+                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                m = m * m;
+                return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+            }
+
+            void main() {
+                vUv = uv;
+                vNormal = normal;
+                
+                // Complex noise movement
+                float noise = snoise(position * 1.5 + uTime * 0.5);
+                vDistortion = noise;
+                
+                // Displace vertex
+                vec3 newPos = position + normal * (noise * 0.4);
+                
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            uniform float uTime;
+            uniform vec3 uColor;
+            uniform vec3 uColorAlt;
+            varying float vDistortion;
+            varying vec3 vNormal;
+
+            void main() {
+                // Mix colors based on distortion
+                vec3 color = mix(uColor, uColorAlt, vDistortion * 0.5 + 0.5);
+                
+                // Fresnel Effect (Glowing edges)
+                vec3 viewDir = vec3(0.0, 0.0, 1.0); // Simplified view direction
+                float fresnel = pow(1.0 - dot(vNormal, viewDir), 2.0);
+                
+                // Add pulsing intensity
+                float pulse = sin(uTime * 2.0) * 0.2 + 0.8;
+                
+                gl_FragColor = vec4(color * fresnel * pulse * 1.5, 1.0);
+            }
+        `;
+
+        // --- Object Creation ---
+
+        function createCore() {
+            const geometry = new THREE.IcosahedronGeometry(1.5, 60); // High detail for shader
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: { value: 0 },
+                    uColor: { value: config.baseColor },
+                    uColorAlt: { value: new THREE.Color('#bc13fe') }
+                },
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader,
+                wireframe: false
+            });
+
+            coreMesh = new THREE.Mesh(geometry, material);
+            scene.add(coreMesh);
+        }
+
+        function createShells() {
+            shellGroup = new THREE.Group();
+            
+            // Shell 1: Geometric Cage
+            const geo1 = new THREE.IcosahedronGeometry(2.5, 1);
+            const mat1 = new THREE.MeshBasicMaterial({ 
+                color: 0x00f3ff, 
+                wireframe: true, 
+                transparent: true, 
+                opacity: 0.1 
+            });
+            const shell1 = new THREE.Mesh(geo1, mat1);
+            
+            // Shell 2: Outer Ring
+            const geo2 = new THREE.TorusGeometry(4, 0.02, 16, 100);
+            const mat2 = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+            const shell2 = new THREE.Mesh(geo2, mat2);
+            shell2.rotation.x = Math.PI / 2;
+            
+            // Shell 3: Angled Rings
+            const geo3 = new THREE.TorusGeometry(3.2, 0.03, 16, 100);
+            const mat3 = new THREE.MeshBasicMaterial({ color: config.secondary });
+            const shell3 = new THREE.Mesh(geo3, mat3);
+            shell3.rotation.x = Math.PI / 4;
+            shell3.rotation.y = Math.PI / 6;
+
+            shellGroup.add(shell1);
+            shellGroup.add(shell2);
+            shellGroup.add(shell3);
+            scene.add(shellGroup);
+        }
+
+        function createParticles() {
+            const particleCount = 1000;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+
+            for (let i = 0; i < particleCount; i++) {
+                // Spherical distribution
+                const r = 5 + Math.random() * 8;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta);
+                const z = r * Math.cos(phi);
+
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+                sizes[i] = Math.random() * 2;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const material = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.05,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+
+            particlesSystem = new THREE.Points(geometry, material);
+            scene.add(particlesSystem);
+        }
+
+        // --- Interaction Logic ---
+
+        let mouseX = 0, mouseY = 0;
+        let targetRotationX = 0, targetRotationY = 0;
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        function onMouseMove(event) {
+            mouseX = (event.clientX - window.innerWidth / 2) / 100;
+            mouseY = (event.clientY - window.innerHeight / 2) / 100;
+            
+            // Custom cursor
+            const cursor = document.getElementById('cursor');
+            cursor.style.left = event.clientX + 'px';
+            cursor.style.top = event.clientY + 'px';
+        }
+
+        function onTouchMove(event) {
+            event.preventDefault();
+            mouseX = (event.touches[0].clientX - window.innerWidth / 2) / 100;
+            mouseY = (event.touches[0].clientY - window.innerHeight / 2) / 100;
+        }
+
+        function onMouseDown(event) {
+            isDragging = true;
+            document.getElementById('cursor').classList.add('active');
+            checkClick();
+        }
+
+        function onTouchDown(event) {
+            isDragging = true;
+            document.getElementById('cursor').classList.add('active');
+            checkClick();
+        }
+
+        function onMouseUp() {
+            isDragging = false;
+            document.getElementById('cursor').classList.remove('active');
+        }
+
+        function checkClick() {
+            // Raycaster for simple hit testing (visual only here)
+            if (Math.abs(mouseX) < 0.1 && Math.abs(mouseY) < 0.1) {
+                triggerOverclock();
+            }
+        }
+
+        function triggerOverclock() {
+            if (isOverclocked) return;
+            isOverclocked = true;
+
+            // UI Feedback
+            const status = document.getElementById('status');
+            const hint = document.getElementById('interaction-hint');
+            status.innerText = "OVERDRIVE";
+            status.style.color = "#ff0055";
+            status.style.borderColor = "#ff0055";
+            status.style.background = "rgba(255, 0, 85, 0.1)";
+            hint.style.opacity = '1';
+
+            // Shader Color Shift
+            coreMesh.material.uniforms.uColor.value.setHex(0xff0055);
+            
+            // Shake Camera
+            const originalZ = camera.position.z;
+            let shake = setInterval(() => {
+                camera.position.x += (Math.random() - 0.5) * 0.5;
+                camera.position.y += (Math.random() - 0.5) * 0.5;
+            }, 16);
+
+            setTimeout(() => {
+                clearInterval(shake);
+                camera.position.set(0, 2, 8); // Reset position
+                resetOverclock();
+            }, 1500);
+        }
+
+        function resetOverclock() {
+            isOverclocked = false;
+            const status = document.getElementById('status');
+            status.innerText = "ONLINE";
+            status.style.color = config.baseColor;
+            status.style.borderColor = config.baseColor;
+            status.style.background = "rgba(0, 243, 255, 0.1)";
+            
+            coreMesh.material.uniforms.uColor.value = config.baseColor;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- Animation Loop ---
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            time += delta;
+
+            // Update Shader Uniforms
+            if (coreMesh) {
+                coreMesh.material.uniforms.uTime.value = time;
+                
+                // Core "Pulse" speed based on state
+                const targetSpeed = isOverclocked ? 4.0 : 1.0;
+                // Smooth transition not needed for shader time, just visual logic
+                coreMesh.scale.setScalar(1 + Math.sin(time * (isOverclocked ? 10 : 2)) * 0.02);
+            }
+
+            // Rotate Shells
+            if (shellGroup) {
+                shellGroup.rotation.y += isOverclocked ? 0.02 : 0.005;
+                shellGroup.rotation.z += isOverclocked ? 0.01 : 0.002;
+            }
+
+            // Rotate Particles
+            if (particlesSystem) {
+                particlesSystem.rotation.y = -time * 0.05;
+                // Wobble effect
+                particlesSystem.rotation.x = Math.sin(time * 0.1) * 0.1;
+            }
+
+            // Camera/Scene Interactive Float
+            // If dragging, rotate the scene instead of camera for smoother effect
+            if (isDragging) {
+                const deltaMove = {
+                    x: mouseX * 0.5 - previousMousePosition.x * 0.5,
+                    y: mouseY * 0.5 - previousMousePosition.y * 0.5
+                };
+                
+                // Rotate the shell group or the scene pivots
+                shellGroup.rotation.y += deltaMove.x;
+                shellGroup.rotation.x += deltaMove.y;
+            }
+
+            previousMousePosition = { x: mouseX, y: mouseY };
+
+            // Camera Parallax
+            camera.position.x += (mouseX * 2 - camera.position.x) * 0.05;
+            camera.position.y += (-mouseY * 2 + 2 - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            // Render
+            composer.render();
+        }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>

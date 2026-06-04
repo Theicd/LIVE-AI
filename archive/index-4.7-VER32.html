@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEXUS // 量子核心 — 下一代 AI 基础设施</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  :root{
+    --bg:#07070b;
+    --bg-2:#0d0d14;
+    --fg:#f5efe6;
+    --muted:#7a766c;
+    --amber:#ff7a18;
+    --amber-soft:#ffb347;
+    --cyan:#00e5ff;
+    --plasma:#ff2e88;
+    --border:rgba(255,122,24,.18);
+    --grid:rgba(255,122,24,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:'JetBrains Mono',monospace;overflow-x:hidden;cursor:none}
+  body{background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,122,24,.15), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(0,229,255,.10), transparent 60%),
+    var(--bg);
+  }
+  .font-display{font-family:'Orbitron',sans-serif;letter-spacing:.02em}
+  .font-mono{font-family:'JetBrains Mono',monospace}
+
+  /* ===== 自定义光标 ===== */
+  .cursor-dot,.cursor-ring{position:fixed;top:0;left:0;pointer-events:none;z-index:9999;border-radius:50%;transform:translate(-50%,-50%);mix-blend-mode:difference}
+  .cursor-dot{width:6px;height:6px;background:var(--amber);transition:transform .15s ease}
+  .cursor-ring{width:36px;height:36px;border:1px solid var(--amber);transition:transform .25s cubic-bezier(.2,.8,.2,1), width .2s, height .2s, border-color .2s}
+  .cursor-ring.hover{width:64px;height:64px;border-color:var(--cyan)}
+
+  /* ===== 网格背景 ===== */
+  .grid-bg{position:absolute;inset:0;background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:60px 60px;
+    mask-image:radial-gradient(ellipse 70% 60% at 50% 50%, black 30%, transparent 80%);
+    -webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 50%, black 30%, transparent 80%);
+  }
+
+  /* ===== 透视地面 ===== */
+  .floor{
+    position:absolute;bottom:-10vh;left:50%;width:200vw;height:80vh;
+    transform:translateX(-50%) perspective(600px) rotateX(65deg);
+    transform-origin:center top;
+    background-image:
+      linear-gradient(rgba(255,122,24,.35) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,122,24,.25) 1px, transparent 1px);
+    background-size:80px 80px;
+    mask-image:linear-gradient(to top, black 20%, transparent 90%);
+    -webkit-mask-image:linear-gradient(to top, black 20%, transparent 90%);
+    animation:floorMove 8s linear infinite;
+  }
+  @keyframes floorMove{
+    0%{background-position:0 0,0 0}
+    100%{background-position:0 80px, 80px 0}
+  }
+
+  /* ===== 扫描线 ===== */
+  .scanlines::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(to bottom, transparent 0, transparent 3px, rgba(255,255,255,.015) 3px, rgba(255,255,255,.015) 4px);
+    mix-blend-mode:overlay;
+  }
+
+  /* ===== 故障文字 ===== */
+  .glitch{position:relative;display:inline-block}
+  .glitch::before,.glitch::after{
+    content:attr(data-text);position:absolute;left:0;top:0;width:100%;height:100%;
+    background:transparent;
+  }
+  .glitch::before{color:var(--cyan);transform:translate(-2px,0);clip-path:polygon(0 0,100% 0,100% 45%,0 45%);mix-blend-mode:screen;animation:glitchA 4s infinite linear alternate-reverse}
+  .glitch::after{color:var(--plasma);transform:translate(2px,0);clip-path:polygon(0 55%,100% 55%,100% 100%,0 100%);mix-blend-mode:screen;animation:glitchB 3s infinite linear alternate-reverse}
+  @keyframes glitchA{
+    0%,90%,100%{transform:translate(-2px,0)}
+    92%{transform:translate(-6px,1px)}
+    94%{transform:translate(3px,-1px)}
+    96%{transform:translate(-2px,2px)}
+  }
+  @keyframes glitchB{
+    0%,90%,100%{transform:translate(2px,0)}
+    93%{transform:translate(6px,-1px)}
+    95%{transform:translate(-3px,1px)}
+    97%{transform:translate(2px,-2px)}
+  }
+
+  /* ===== 全息核心 ===== */
+  .core{position:relative;width:420px;height:420px;max-width:90vw;max-height:90vw}
+  .ring{position:absolute;inset:0;border-radius:50%;border:1px solid var(--amber);opacity:.6}
+  .ring.r1{animation:spin 20s linear infinite;border-style:dashed}
+  .ring.r2{inset:30px;border-color:var(--cyan);opacity:.5;animation:spin 14s linear infinite reverse}
+  .ring.r3{inset:60px;border-color:var(--plasma);opacity:.4;animation:spin 9s linear infinite}
+  .ring.r4{inset:110px;border:1px solid rgba(255,122,24,.3);animation:spin 30s linear infinite reverse}
+  .ring.r5{inset:160px;border:1px solid rgba(0,229,255,.25);animation:spin 18s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .core-orb{
+    position:absolute;top:50%;left:50%;width:120px;height:120px;border-radius:50%;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle at 35% 30%, #fff, var(--amber-soft) 25%, var(--amber) 55%, #6b1f00 90%);
+    box-shadow:
+      0 0 60px rgba(255,122,24,.6),
+      0 0 120px rgba(255,122,24,.35),
+      inset -10px -20px 40px rgba(0,0,0,.6),
+      inset 10px 10px 30px rgba(255,200,150,.4);
+    animation:pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{box-shadow:0 0 60px rgba(255,122,24,.6),0 0 120px rgba(255,122,24,.35),inset -10px -20px 40px rgba(0,0,0,.6),inset 10px 10px 30px rgba(255,200,150,.4)}
+    50%{box-shadow:0 0 90px rgba(255,122,24,.8),0 0 180px rgba(255,122,24,.5),inset -10px -20px 40px rgba(0,0,0,.6),inset 10px 10px 30px rgba(255,200,150,.5)}
+  }
+  .core-tick{position:absolute;top:50%;left:50%;width:2px;height:14px;background:var(--amber);transform-origin:50% 200px}
+  .core-dot{position:absolute;top:50%;left:50%;width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan);transform-origin:50% 0}
+
+  /* ===== HUD 角标 ===== */
+  .corner{position:absolute;width:24px;height:24px;border:1px solid var(--amber)}
+  .corner.tl{top:0;left:0;border-right:none;border-bottom:none}
+  .corner.tr{top:0;right:0;border-left:none;border-bottom:none}
+  .corner.bl{bottom:0;left:0;border-right:none;border-top:none}
+  .corner.br{bottom:0;right:0;border-left:none;border-top:none}
+
+  /* ===== 按钮 ===== */
+  .btn-primary{
+    position:relative;display:inline-flex;align-items:center;gap:.75rem;
+    padding:.95rem 1.6rem;font-family:'Orbitron',sans-serif;font-weight:600;font-size:.85rem;
+    color:#0a0a0a;background:linear-gradient(135deg,var(--amber) 0%,var(--amber-soft) 100%);
+    border:none;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);
+    transition:transform .2s, box-shadow .3s;letter-spacing:.1em;text-transform:uppercase;
+    box-shadow:0 0 0 rgba(255,122,24,0);
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 40px rgba(255,122,24,.5)}
+  .btn-ghost{
+    position:relative;display:inline-flex;align-items:center;gap:.75rem;
+    padding:.95rem 1.6rem;font-family:'Orbitron',sans-serif;font-weight:600;font-size:.85rem;
+    color:var(--fg);background:transparent;border:1px solid var(--border);
+    clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);
+    transition:all .25s;letter-spacing:.1em;text-transform:uppercase;
+  }
+  .btn-ghost:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,.04)}
+
+  /* ===== 卡片 ===== */
+  .holo-card{
+    position:relative;background:linear-gradient(160deg, rgba(255,122,24,.04), rgba(0,229,255,.02));
+    border:1px solid var(--border);padding:2rem;overflow:hidden;
+    transition:transform .4s cubic-bezier(.2,.8,.2,1), border-color .3s;
+  }
+  .holo-card::before{
+    content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,122,24,.15) 50%,transparent 70%);
+    transform:translateX(-100%);transition:transform .8s;
+  }
+  .holo-card:hover{transform:translateY(-6px);border-color:var(--amber)}
+  .holo-card:hover::before{transform:translateX(100%)}
+  .holo-card .icon-box{
+    width:54px;height:54px;display:grid;place-items:center;
+    background:rgba(255,122,24,.08);border:1px solid var(--border);color:var(--amber);
+    font-size:1.3rem;margin-bottom:1.2rem;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  }
+
+  /* ===== 数据流条 ===== */
+  .bar{height:4px;background:rgba(255,255,255,.05);overflow:hidden;position:relative}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--amber),var(--amber-soft));box-shadow:0 0 10px var(--amber);animation:barLoad 2.5s ease-out forwards}
+  @keyframes barLoad{from{width:0}}
+
+  /* ===== 终端 ===== */
+  .terminal{
+    background:linear-gradient(180deg, rgba(13,13,20,.9), rgba(7,7,11,.95));
+    border:1px solid var(--border);padding:1.5rem;font-size:.8rem;
+    box-shadow:0 30px 80px rgba(0,0,0,.6), inset 0 0 60px rgba(255,122,24,.04);
+  }
+  .terminal .line{opacity:0;animation:typing .5s forwards}
+  @keyframes typing{to{opacity:1}}
+  .caret::after{content:"▊";color:var(--amber);animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* ===== 滚动揭示 ===== */
+  .reveal{opacity:0;transform:translateY(40px);transition:opacity .9s cubic-bezier(.2,.8,.2,1), transform .9s cubic-bezier(.2,.8,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  /* ===== 标签 ===== */
+  .tag{display:inline-flex;align-items:center;gap:.5rem;padding:.35rem .8rem;border:1px solid var(--border);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);background:rgba(255,122,24,.04)}
+  .tag .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);animation:blink 1.4s infinite}
+
+  /* ===== Toast ===== */
+  .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(120%);background:rgba(13,13,20,.95);border:1px solid var(--amber);padding:.9rem 1.4rem;font-size:.8rem;color:var(--fg);z-index:10000;transition:transform .4s cubic-bezier(.2,.8,.2,1);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);display:flex;align-items:center;gap:.7rem}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  /* ===== 滚动条 ===== */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:#0a0a10}
+  ::-webkit-scrollbar-thumb{background:linear-gradient(var(--amber),#6b1f00)}
+
+  /* ===== 响应式 ===== */
+  @media (max-width:900px){
+    html,body{cursor:auto}
+    .cursor-dot,.cursor-ring{display:none}
+    .core{width:300px;height:300px}
+  }
+</style>
+</head>
+<body class="relative">
+
+<!-- 自定义光标 -->
+<div class="cursor-dot"></div>
+<div class="cursor-ring"></div>
+
+<!-- 顶部导航 -->
+<header class="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-black/30 border-b border-[var(--border)]">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 grid place-items-center" style="clip-path:polygon(20% 0,100% 0,80% 100%,0 100%);background:linear-gradient(135deg,var(--amber),var(--plasma))">
+        <span class="font-display font-black text-black text-sm">N</span>
+      </div>
+      <div>
+        <div class="font-display font-black tracking-widest text-sm">NEXUS</div>
+        <div class="text-[10px] text-[var(--muted)] tracking-[.3em] -mt-1">QUANTUM // CORE</div>
+      </div>
+    </div>
+    <nav class="hidden md:flex items-center gap-8 text-xs tracking-widest uppercase text-[var(--muted)]">
+      <a href="#features" class="hover:text-[var(--amber)] transition">能力</a>
+      <a href="#metrics" class="hover:text-[var(--amber)] transition">指标</a>
+      <a href="#terminal" class="hover:text-[var(--amber)] transition">控制台</a>
+      <a href="#deploy" class="hover:text-[var(--amber)] transition">部署</a>
+    </nav>
+    <div class="flex items-center gap-3">
+      <div class="hidden md:flex items-center gap-2 text-[10px] tracking-widest text-[var(--muted)]">
+        <span class="w-1.5 h-1.5 rounded-full bg-[var(--cyan)] shadow-[0_0_8px_var(--cyan)]"></span>
+        <span>SYS.ONLINE</span>
+      </div>
+      <button data-toast="身份验证令牌已复制到剪贴板" class="btn-ghost !py-2 !px-3 !text-[10px]">接入</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="relative min-h-screen pt-24 overflow-hidden scanlines">
+  <div class="grid-bg"></div>
+  <div class="floor"></div>
+  <canvas id="particles" class="absolute inset-0 w-full h-full"></canvas>
+
+  <div class="relative max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
+    <!-- 左侧文字 -->
+    <div class="relative z-10">
+      <div class="tag mb-6"><span class="dot"></span>版本 7.3.1 // 量子稳定版已发布</div>
+
+      <h1 class="font-display font-black leading-[0.95] mb-6" style="font-size:clamp(2.5rem,6vw,5.2rem)">
+        <span class="block text-[var(--fg)]">突破计算的</span>
+        <span class="glitch block text-[var(--amber)]" data-text="物理边界">物理边界</span>
+        <span class="block text-[var(--fg)] opacity-90">让 AI 重塑现实。</span>
+      </h1>
+
+      <p class="text-[var(--muted)] text-sm md:text-base max-w-xl leading-relaxed mb-10">
+        NEXUS 量子核心是基于光子相干阵列的下一代 AI 推理引擎。在亚毫秒级延迟内调度 <span class="text-[var(--amber)]">1024 个并行意识体</span>，
+        为自动驾驶、基因工程、深空通信提供前所未有的认知算力。
+      </p>
+
+      <div class="flex flex-wrap gap-4 mb-12">
+        <button data-toast="正在初始化沙箱环境，预计 12 秒..." class="btn-primary">
+          <i class="fa-solid fa-rocket"></i> 启动沙箱
+        </button>
+        <button data-toast="技术白皮书已发送至您的加密频道" class="btn-ghost">
+          <i class="fa-solid fa-file-lines"></i> 白皮书
+        </button>
+      </div>
+
+      <!-- 微指标 -->
+      <div class="grid grid-cols-3 gap-6 max-w-md">
+        <div>
+          <div class="font-display font-black text-2xl text-[var(--amber)]">0.42<span class="text-xs text-[var(--muted)]">ms</span></div>
+          <div class="text-[10px] tracking-widest text-[var(--muted)] uppercase mt-1">推理延迟</div>
+        </div>
+        <div>
+          <div class="font-display font-black text-2xl text-[var(--cyan)]">99.99<span class="text-xs text-[var(--muted)]">%</span></div>
+          <div class="text-[10px] tracking-widest text-[var(--muted)] uppercase mt-1">运行时间</div>
+        </div>
+        <div>
+          <div class="font-display font-black text-2xl text-[var(--plasma)]">8.4<span class="text-xs text-[var(--muted)]">EFLOPS</span></div>
+          <div class="text-[10px] tracking-widest text-[var(--muted)] uppercase mt-1">峰值算力</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧全息核心 -->
+    <div class="relative flex items-center justify-center min-h-[500px]">
+      <div class="core">
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <div class="ring r1"></div>
+        <div class="ring r2"></div>
+        <div class="ring r3"></div>
+        <div class="ring r4"></div>
+        <div class="ring r5"></div>
+        <div class="core-orb"></div>
+        <!-- 旋转刻度由JS生成 -->
+        <div id="ticks" class="absolute inset-0"></div>
+      </div>
+
+      <!-- 浮动 HUD 标签 -->
+      <div class="absolute top-6 left-0 hidden md:block">
+        <div class="text-[10px] tracking-widest text-[var(--muted)] uppercase mb-1">// 核心.状态</div>
+        <div class="font-display text-sm text-[var(--amber)]">同步中 · 99.7%</div>
+        <div class="bar w-32 mt-2"><i style="width:99%"></i></div>
+      </div>
+      <div class="absolute bottom-12 right-0 hidden md:block text-right">
+        <div class="text-[10px] tracking-widest text-[var(--muted)] uppercase mb-1">// 神经网络</div>
+        <div class="font-display text-sm text-[var(--cyan)]">1.2T 参数</div>
+        <div class="bar w-32 mt-2 ml-auto"><i style="width:78%;background:linear-gradient(90deg,var(--cyan),#fff)"></i></div>
+      </div>
+      <div class="absolute top-1/2 -right-4 hidden lg:block">
+        <div class="text-[10px] tracking-widest text-[var(--plasma)] uppercase">熵 ▼ 0.014</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部滚动提示 -->
+  <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-[10px] tracking-[.3em] text-[var(--muted)] uppercase">
+    <span>向下探索</span>
+    <div class="w-px h-10 bg-gradient-to-b from-[var(--amber)] to-transparent"></div>
+  </div>
+</section>
+
+<!-- ============ 能力 ============ -->
+<section id="features" class="relative py-32 px-6">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex items-end justify-between mb-16 reveal">
+      <div>
+        <div class="tag mb-4"><span class="dot"></span>核心能力</div>
+        <h2 class="font-display font-black text-4xl md:text-6xl leading-tight max-w-2xl">
+          超越硅基的<br/><span class="text-[var(--amber)]">认知架构</span>
+        </h2>
+      </div>
+      <div class="hidden md:block text-right text-xs text-[var(--muted)] tracking-widest uppercase">
+        <div>// 模块清单</div>
+        <div class="font-display text-2xl text-[var(--fg)] mt-1">04 / 04</div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div class="holo-card reveal">
+        <div class="icon-box"><i class="fa-solid fa-atom"></i></div>
+        <div class="text-[10px] tracking-widest text-[var(--muted)] uppercase mb-2">MODULE_01</div>
+        <h3 class="font-display font-bold text-lg mb-3">量子推理</h3>
+        <p class="text-sm text-[var(--muted)] leading-relaxed mb-4">基于叠加态的并行决策，单次前向传播同时评估 2^N 条路径。</p>
+        <div class="bar"><i style="width:92%"></i></div>
+        <div class="flex justify-between text-[10px] mt-2 text-[var(--muted)]"><span>吞吐</span><span class="text-[var(--amber)]">92%</span></div>
+      </div>
+
+      <div class="holo-card reveal" style="transition-delay:.1s">
+        <div class="icon-box" style="color:var(--cyan);background:rgba(0,229,255,.06);border-color:rgba(0,229,255,.2)"><i class="fa-solid fa-wave-square"></i></div>
+        <div class="text-[10px] tracking-widest text-[var(--muted)] uppercase mb-2">MODULE_02</div>
+        <h3 class="font-display font-bold text-lg mb-3">光子互联</h3>
+        <p class="text-sm text-[var(--muted)] leading-relaxed mb-4">芯片间以相干光通信，跨节点延迟低于 0.1 微秒，无电磁干扰。</p>
+        <div class="bar"><i style="width:88%;background:linear-gradient(90deg,var(--cyan),#fff)"></i></div>
+        <div class="flex justify-between text-[10px] mt-2 text-[var(--muted)]"><span>带宽</span><span class="text-[var(--cyan)]">88%</span></div>
+      </div>
+
+      <div class="holo-card reveal" style="transition-delay:.2s">
+        <div class="icon-box" style="color:var(--plasma);background:rgba(255,46,136,.06);border-color:rgba(255,46,136,.2)"><i class="fa-solid fa-shield-halved"></i></div>
+        <div class="text-[10px] tracking-widest text-[var(--muted)] uppercase mb-2">MODULE_03</div>
+        <h3 class="font-display font-bold text-lg mb-3">加密意识</h3>
+        <p class="text-sm text-[var(--muted)] leading-relaxed mb-4">同态加密推理，模型权重与数据全程零暴露，符合银河级合规。</p>
+        <div class="bar"><i style="width:96%;background:linear-gradient(90deg,var(--plasma),#fff)"></i></div>
+        <div class="flex justify-between text-[10px] mt-2 text-[var(--muted)]"><span>强度</span><span class="text-[var(--plasma)]">96%</span></div>
+      </div>
+
+      <div class="holo-card reveal" style="transition-delay:.3s">
+        <div class="icon-box"><i class="fa-solid fa-diagram-project"></i></div>
+        <div class="text-[10px] tracking-widest text-[var(--muted)] uppercase mb-2">MODULE_04</div>
+        <h3 class="font-display font-bold text-lg mb-3">自我进化</h3>
+        <p class="text-sm text-[var(--muted)] leading-relaxed mb-4">在线强化学习闭环，模型每周自主迭代，无需人工重训。</p>
+        <div class="bar"><i style="width:74%"></i></div>
+        <div class="flex justify-between text-[10px] mt-2 text-[var(--muted)]"><span>适应</span><span class="text-[var(--amber)]">74%</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 指标 / 终端 ============ -->
+<section id="metrics" class="relative py-32 px-6">
+  <div class="max-w-7xl mx-auto grid lg:grid-cols-5 gap-10">
+    <!-- 左：实时指标 -->
+    <div class="lg:col-span-2 reveal">
+      <div class="tag mb-4"><span class="dot"></span>实时遥测</div>
+      <h2 class="font-display font-black text-3xl md:text-5xl leading-tight mb-8">
+        全球节点<br/><span class="text-[var(--cyan)]">同步运行</span>
+      </h2>
+
+      <div class="space-y-5">
+        <div>
+          <div class="flex justify-between text-xs mb-2"><span class="text-[var(--muted)] tracking-widest uppercase">东京 / TYO-04</span><span class="text-[var(--amber)] font-display">142.6 TF/s</span></div>
+          <div class="bar"><i style="width:78%"></i></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-2"><span class="text-[var(--muted)] tracking-widest uppercase">法兰克福 / FRA-02</span><span class="text-[var(--amber)] font-display">198.3 TF/s</span></div>
+          <div class="bar"><i style="width:92%"></i></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-2"><span class="text-[var(--muted)] tracking-widest uppercase">圣保罗 / SAO-01</span><span class="text-[var(--cyan)] font-display">88.1 TF/s</span></div>
+          <div class="bar"><i style="width:54%;background:linear-gradient(90deg,var(--cyan),#fff)"></i></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-2"><span class="text-[var(--muted)] tracking-widest uppercase">开普敦 / CPT-03</span><span class="text-[var(--plasma)] font-display">166.7 TF/s</span></div>
+          <div class="bar"><i style="width:83%;background:linear-gradient(90deg,var(--plasma),#fff)"></i></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs mb-2"><span class="text-[var(--muted)] tracking-widest uppercase">轨道站 / ORB-00</span><span class="text-[var(--amber)] font-display">224.0 TF/s</span></div>
+          <div class="bar"><i style="width:99%"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：终端 -->
+    <div id="terminal" class="lg:col-span-3 reveal" style="transition-delay:.15s">
+      <div class="terminal relative">
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <div class="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+          <span class="w-2.5 h-2.5 rounded-full bg-[var(--plasma)]"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-[var(--amber)]"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-[var(--cyan)]"></span>
+          <span class="ml-3 text-[10px] tracking-widest text-[var(--muted)] uppercase">nexus@core ~ %</span>
+        </div>
+        <div id="termOut" class="space-y-1.5 text-[var(--fg)] text-[13px] leading-relaxed"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 部署 CTA ============ -->
+<section id="deploy" class="relative py-32 px-6 overflow-hidden">
+  <div class="absolute inset-0 grid-bg opacity-50"></div>
+  <div class="max-w-5xl mx-auto relative reveal">
+    <div class="relative border border-[var(--border)] p-10 md:p-16" style="background:linear-gradient(135deg,rgba(255,122,24,.05),rgba(0,229,255,.03));clip-path:polygon(20px 0,100% 0,100% calc(100% - 20px),calc(100% - 20px) 100%,0 100%,0 20px)">
+      <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+
+      <div class="text-center max-w-2xl mx-auto">
+        <div class="tag mb-6 mx-auto"><span class="dot"></span>早期访问计划</div>
+        <h2 class="font-display font-black text-3xl md:text-5xl leading-tight mb-6">
+          准备好接入<br/><span class="text-[var(--amber)]">下一代智能</span>了吗？
+        </h2>
+        <p class="text-sm text-[var(--muted)] mb-10 leading-relaxed">
+          提交申请后，我们的架构师将在 48 小时内联系您，提供定制化的部署方案与算力配额。
+        </p>
+
+        <form id="ctaForm" class="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto">
+          <div class="flex-1 relative">
+            <input id="emailInput" type="email" required placeholder="your@channel.net"
+              class="w-full bg-black/40 border border-[var(--border)] px-4 py-3 text-sm text-[var(--fg)] focus:outline-none focus:border-[var(--amber)] transition"
+              style="clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)"/>
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[var(--muted)] tracking-widest">SECURE</span>
+          </div>
+          <button type="submit" class="btn-primary justify-center">
+            <i class="fa-solid fa-satellite-dish"></i> 申请接入
+          </button>
+        </form>
+
+        <div class="flex flex-wrap justify-center gap-6 mt-10 text-[10px] tracking-widest text-[var(--muted)] uppercase">
+          <span><i class="fa-solid fa-check text-[var(--amber)] mr-2"></i>SOC 2 合规</span>
+          <span><i class="fa-solid fa-check text-[var(--amber)] mr-2"></i>零知识架构</span>
+          <span><i class="fa-solid fa-check text-[var(--amber)] mr-2"></i>99.99% SLA</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 页脚 ============ -->
+<footer class="relative border-t border-[var(--border)] py-10 px-6">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[var(--muted)] tracking-widest uppercase">
+    <div class="flex items-center gap-3">
+      <div class="w-6 h-6 grid place-items-center" style="clip-path:polygon(20% 0,100% 0,80% 100%,0 100%);background:linear-gradient(135deg,var(--amber),var(--plasma))">
+      </div>
+      <span>© 2049 NEXUS Quantum Labs · 地球-月球自由经济区</span>
+    </div>
+    <div class="flex gap-5">
+      <a href="#" class="hover:text-[var(--amber)] transition">隐私</a>
+      <a href="#" class="hover:text-[var(--amber)] transition">条款</a>
+      <a href="#" class="hover:text-[var(--amber)] transition">状态</a>
+      <a href="#" class="hover:text-[var(--amber)] transition">联系</a>
+    </div>
+  </div>
+</footer>
+
+<!-- Toast -->
+<div id="toast" class="toast">
+  <i class="fa-solid fa-circle-info text-[var(--amber)]"></i>
+  <span id="toastMsg">操作完成</span>
+</div>
+
+<script>
+/* ===== 自定义光标 ===== */
+const dot=document.querySelector('.cursor-dot');
+const ring=document.querySelector('.cursor-ring');
+let mx=window.innerWidth/2,my=window.innerHeight/2,rx=mx,ry=my;
+window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;dot.style.transform=`translate(${mx}px,${my}px) translate(-50%,-50%)`});
+function loop(){rx+=(mx-rx)*.15;ry+=(my-ry)*.15;ring.style.transform=`translate(${rx}px,${ry}px) translate(-50%,-50%)`;requestAnimationFrame(loop)}
+loop();
+document.querySelectorAll('a,button,input,.holo-card').forEach(el=>{
+  el.addEventListener('mouseenter',()=>ring.classList.add('hover'));
+  el.addEventListener('mouseleave',()=>ring.classList.remove('hover'));
+});
+
+/* ===== Toast ===== */
+const toast=document.getElementById('toast'),toastMsg=document.getElementById('toastMsg');
+let toastTimer;
+function showToast(msg){
+  toastMsg.textContent=msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toast.classList.remove('show'),2800);
+}
+document.querySelectorAll('[data-toast]').forEach(b=>b.addEventListener('click',()=>showToast(b.dataset.toast)));
+
+/* ===== 表单 ===== */
+document.getElementById('ctaForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const v=document.getElementById('emailInput').value;
+  if(!v.includes('@')){showToast('错误：无效的加密频道标识');return}
+  showToast(`已锁定频道 ${v} · 等待量子握手...`);
+  document.getElementById('emailInput').value='';
+});
+
+/* ===== 全息核心刻度 ===== */
+const ticks=document.getElementById('ticks');
+for(let i=0;i<60;i++){
+  const t=document.createElement('div');
+  t.className='core-tick';
+  t.style.transform=`translate(-50%,-50%) rotate(${i*6}deg) translateY(-190px)`;
+  t.style.opacity=i%5===0?.9:.3;
+  t.style.height=i%5===0?'18px':'8px';
+  ticks.appendChild(t);
+}
+// 旋转的青色点
+for(let i=0;i<3;i++){
+  const d=document.createElement('div');
+  d.className='core-dot';
+  d.style.transform=`translate(-50%,-50%) rotate(${i*120}deg) translateY(-180px)`;
+  d.style.animation=`spin ${10+i*4}s linear infinite ${i%2?'reverse':''}`;
+  ticks.appendChild(d);
+}
+
+/* ===== 粒子背景 ===== */
+const canvas=document.getElementById('particles');
+const ctx=canvas.getContext('2d');
+let W,H,particles=[];
+function resize(){W=canvas.width=canvas.offsetWidth;H=canvas.height=canvas.offsetHeight}
+resize();window.addEventListener('resize',resize);
+function initParts(){
+  particles=[];
+  const n=Math.min(120,Math.floor(W*H/12000));
+  for(let i=0;i<n;i++){
+    particles.push({
+      x:Math.random()*W,y:Math.random()*H,
+      vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,
+      r:Math.random()*1.5+.3,
+      c:Math.random()<.7?'255,122,24':(Math.random()<.5?'0,229,255':'255,46,136')
+    });
+  }
+}
+initParts();
+function drawParts(){
+  ctx.clearRect(0,0,W,H);
+  // 粒子
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=W;if(p.x>W)p.x=0;
+    if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+    ctx.beginPath();ctx.arc(p.x,p.y,Math.max(.1,p.r),0,Math.PI*2);
+    ctx.fillStyle=`rgba(${p.c},.8)`;ctx.fill();
+  });
+  // 连线
+  for(let i=0;i<particles.length;i++){
+    for(let j=i+1;j<particles.length;j++){
+      const a=particles[i],b=particles[j];
+      const dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<120){
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+        ctx.strokeStyle=`rgba(255,122,24,${.15*(1-d/120)})`;
+        ctx.lineWidth=.5;ctx.stroke();
+      }
+    }
+  }
+  // 鼠标交互
+  particles.forEach(p=>{
+    const dx=p.x-mx,dy=p.y-my,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<150){
+      ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(mx,my);
+      ctx.strokeStyle=`rgba(0,229,255,${.4*(1-d/150)})`;
+      ctx.lineWidth=.6;ctx.stroke();
+    }
+  });
+  requestAnimationFrame(drawParts);
+}
+drawParts();
+
+/* ===== 终端打字 ===== */
+const lines=[
+  {t:'> nexus init --quantum --mode=coherent',c:'var(--fg)'},
+  {t:'[OK] 加载光子核心驱动 v7.3.1',c:'var(--amber)'},
+  {t:'[OK] 校准 1024 个量子比特',c:'var(--amber)'},
+  {t:'[OK] 同步全球 47 个边缘节点',c:'var(--amber)'},
+  {t:'> nexus deploy --target=production',c:'var(--fg)'},
+  {t:'[..] 编译神经突触拓扑图',c:'var(--cyan)'},
+  {t:'[..] 注入 1.2T 参数权重',c:'var(--cyan)'},
+  {t:'[OK] 推理引擎已就绪 · 延迟 0.42ms',c:'var(--amber)'},
+  {t:'> _ 等待指令...',c:'var(--fg)',caret:true}
+];
+const termOut=document.getElementById('termOut');
+function typeLines(i=0){
+  if(i>=lines.length)return;
+  const span=document.createElement('div');
+  span.className='line';
+  span.style.color=lines[i].c;
+  span.style.animationDelay=(i*.08)+'s';
+  span.innerHTML=lines[i].t+(lines[i].caret?' <span class="caret"></span>':'');
+  termOut.appendChild(span);
+  setTimeout(()=>typeLines(i+1),450);
+}
+
+/* ===== 滚动揭示 ===== */
+const io=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('in');
+      if(e.target.id==='terminal'&&!termOut.dataset.done){
+        termOut.dataset.done='1';
+        typeLines();
+      }
+      io.unobserve(e.target);
+    }
+  });
+},{threshold:.15});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

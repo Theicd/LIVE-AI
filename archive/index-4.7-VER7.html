@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Quantum Core | Interactive 3D Experience</title>
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg: #050505;
+            --glass: rgba(10, 10, 15, 0.6);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+        }
+
+        #canvas-container {
+            width: 800px;
+            height: 800px;
+            position: relative;
+            box-shadow: 0 0 100px rgba(0, 243, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 4px;
+        }
+
+        /* UI Overlay */
+        .ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin: 0;
+            background: linear-gradient(90deg, var(--primary), white);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+        }
+
+        .subtitle {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 5px;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            text-align: right;
+            pointer-events: none;
+        }
+
+        .status {
+            font-size: 0.75rem;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        .instruction {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 5px 10px;
+            display: inline-block;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        /* Loading Overlay */
+        #loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            transition: opacity 0.5s ease;
+        }
+        
+        .loader-text {
+            color: var(--primary);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; text-shadow: 0 0 10px var(--primary); }
+            100% { opacity: 0.5; }
+        }
+    </style>
+    <!-- Import Three.js and Post Processing -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <div id="loader">
+            <div class="loader-text">INITIALIZING CORE SYSTEMS...</div>
+        </div>
+
+        <div class="ui-layer">
+            <h1>Quantum Core</h1>
+            <div class="subtitle">Stable State // Entropy: 12%</div>
+        </div>
+
+        <div class="controls">
+            <div class="status" id="status-display">SYSTEM NOMINAL</div>
+            <div class="instruction">
+                CLICK & HOLD: Overdrive<br>
+                DOUBLE CLICK: Reset
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Configuration ---
+        const CONFIG = {
+            width: 800,
+            height: 800,
+            particleCount: 1500,
+            coreColor: 0x00f3ff,
+            secondaryColor: 0xbc13fe,
+            bgColor: 0x050505
+        };
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(CONFIG.bgColor, 0.035);
+
+        const camera = new THREE.PerspectiveCamera(45, CONFIG.width / CONFIG.height, 0.1, 100);
+        camera.position.set(0, 0, 12);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(CONFIG.width, CONFIG.height);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        container.appendChild(renderer.domElement);
+
+        // --- Controls ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enableZoom = false;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.5;
+
+        // --- Post Processing (Bloom) ---
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(CONFIG.width, CONFIG.height), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0.1;
+        bloomPass.strength = 1.2; // High glow intensity
+        bloomPass.radius = 0.5;
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- Geometry Creation ---
+
+        // 1. The Core (Icosahedron Group)
+        const coreGroup = new THREE.Group();
+        scene.add(coreGroup);
+
+        // Inner solid core
+        const coreGeo = new THREE.IcosahedronGeometry(1.5, 0);
+        const coreMat = new THREE.MeshPhysicalMaterial({
+            color: CONFIG.coreColor,
+            roughness: 0.1,
+            metalness: 0.8,
+            transmission: 0.2, // Glass-like
+            thickness: 1,
+            emissive: CONFIG.coreColor,
+            emissiveIntensity: 0.5,
+            flatShading: true
+        });
+        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+        coreGroup.add(coreMesh);
+
+        // Outer Wireframe Shell
+        const shellGeo = new THREE.IcosahedronGeometry(2.2, 1);
+        const shellMat = new THREE.MeshBasicMaterial({
+            color: CONFIG.secondaryColor,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.15
+        });
+        const shellMesh = new THREE.Mesh(shellGeo, shellMat);
+        coreGroup.add(shellMesh);
+
+        // Rotating Rings
+        const ringGeo = new THREE.TorusGeometry(3.5, 0.02, 16, 100);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+        const ring1 = new THREE.Mesh(ringGeo, ringMat);
+        const ring2 = new THREE.Mesh(ringGeo, ringMat);
+        ring2.rotation.x = Math.PI / 2;
+        coreGroup.add(ring1);
+        coreGroup.add(ring2);
+
+        // 2. The Particle Swarm
+        const particlesGeometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(CONFIG.particleCount * 3);
+        const originalPositions = new Float32Array(CONFIG.particleCount * 3);
+        const colors = new Float32Array(CONFIG.particleCount * 3);
+
+        const color1 = new THREE.Color(CONFIG.coreColor);
+        const color2 = new THREE.Color(CONFIG.secondaryColor);
+
+        for (let i = 0; i < CONFIG.particleCount; i++) {
+            // Spherical distribution
+            const r = 4 + Math.random() * 10;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+
+            const x = r * Math.sin(phi) * Math.cos(theta);
+            const y = r * Math.sin(phi) * Math.sin(theta);
+            const z = r * Math.cos(phi);
+
+            positions[i * 3] = x;
+            positions[i * 3 + 1] = y;
+            positions[i * 3 + 2] = z;
+
+            originalPositions[i * 3] = x;
+            originalPositions[i * 3 + 1] = y;
+            originalPositions[i * 3 + 2] = z;
+
+            // Mix colors
+            const mixedColor = color1.clone().lerp(color2, Math.random());
+            colors[i * 3] = mixedColor.r;
+            colors[i * 3 + 1] = mixedColor.g;
+            colors[i * 3 + 2] = mixedColor.b;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.05,
+            vertexColors: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        const particleSystem = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particleSystem);
+
+        // 3. Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        const pointLight1 = new THREE.PointLight(CONFIG.coreColor, 2, 50);
+        pointLight1.position.set(5, 5, 5);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(CONFIG.secondaryColor, 2, 50);
+        pointLight2.position.set(-5, -5, 5);
+        scene.add(pointLight2);
+
+        // --- Interaction State ---
+        let isOverdrive = false;
+        let time = 0;
+        const clock = new THREE.Clock();
+
+        // --- Event Listeners ---
+        const statusDisplay = document.getElementById('status-display');
+        const subtitle = document.querySelector('.subtitle');
+
+        window.addEventListener('mousedown', () => {
+            if(!isOverdrive) {
+                isOverdrive = true;
+                bloomPass.strength = 2.5;
+                bloomPass.radius = 0.8;
+                coreMat.emissiveIntensity = 2;
+                statusDisplay.innerText = "SYSTEM: OVERDRIVE";
+                statusDisplay.style.color = "#ffaa00";
+                subtitle.innerText = "Stable State // Entropy: 98%";
+                controls.autoRotateSpeed = 2.0;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if(isOverdrive) {
+                isOverdrive = false;
+                bloomPass.strength = 1.2;
+                bloomPass.radius = 0.5;
+                coreMat.emissiveIntensity = 0.5;
+                statusDisplay.innerText = "SYSTEM: NOMINAL";
+                statusDisplay.style.color = "#00f3ff";
+                subtitle.innerText = "Stable State // Entropy: 12%";
+                controls.autoRotateSpeed = 0.5;
+            }
+        });
+
+        window.addEventListener('dblclick', () => {
+            // Reset logic
+            isOverdrive = false;
+            bloomPass.strength = 1.2;
+            bloomPass.radius = 0.5;
+            coreMat.emissiveIntensity = 0.5;
+            statusDisplay.innerText = "SYSTEM: RESET";
+            statusDisplay.style.color = "#00f3ff";
+            subtitle.innerText = "Stable State // Entropy: 0%";
+            controls.autoRotateSpeed = 0.5;
+            
+            // Reset colors smoothly (simplified here by just snapping)
+            coreMat.color.setHex(CONFIG.coreColor);
+            coreMat.emissive.setHex(CONFIG.coreColor);
+            pointLight1.color.setHex(CONFIG.coreColor);
+            pointLight2.color.setHex(CONFIG.secondaryColor);
+        });
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            time += delta;
+
+            // Core Animation
+            coreMesh.rotation.y += delta * 0.5;
+            coreMesh.rotation.z += delta * 0.2;
+            
+            shellMesh.rotation.y -= delta * 0.2;
+            shellMesh.rotation.x -= delta * 0.1;
+
+            // Breathing effect
+            const breath = Math.sin(time * (isOverdrive ? 8 : 2)) * 0.1 + 1;
+            coreMesh.scale.set(breath, breath, breath);
+            shellMesh.scale.set(breath * 1.1, breath * 1.1, breath * 1.1);
+
+            // Ring Animation
+            ring1.rotation.x += delta * 0.3;
+            ring1.rotation.y += delta * 0.1;
+            ring2.rotation.x += delta * 0.2;
+            ring2.rotation.y -= delta * 0.4;
+
+            // Particle Swarm Animation
+            const positions = particleSystem.geometry.attributes.position.array;
+            
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                const i3 = i * 3;
+                const ox = originalPositions[i3];
+                const oy = originalPositions[i3 + 1];
+                const oz = originalPositions[i3 + 2];
+
+                // Noise-like movement
+                const noise = Math.sin(time * 2 + ox * 0.5) * 0.5;
+                const dist = Math.sqrt(ox*ox + oy*oy + oz*oz);
+                
+                // Overdrive effect: Particles expand and jitter
+                const expansion = isOverdrive ? 1.5 : 1.0;
+                const jitter = isOverdrive ? (Math.random() - 0.5) * 0.1 : 0;
+
+                positions[i3] = ox * expansion + noise + jitter;
+                positions[i3 + 1] = oy * expansion + Math.cos(time + ox) * 0.5 + jitter;
+                positions[i3 + 2] = oz * expansion + Math.sin(time + oy) * 0.5 + jitter;
+            }
+            particleSystem.geometry.attributes.position.needsUpdate = true;
+
+            // Dynamic Color Shift in Overdrive
+            if(isOverdrive) {
+                const hue = (time * 0.1) % 1;
+                const color = new THREE.Color().setHSL(hue, 1, 0.5);
+                coreMat.emissive.lerp(color, 0.05);
+                pointLight1.color.lerp(color, 0.05);
+            }
+
+            controls.update();
+            composer.render();
+        }
+
+        // --- Init ---
+        // Hide loader after a brief moment
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 500);
+            animate();
+        }, 1000);
+
+    </script>
+</body>
+</html>

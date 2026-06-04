@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus: Digital Archive & Portfolio</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --card-bg: #0a0a0f;
+            --accent-primary: #00f3ff;
+            --accent-secondary: #bc13fe;
+            --text-main: #e0e0e0;
+            --text-muted: #888;
+            --font-display: 'Courier New', Courier, monospace;
+            --font-body: system-ui, -apple-system, sans-serif;
+            --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            overflow: hidden; /* Manage scrolling manually */
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* --- Intro Overlay --- */
+        #intro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1s ease;
+        }
+
+        .loader-ring {
+            width: 80px;
+            height: 80px;
+            border: 4px solid #333;
+            border-top: 4px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        #status-text {
+            font-family: var(--font-display);
+            color: var(--accent-primary);
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+        }
+
+        /* --- Main Container --- */
+        #main-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+
+        /* --- Portfolio Section --- */
+        #portfolio-section {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 4rem;
+            overflow: hidden;
+        }
+
+        .header {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            z-index: 10;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            text-transform: uppercase;
+            color: var(--accent-primary);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+
+        .project-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+            gap: 2rem;
+            padding-top: 4rem;
+        }
+
+        .project-card {
+            position: relative;
+            width: 300px;
+            height: 400px;
+            background: var(--card-bg);
+            border: 1px solid #333;
+            border-radius: 8px;
+            transition: all 0.8s var(--ease-out-expo);
+            overflow: hidden;
+            opacity: 0;
+            transform: scale(0.8) translateZ(-200px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .project-card.active {
+            opacity: 1;
+            transform: scale(1) translateZ(0);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
+            z-index: 2;
+        }
+
+        .project-card.prev {
+            opacity: 0.5;
+            transform: scale(0.8) translateZ(-100px);
+            filter: grayscale(100%);
+            z-index: 1;
+        }
+
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.6;
+            transition: opacity 0.5s ease;
+        }
+
+        .project-card.active .card-img {
+            opacity: 0.9;
+        }
+
+        .preview-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .project-card.active .preview-layer {
+            opacity: 1;
+        }
+
+        /* Simulated video animation */
+        .preview-animation {
+            width: 60px;
+            height: 60px;
+            border: 2px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: pulse-anim 1s infinite alternate;
+            box-shadow: 0 0 15px var(--accent-primary);
+            background: rgba(0, 243, 255, 0.1);
+        }
+
+        .card-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 1.5rem;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            transform: translateY(100%);
+            transition: transform 0.5s var(--ease-out-expo);
+        }
+
+        .project-card.active .card-info {
+            transform: translateY(0);
+        }
+
+        .card-title {
+            color: #fff;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Museum Section --- */
+        #museum-section {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #museum-section.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .gallery-room {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+
+        .gallery-room.active-room {
+            opacity: 1;
+            z-index: 1;
+        }
+
+        .art-piece-container {
+            position: relative;
+            width: 70%;
+            height: 80%;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        .art-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* Ken Burns Effect applied by JS class */
+            transform: scale(1);
+            transition: transform 8s linear; 
+        }
+
+        .gallery-room.active-room .art-image {
+            animation: kenburns 10s infinite alternate ease-in-out;
+        }
+
+        .room-overlay {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            padding: 2rem;
+            border-top: 1px solid var(--accent-secondary);
+            border-bottom: 1px solid var(--accent-secondary);
+        }
+
+        .room-title {
+            font-family: var(--font-display);
+            font-size: 3rem;
+            color: var(--accent-secondary);
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 10px rgba(188, 19, 254, 0.5);
+        }
+
+        .art-caption {
+            font-size: 1.2rem;
+            font-style: italic;
+            color: #fff;
+        }
+
+        .next-room-indicator {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            color: var(--accent-primary);
+            border: 1px solid var(--accent-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        /* --- Animations --- */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        @keyframes pulse-anim {
+            0% { transform: scale(0.9); opacity: 0.5; box-shadow: 0 0 0 rgba(0, 243, 255, 0); }
+            100% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 20px rgba(0, 243, 255, 0.8); }
+        }
+
+        @keyframes kenburns {
+            from { transform: scale(1); }
+            to { transform: scale(1.15); }
+        }
+
+        /* --- Mobile Adjustments --- */
+        @media (max-width: 768px) {
+            .project-card {
+                width: 220px;
+                height: 300px;
+            }
+            .room-title {
+                font-size: 2rem;
+            }
+            .project-container {
+                gap: 1rem;
+            }
+            .art-piece-container {
+                width: 90%;
+                height: 60%;
+            }
+            #portfolio-section {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Intro Sequence -->
+    <div id="intro-overlay">
+        <div class="loader-ring"></div>
+        <div id="status-text">INITIALIZING SYSTEM...</div>
+    </div>
+
+    <div id="main-container">
+        
+        <!-- Portfolio Component -->
+        <section id="portfolio-section">
+            <div class="header">
+                <h1>Nexus Portfolio</h1>
+                <div class="subtitle">Zero-Click Auto-Demo Sequence</div>
+            </div>
+            
+            <div class="project-container" id="project-wrapper">
+                <!-- Cards injected via JS -->
+            </div>
+        </section>
+
+        <!-- Museum Component -->
+        <section id="museum-section">
+            <div class="next-room-indicator">AUTO-ADVANCE: <span id="room-timer">10</span>s</div>
+            
+            <div class="gallery-room" id="room-ancient">
+                <div class="art-piece-container">
+                    <img src="" alt="Ancient Art" class="art-image" data-seed="rome">
+                </div>
+                <div class="room-overlay">
+                    <h2 class="room-title">SECTOR: ANTIQUITY</h2>
+                    <p class="art-caption">Echoes of the past</p>
+                </div>
+            </div>
+
+            <div class="gallery-room" id="room-modern">
+                <div class="art-piece-container">
+                    <img src="" alt="Modern Art" class="art-image" data-seed="modern">
+                </div>
+                <div class="room-overlay">
+                    <h2 class="room-title">SECTOR: RENAISSANCE</h2>
+                    <p class="art-caption">Structure and Chaos</p>
+                </div>
+            </div>
+
+            <div class="gallery-room" id="room-future">
+                <div class="art-piece-container">
+                    <img src="" alt="Future Art" class="art-image" data-seed="cyber">
+                </div>
+                <div class="room-overlay">
+                    <h2 class="room-title">SECTOR: FUTURA</h2>
+                    <p class="art-caption">The unknown horizon</p>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const CONFIG = {
+            introDuration: 5000,
+            demoDuration: 25000, // 25 seconds for portfolio
+            museumInterval: 8000,
+            cardCycleTime: 3000, // How long a card stays expanded
+            transitionTime: 1000 // Time for cards to move
+        };
+
+        // --- Data ---
+        const projects = [
+            { title: "Neon Genesis", desc: "Cyberpunk UI Architecture", seed: "tech1" },
+            { title: "Void Walker", desc: "Character Design System", seed: "char2" },
+            { title: "Synth City", desc: "Procedural Audio Engine", seed: "city3" },
+            { title: "Data Stream", desc: "Big Data Visualization", seed: "data4" }
+        ];
+
+        const museumRooms = ['room-ancient', 'room-modern', 'room-future'];
+
+        // --- State Management ---
+        const state = {
+            currentRoomIndex: 0,
+            currentProjectIndex: 0,
+            isRunning: false,
+            timer: null
+        };
+
+        // --- DOM Elements ---
+        const introOverlay = document.getElementById('intro-overlay');
+        const statusText = document.getElementById('status-text');
+        const mainContainer = document.getElementById('main-container');
+        const projectWrapper = document.getElementById('project-wrapper');
+        const museumSection = document.getElementById('museum-section');
+        const roomTimerDisplay = document.getElementById('room-timer');
+
+        // --- Initialization ---
+        function init() {
+            renderProjects();
+            startIntro();
+        }
+
+        function startIntro() {
+            setTimeout(() => {
+                introOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    introOverlay.style.display = 'none';
+                    mainContainer.style.opacity = '1';
+                    state.isRunning = true;
+                    statusText.innerText = "DEMO START";
+                    runPortfolioDemo();
+                }, 1000);
+            }, CONFIG.introDuration);
+        }
+
+        function renderProjects() {
+            projectWrapper.innerHTML = '';
+            projects.forEach((proj, index) => {
+                const card = document.createElement('div');
+                card.className = `project-card ${index === 0 ? 'active' : (index === 1 ? 'prev' : '')}`;
+                card.innerHTML = `
+                    <img src="https://picsum.photos/seed/${proj.seed}/300/400" class="card-img" alt="${proj.title}">
+                    <div class="preview-layer">
+                        <div class="preview-animation"></div>
+                    </div>
+                    <div class="card-info">
+                        <h3 class="card-title">${proj.title}</h3>
+                        <p class="card-desc">${proj.desc}</p>
+                    </div>
+                `;
+                projectWrapper.appendChild(card);
+            });
+        }
+
+        // --- Portfolio Logic ---
+        function runPortfolioDemo() {
+            // Loop through projects automatically
+            // Total time approx 4 cards * (3s active + 0.5s transition)
+            // But we need to fill the 25s window effectively.
+            
+            let cardIndex = 0;
+            
+            const cycle = () => {
+                const cards = document.querySelectorAll('.project-card');
+                
+                // Reset classes for smooth transition
+                cards.forEach((c, i) => {
+                    c.className = 'project-card';
+                    if (i === cardIndex) c.classList.add('active');
+                    else if (i === (cardIndex - 1 + cards.length) % cards.length) c.classList.add('prev');
+                });
+
+                // Move to next
+                cardIndex = (cardIndex + 1) % cards.length;
+
+                // Calculate time: Wait for expansion (3s), then let it sit (maybe 2s), then next
+                // To keep it simple within the 25s block:
+                setTimeout(() => {
+                    if(state.isRunning && document.getElementById('portfolio-section').style.opacity !== '0') {
+                        cycle();
+                    }
+                }, 3000); 
+            };
+
+            // Start first cycle
+            cycle();
+
+            // Transition to Museum after 25s
+            setTimeout(() => {
+                runMuseumDemo();
+            }, CONFIG.demoDuration);
+        }
+
+        // --- Museum Logic ---
+        function runMuseumDemo() {
+            // Switch View
+            document.getElementById('portfolio-section').style.display = 'none';
+            museumSection.classList.add('active');
+
+            // Start Room Rotation
+            state.currentRoomIndex = 0;
+            activateRoom(0);
+
+            // Countdown for auto-advance
+            let timeLeft = 10;
+            roomTimerDisplay.innerText = timeLeft;
+
+            state.timer = setInterval(() => {
+                timeLeft--;
+                roomTimerDisplay.innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    state.currentRoomIndex = (state.currentRoomIndex + 1) % museumRooms.length;
+                    activateRoom(state.currentRoomIndex);
+                    timeLeft = 10; // Reset
+                }
+            }, 1000);
+        }
+
+        function activateRoom(index) {
+            // Deactivate current
+            museumRooms.forEach(room => {
+                const el = document.getElementById(room);
+                el.classList.remove('active-room');
+            });
+
+            // Activate new
+            const targetRoom = document.getElementById(museumRooms[index]);
+            targetRoom.classList.add('active-room');
+        }
+
+        // Start everything
+        window.addEventListener('load', init);
+
+    </script>
+</body>
+</html>

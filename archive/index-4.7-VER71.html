@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEO-MARKET // FUTURE DEMO</title>
+    <style>
+        /* --- RESET & VARIABLES --- */
+        :root {
+            --bg-color: #030305;
+            --primary: #00f3ff; /* Cyan */
+            --secondary: #ff00ff; /* Magenta */
+            --tertiary: #ffe600; /* Yellow */
+            --text-color: #e0e0e0;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: 1px solid rgba(0, 243, 255, 0.3);
+            --font-main: 'Courier New', Courier, monospace;
+            --font-display: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- BACKGROUND ANIMATION --- */
+        #bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        /* --- UI OVERLAYS --- */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0.3;
+        }
+
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        /* --- CONTAINER --- */
+        #app-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- SECTIONS --- */
+        section {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 1s ease;
+            padding: 20px;
+        }
+
+        section.active {
+            opacity: 1;
+            pointer-events: all;
+            z-index: 10;
+        }
+
+        /* --- INTRO SCENE --- */
+        #intro {
+            text-align: center;
+        }
+
+        .intro-title {
+            font-size: 4rem;
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary);
+            letter-spacing: 5px;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        .intro-subtitle {
+            font-size: 1.2rem;
+            color: var(--secondary);
+            text-transform: uppercase;
+        }
+
+        .loading-bar {
+            width: 300px;
+            height: 4px;
+            background: var(--glass);
+            margin-top: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            animation: loadProgress 5s linear forwards;
+        }
+
+        /* --- MARKETPLACE SCENE --- */
+        #marketplace {
+            flex-direction: column;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(5px);
+            border: var(--border);
+        }
+
+        .market-header {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            border-bottom: var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .market-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .product-card {
+            background: var(--glass);
+            border: var(--border);
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--secondary);
+        }
+
+        .product-img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            margin-bottom: 10px;
+            filter: grayscale(80%) contrast(120%);
+        }
+
+        .price-tag {
+            color: var(--tertiary);
+            font-size: 1.1rem;
+            display: block;
+            margin: 5px 0;
+        }
+
+        .status-badge {
+            font-size: 0.7rem;
+            padding: 2px 5px;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            display: inline-block;
+        }
+
+        .cart-accumulator {
+            margin-top: 20px;
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        /* --- CAROUSEL SCENE --- */
+        #carousel {
+            flex-direction: column;
+        }
+
+        .carousel-container {
+            width: 600px;
+            height: 400px;
+            position: relative;
+            border: 2px solid var(--secondary);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.2);
+        }
+
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .slide.active { opacity: 1; }
+
+        .carousel-content {
+            text-align: center;
+            z-index: 2;
+        }
+
+        .carousel-visual {
+            width: 150px;
+            height: 150px;
+            margin-bottom: 20px;
+            border-radius: 50%;
+            border: 3px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Dynamic Animations for Carousel Items */
+        .anim-spin {
+            animation: spin 4s linear infinite;
+        }
+        .anim-zoom {
+            animation: zoomPulse 3s ease-in-out infinite;
+        }
+        .anim-specs {
+            font-size: 0.8rem;
+            text-align: left;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-left: 3px solid var(--tertiary);
+            width: 80%;
+            margin-top: 15px;
+            opacity: 0;
+            transform: translateX(20px);
+            transition: all 0.5s;
+        }
+
+        .slide.active .anim-specs {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .carousel-nav {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: var(--secondary);
+        }
+
+        /* --- PITCH SCENE --- */
+        #pitch {
+            background: radial-gradient(circle at center, rgba(0, 243, 255, 0.1) 0%, rgba(0,0,0,0.9) 80%);
+        }
+
+        .pitch-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .pitch-title {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .pitch-problem, .pitch-solution {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+        }
+
+        .pitch-problem { color: #ff4444; }
+        .pitch-solution { color: #44ff44; }
+
+        .chart-container {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 30px;
+            border: 1px solid var(--primary);
+            position: relative;
+            background: rgba(0,0,0,0.5);
+        }
+
+        canvas#pitchChart {
+            width: 100%;
+            height: 100%;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .metric-box {
+            background: var(--glass);
+            padding: 10px;
+            border: 1px solid var(--secondary);
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            color: var(--secondary);
+            font-weight: bold;
+        }
+
+        .cta-button {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            transition: 0.3s;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .cta-button:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 30px var(--primary);
+        }
+
+        /* --- TOAST NOTIFICATION --- */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 15px 25px;
+            transform: translateY(100px);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 200;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+        }
+
+        /* --- KEYFRAMES --- */
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; text-shadow: 0 0 20px var(--primary); } 100% { opacity: 0.7; } }
+        @keyframes loadProgress { 0% { width: 0%; } 100% { width: 100%; } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes zoomPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 10px var(--primary); } 50% { transform: scale(1.2); box-shadow: 0 0 30px var(--secondary); } }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .intro-title { font-size: 2.5rem; }
+            .pitch-title { font-size: 2rem; }
+            .carousel-container { width: 90%; height: 300px; }
+            .metrics-grid { grid-template-columns: 1fr; }
+            .chart-container { height: 150px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Visual Overlays -->
+    <div class="scanline"></div>
+    <div class="vignette"></div>
+    <canvas id="bg-canvas"></canvas>
+
+    <div id="app-container">
+        
+        <!-- Scene 1: Intro -->
+        <section id="intro" class="active">
+            <h1 class="intro-title">NEO-MARKET</h1>
+            <p class="intro-subtitle">Initializing System Demo...</p>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+        </section>
+
+        <!-- Scene 2: Marketplace -->
+        <section id="marketplace">
+            <header class="market-header">
+                <span>CYBER_BAZAAR_V.9</span>
+                <span>USER: ANONYMOUS</span>
+            </header>
+            <div class="cart-accumulator">
+                CART: <span id="cart-total">0</span> UNITS
+            </div>
+            <div class="market-grid" id="product-grid">
+                <!-- Items injected by JS -->
+            </div>
+        </section>
+
+        <!-- Scene 3: Carousel -->
+        <section id="carousel">
+            <div class="carousel-container" id="carousel-window">
+                <!-- Slides injected by JS -->
+            </div>
+            <div class="carousel-nav">NEXT PRODUCT: <span id="carousel-timer">3</span>s</div>
+        </section>
+
+        <!-- Scene 4: Pitch -->
+        <section id="pitch">
+            <div class="pitch-content">
+                <h2 class="pitch-title">NETWORK OPTIMIZATION</h2>
+                <div class="pitch-problem">
+                    <h3>Problem</h3>
+                    <p>80% latency in decentralized grid.</p>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="pitchChart"></canvas>
+                </div>
+
+                <div class="pitch-solution">
+                    <h3>Solution</h3>
+                    <p>Hyper-bridge algorithm implementation.</p>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div>UPTIME</div>
+                        <div class="metric-value">99.9%</div>
+                    </div>
+                    <div class="metric-box">
+                        <div>THROUGHPUT</div>
+                        <div class="metric-value">10TB/s</div>
+                    </div>
+                    <div class="metric-box">
+                        <div>JITTER</div>
+                        <div class="metric-value" style="color:var(--primary)">1ms</div>
+                    </div>
+                </div>
+
+                <button class="cta-button" id="cta-btn">INITIATE UPLINK</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Feedback Toast -->
+    <div id="toast" class="toast">ITEM ADDED TO CART</div>
+
+    <script>
+        /* --- BACKGROUND ANIMATION (Cyberpunk Particles) --- */
+        const bgCanvas = document.getElementById('bg-canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        
+        let width, height;
+        let particles = [];
+
+        function resizeBg() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            bgCanvas.width = width;
+            bgCanvas.height = height;
+        }
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.size = Math.random() * 2;
+                this.color = Math.random() > 0.5 ? '#00f3ff' : '#ff00ff';
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if(this.x < 0 || this.x > width) this.vx *= -1;
+                if(this.y < 0 || this.y > height) this.vy *= -1;
+            }
+            draw() {
+                bgCtx.fillStyle = this.color;
+                bgCtx.beginPath();
+                bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                bgCtx.fill();
+            }
+        }
+
+        function initBg() {
+            resizeBg();
+            for(let i=0; i<50; i++) particles.push(new Particle());
+            animateBg();
+        }
+
+        function animateBg() {
+            bgCtx.clearRect(0, 0, width, height);
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            // Draw connections
+            bgCtx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
+            for(let i=0; i<particles.length; i++) {
+                for(let j=i; j<particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if(dist < 100) {
+                        bgCtx.beginPath();
+                        bgCtx.moveTo(particles[i].x, particles[i].y);
+                        bgCtx.lineTo(particles[j].x, particles[j].y);
+                        bgCtx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animateBg);
+        }
+
+        window.addEventListener('resize', resizeBg);
+        initBg();
+
+        /* --- MAIN CONTROLLER --- */
+        const scenes = {
+            intro: document.getElementById('intro'),
+            market: document.getElementById('marketplace'),
+            carousel: document.getElementById('carousel'),
+            pitch: document.getElementById('pitch')
+        };
+
+        function switchScene(sceneName) {
+            Object.values(scenes).forEach(el => el.classList.remove('active'));
+            scenes[sceneName].classList.add('active');
+        }
+
+        /* --- SCENE 1: INTRO (5s) --- */
+        setTimeout(() => {
+            switchScene('market');
+            initMarketplace();
+        }, 5000);
+
+        /* --- SCENE 2: MARKETPLACE (25s) --- */
+        function initMarketplace() {
+            const grid = document.getElementById('product-grid');
+            const items = [
+                { name: "Neural Chip", price: 500, img: "chip" },
+                { name: "Plasma Emitter", price: 1200, img: "emitter" },
+                { name: "Cyber Arm", price: 3500, img: "arm" },
+                { name: "Quantum RAM", price: 800, img: "ram" }
+            ];
+
+            // Render Items
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.innerHTML = `
+                    <img src="https://picsum.photos/seed/${item.img}/200/100" class="product-img" alt="${item.name}">
+                    <h3>${item.name}</h3>
+                    <span class="price-tag" id="price-${item.name}">$${item.price}</span>
+                    <span class="status-badge">IN STOCK</span>
+                `;
+                grid.appendChild(card);
+            });
+
+            // Auto Add to Cart Logic
+            let cartCount = 0;
+            const cartTotalEl = document.getElementById('cart-total');
+            const toast = document.getElementById('toast');
+            let toastTimer;
+
+            setInterval(() => {
+                const randomItem = items[Math.floor(Math.random() * items.length)];
+                const priceEl = document.getElementById(`price-${randomItem.name}`);
+                
+                // Flicker price effect
+                let originalPrice = randomItem.price;
+                priceEl.innerText = "CALCULATING...";
+                
+                setTimeout(() => {
+                    // Fluctuate price slightly
+                    const finalPrice = Math.floor(originalPrice * (0.9 + Math.random() * 0.2));
+                    priceEl.innerText = `$${finalPrice}`;
+                    
+                    cartCount++;
+                    cartTotalEl.innerText = cartCount;
+                    
+                    // Show toast
+                    toast.classList.add('show');
+                    clearTimeout(toastTimer);
+                    toastTimer = setTimeout(() => toast.classList.remove('show'), 1000);
+                }, 800);
+
+            }, 3500); // Trigger every 3.5s
+
+            // Auto switch to carousel after 25s
+            setTimeout(() => {
+                switchScene('carousel');
+                initCarousel();
+            }, 25000);
+        }
+
+        /* --- SCENE 3: CAROUSEL (30s) --- */
+        function initCarousel() {
+            const window = document.getElementById('carousel-window');
+            const timerEl = document.getElementById('carousel-timer');
+            
+            const products = [
+                {
+                    title: "Q-Processor",
+                    color: "var(--primary)",
+                    type: "spin",
+                    desc: "64-bit quantum flux engine.<br>Efficiency: 99.8%"
+                },
+                {
+                    title: "Holo-Glass",
+                    color: "var(--secondary)",
+                    type: "zoom",
+                    desc: "AR projection module.<br>Resolution: 8K"
+                },
+                {
+                    title: "Titan Frame",
+                    color: "var(--tertiary)",
+                    type: "static",
+                    desc: "Reinforced alloy chassis.<br>Weight: 5kg"
+                }
+            ];
+
+            let currentIndex = 0;
+
+            function renderSlide(index) {
+                window.innerHTML = '';
+                const item = products[index];
+
+                const slide = document.createElement('div');
+                slide.className = 'slide active';
+
+                // Determine animation class
+                let animClass = '';
+                if(item.type === 'spin') animClass = 'anim-spin';
+                if(item.type === 'zoom') animClass = 'anim-zoom';
+
+                slide.innerHTML = `
+                    <div class="carousel-content">
+                        <h2 style="color:${item.color}; font-size: 2rem;">${item.title}</h2>
+                        <div class="carousel-visual" style="border-color:${item.color}">
+                            <div style="width: 80px; height: 80px; background:${item.color}; opacity: 0.5;"></div>
+                        </div>
+                        <div class="${animClass}" style="animation-duration: 4s;">
+                            <div class="carousel-visual" style="width: 80px; height: 80px; background:${item.color}; border: none; position:relative;">
+                                <div class="anim-specs">
+                                    <strong>SPECIFICATIONS:</strong><br>
+                                    > Latency: 0ms<br>
+                                    > Power: Fusion Core<br>
+                                    > Warranty: Void
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                window.appendChild(slide);
+                timerEl.innerText = "NEXT";
+            }
+
+            renderSlide(currentIndex);
+
+            // Auto advance
+            setInterval(() => {
+                currentIndex = (currentIndex + 1) % products.length;
+                renderSlide(currentIndex);
+                timerEl.innerText = "NEXT";
+            }, 7000);
+
+            // Auto switch to pitch after 25s (approx 4 slides)
+            setTimeout(() => {
+                switchScene('pitch');
+                initPitch();
+            }, 25000);
+        }
+
+        /* --- SCENE 4: PITCH (30s loop logic) --- */
+        function initPitch() {
+            const canvas = document.getElementById('pitchChart');
+            const cCtx = canvas.getContext('2d');
+            const ctaBtn = document.getElementById('cta-btn');
+
+            // Set canvas size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            let progress = 0;
+            const barWidth = 50;
+            const gap = 30;
+            const startX = (canvas.width - (3 * barWidth + 2 * gap)) / 2;
+
+            function animateChart() {
+                cCtx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw Axis
+                cCtx.strokeStyle = '#333';
+                cCtx.beginPath();
+                cCtx.moveTo(startX - 20, canvas.height - 30);
+                cCtx.lineTo(canvas.width - 20, canvas.height - 30);
+                cCtx.stroke();
+
+                // Draw Bars
+                const data = [0.4, 0.6, 0.9]; // 0-1 scale
+                
+                if(progress < 1) progress += 0.01;
+
+                data.forEach((val, i) => {
+                    const x = startX + i * (barWidth + gap);
+                    const h = (canvas.height - 50) * val * progress;
+                    const y = canvas.height - 30 - h;
+
+                    // Bar
+                    cCtx.fillStyle = progress > val ? '#00f3ff' : '#333';
+                    cCtx.fillRect(x, y, barWidth, h);
+                    
+                    // Label
+                    cCtx.fillStyle = '#fff';
+                    cCtx.font = '10px Courier New';
+                    cCtx.fillText(`T-${i+1}`, x + 15, canvas.height - 15);
+                });
+            }
+
+            const chartInterval = setInterval(animateChart, 16);
+
+            // CTA Interaction (Visual Feedback only)
+            ctaBtn.addEventListener('mouseenter', () => {
+                ctaBtn.style.transform = "scale(1.1)";
+            });
+            ctaBtn.addEventListener('mouseleave', () => {
+                ctaBtn.style.transform = "scale(1)";
+            });
+            ctaBtn.addEventListener('click', () => {
+                // Flash effect
+                ctaBtn.style.background = '#fff';
+                ctaBtn.style.color = '#000';
+                setTimeout(() => {
+                    ctaBtn.style.background = 'transparent';
+                    ctaBtn.style.color = 'var(--primary)';
+                }, 200);
+            });
+
+            // Restart loop for demo purposes (optional, creates infinite feel)
+            setTimeout(() => {
+                clearInterval(chartInterval);
+                progress = 0;
+                animateChart();
+            }, 25000);
+        }
+
+    </script>
+</body>
+</html>

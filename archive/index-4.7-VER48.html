@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURAL LINK V4 | Future Interface</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* --- CSS VARIABLES & RESET --- */
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg-dark: #050507;
+            --bg-panel: rgba(20, 20, 25, 0.8);
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+            --font-display: 'Orbitron', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+        img { max-width: 100%; display: block; }
+
+        /* --- LOADER SCREEN --- */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.8s ease-out, visibility 0.8s;
+        }
+
+        .loader-bar-container {
+            width: 200px;
+            height: 2px;
+            background: #333;
+            margin-top: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loader-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            transition: width 0.1s linear;
+        }
+
+        .loader-text {
+            font-family: var(--font-display);
+            color: var(--primary);
+            letter-spacing: 2px;
+            font-size: 14px;
+            animation: blink 1s infinite;
+        }
+
+        /* --- NAVIGATION --- */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            background: rgba(5, 5, 7, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: padding 0.3s;
+        }
+
+        nav.scrolled {
+            padding: 15px 50px;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 1.5rem;
+            color: var(--text-main);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-links a {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .nav-links a:hover {
+            opacity: 1;
+            color: var(--primary);
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -5px;
+            left: 0;
+            background: var(--primary);
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        /* --- HERO SECTION --- */
+        #hero {
+            position: relative;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        #hero-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 800px;
+            padding: 20px;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeUp 1s ease-out forwards 2.5s;
+        }
+
+        .hero-tag {
+            display: inline-block;
+            padding: 5px 15px;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+
+        .hero-title {
+            font-family: var(--font-display);
+            font-size: 4rem;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            position: relative;
+        }
+
+        /* Glitch Effect for Title */
+        .glitch {
+            position: relative;
+            color: white;
+        }
+        
+        .glitch::before, .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+        }
+        
+        .glitch::before {
+            left: 2px;
+            text-shadow: -1px 0 var(--secondary);
+            clip: rect(24px, 550px, 90px, 0);
+            animation: glitch-anim-2 3s infinite linear alternate-reverse;
+        }
+        
+        .glitch::after {
+            left: -2px;
+            text-shadow: -1px 0 var(--primary);
+            clip: rect(85px, 550px, 140px, 0);
+            animation: glitch-anim 2.5s infinite linear alternate-reverse;
+        }
+
+        .hero-desc {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .btn-primary {
+            display: inline-block;
+            padding: 15px 40px;
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            font-family: var(--font-display);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 100%;
+            background: var(--primary);
+            z-index: -1;
+            transition: var(--transition);
+        }
+
+        .btn-primary:hover::before {
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            color: var(--bg-dark);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+        }
+
+        /* Scroll Indicator */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0;
+            animation: fadeUp 1s ease-out forwards 3s;
+        }
+
+        .mouse {
+            width: 30px;
+            height: 50px;
+            border: 2px solid var(--text-muted);
+            border-radius: 20px;
+            position: relative;
+        }
+
+        .wheel {
+            width: 4px;
+            height: 8px;
+            background: var(--text-muted);
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+            animation: scroll 2s infinite;
+        }
+
+        /* --- FEATURES SECTION --- */
+        #features {
+            padding: 100px 50px;
+            background: var(--bg-dark);
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .section-subtitle {
+            color: var(--primary);
+            font-family: var(--font-display);
+            letter-spacing: 2px;
+            font-size: 0.9rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--bg-panel);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 40px;
+            border-radius: 10px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(50px);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent 40%, rgba(0, 243, 255, 0.1) 100%);
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            color: var(--secondary);
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-family: var(--font-display);
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* --- GALLERY / SHOWCASE --- */
+        #gallery {
+            padding: 100px 50px;
+            background: #08080a;
+        }
+
+        .gallery-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            max-width: 1200px;
+            margin: 0 auto;
+            align-items: center;
+        }
+
+        .gallery-image {
+            width: 100%;
+            height: 500px;
+            object-fit: cover;
+            border-radius: 10px;
+            box-shadow: -10px 10px 0 rgba(0, 243, 255, 0.2);
+            filter: grayscale(100%);
+            transition: var(--transition);
+        }
+
+        .gallery-image:hover {
+            filter: grayscale(0%);
+            transform: scale(1.02);
+        }
+
+        .gallery-text {
+            padding: 20px;
+        }
+
+        .gallery-text h3 {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+        .gallery-text p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        /* --- SPECS SECTION --- */
+        #specs {
+            padding: 100px 50px;
+            background: linear-gradient(180deg, var(--bg-dark) 0%, #050505 100%);
+        }
+
+        .specs-wrapper {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 50px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+        }
+
+        .spec-item {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .spec-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .spec-value {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        /* --- FOOTER --- */
+        footer {
+            padding: 50px;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .footer-logo {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .copyright {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        /* --- MODAL --- */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background: var(--bg-dark);
+            border: 1px solid var(--primary);
+            padding: 50px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 500px;
+            position: relative;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal h2 {
+            font-family: var(--font-display);
+            margin-bottom: 20px;
+        }
+
+        .modal p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: color 0.3s;
+        }
+
+        .close-modal:hover {
+            color: white;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes scroll {
+            0% { top: 10px; opacity: 1; }
+            100% { top: 30px; opacity: 0; }
+        }
+
+        @keyframes glitch-anim {
+            0% { clip: rect(32px, 9999px, 11px, 0); transform: skew(0.5deg); }
+            5% { clip: rect(86px, 9999px, 97px, 0); transform: skew(0.2deg); }
+            10% { clip: rect(54px, 9999px, 7px, 0); transform: skew(0.4deg); }
+            15% { clip: rect(6px, 9999px, 83px, 0); transform: skew(0.1deg); }
+            20% { clip: rect(99px, 9999px, 33px, 0); transform: skew(0.5deg); }
+            25% { clip: rect(10px, 9999px, 86px, 0); transform: skew(0.3deg); }
+            30% { clip: rect(67px, 9999px, 13px, 0); transform: skew(0.6deg); }
+            35% { clip: rect(23px, 9999px, 56px, 0); transform: skew(0.2deg); }
+            40% { clip: rect(89px, 9999px, 4px, 0); transform: skew(0.8deg); }
+            45% { clip: rect(32px, 9999px, 76px, 0); transform: skew(0.1deg); }
+            50% { clip: rect(11px, 9999px, 32px, 0); transform: skew(0.4deg); }
+            55% { clip: rect(54px, 9999px, 9px, 0); transform: skew(0.5deg); }
+            60% { clip: rect(76px, 9999px, 43px, 0); transform: skew(0.3deg); }
+            65% { clip: rect(13px, 9999px, 67px, 0); transform: skew(0.2deg); }
+            70% { clip: rect(98px, 9999px, 21px, 0); transform: skew(0.6deg); }
+            75% { clip: rect(45px, 9999px, 88px, 0); transform: skew(0.4deg); }
+            80% { clip: rect(22px, 9999px, 55px, 0); transform: skew(0.1deg); }
+            85% { clip: rect(67px, 9999px, 33px, 0); transform: skew(0.5deg); }
+            90% { clip: rect(9px, 9999px, 77px, 0); transform: skew(0.2deg); }
+            95% { clip: rect(54px, 9999px, 44px, 0); transform: skew(0.3deg); }
+            100% { clip: rect(33px, 9999px, 12px, 0); transform: skew(0.5deg); }
+        }
+
+        @keyframes glitch-anim-2 {
+            0% { clip: rect(12px, 9999px, 66px, 0); transform: skew(0.3deg); }
+            5% { clip: rect(78px, 9999px, 23px, 0); transform: skew(0.4deg); }
+            10% { clip: rect(34px, 9999px, 89px, 0); transform: skew(0.2deg); }
+            15% { clip: rect(9px, 9999px, 56px, 0); transform: skew(0.5deg); }
+            20% { clip: rect(55px, 9999px, 11px, 0); transform: skew(0.1deg); }
+            25% { clip: rect(88px, 9999px, 77px, 0); transform: skew(0.6deg); }
+            30% { clip: rect(22px, 9999px, 44px, 0); transform: skew(0.3deg); }
+            35% { clip: rect(67px, 9999px, 33px, 0); transform: skew(0.4deg); }
+            40% { clip: rect(14px, 9999px, 98px, 0); transform: skew(0.5deg); }
+            45% { clip: rect(56px, 9999px, 21px, 0); transform: skew(0.2deg); }
+            50% { clip: rect(99px, 9999px, 77px, 0); transform: skew(0.1deg); }
+            55% { clip: rect(33px, 9999px, 45px, 0); transform: skew(0.6deg); }
+            60% { clip: rect(66px, 9999px, 12px, 0); transform: skew(0.3deg); }
+            65% { clip: rect(21px, 9999px, 78px, 0); transform: skew(0.4deg); }
+            70% { clip: rect(88px, 9999px, 33px, 0); transform: skew(0.2deg); }
+            75% { clip: rect(44px, 9999px, 55px, 0); transform: skew(0.5deg); }
+            80% { clip: rect(77px, 9999px, 66px, 0); transform: skew(0.1deg); }
+            85% { clip: rect(12px, 9999px, 34px, 0); transform: skew(0.6deg); }
+            90% { clip: rect(55px, 9999px, 98px, 0); transform: skew(0.3deg); }
+            95% { clip: rect(33px, 9999px, 21px, 0); transform: skew(0.4deg); }
+            100% { clip: rect(76px, 9999px, 67px, 0); transform: skew(0.2deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .gallery-image {
+                height: 300px;
+            }
+            .specs-wrapper {
+                grid-template-columns: 1fr;
+            }
+            .gallery-text h3 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">✺</span>
+                <span class="logo-text">AURA<span class="highlight">TECH</span></span>
+            </div>
+            <nav class="nav">
+                <a href="#hero" class="nav-link">Home</a>
+                <a href="#specs" class="nav-link">Specs</a>
+                <a href="#gallery" class="nav-link">Gallery</a>
+                <a href="#contact" class="nav-link">Contact</ glitches</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="hero" class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Experience the Future<br><span class="highlight">Technology</span> Today</h1>
+                <p>Discover the cutting-edge innovations shaping our world. From AI to renewable energy, we are at the forefront of progress.</p>
+                <a href="#specs" class="btn btn-primary">Explore Specs</a>
+                <a href="#contact" class="btn btn-secondary">Contact Us</a>
+            </div>
+            <div class="hero-image">
+                <div class="floating-icon">
+                    <span class="icon-1">⚡</span>
+                    <span class="icon-2">🚀</span>
+                    <span class="icon-3">⚛</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Specs Section -->
+    <section id="specs" class="specs">
+        <div class="container">
+            <h2>System Specifications</h2>
+            <p class="section-subtitle">High performance, low latency.</p>
+            <div class="specs-wrapper">
+                <div class="spec-item">
+                    <span class="spec-label">Processing Power</span>
+                    <span class="spec-value">Quantum Core</span>
+                </div>
+                <div class="spec-item">
+                    <span class="spec-label">Storage</span>
+                    <span class="spec-value">Petabyte Scale</span>
+                </div>
+                <div class="spec-item">
+                    <span class="spec-label">Connectivity</span>
+                    <span class="spec-value">Neural Link</span>
+                </div>
+                    <div class="spec-item">
+                        <span class="spec-label">Durability</span>
+                        <span class="spec-value">Carbon Nanotubes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Gallery Section -->
+    <section id="gallery" class="gallery">
+        <div class="container">
+            <h2>Innovation Gallery</h2>
+            <p class="section-subtitle">A glimpse into our world.</p>
+            <div class="gallery-grid">
+                <div class="gallery-item">
+                    <img src="https://picsum.photos/seed/aura/600/400.jpg" alt="Innovation" class="gallery-image">
+                    <div class="gallery-overlay">
+                        <div class="gallery-info">
+                            <h3>Artificial Intelligence</h3>
+                            <p>Intelligent systems that learn and adapt.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="gallery-item">
+                    <img src="https://picsum.photos/seed/future/600/400.jpg" alt="Innovation" class="gallery-image">
+                    <div class="gallery-overlay">
+                        <div class="gallery-info">
+                            <h3>Renewable Energy</h3>
+                            <p>Sustainable solutions for a greener future.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="gallery-item">
+                    < <div class="gallery-item">
+                        <img src="https://picsum.photos/seed/tech/600/400.jpg" alt="Innovation" class="gallery-link-img">
+                        <div class="gallery-overlay">
+                            <div class="gallery-info">
+                                <h3>Robotics</h3>
+                                <p>Machines that mimic human actions.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Gallery Detail View (Modal) -->
+    <div id="gallery-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</div>
+            <h2 id="modal-title">Title</h2>
+            <p id="modal-desc">Description</p>
+            <div class="modal-image-container">
+                <img id="modal-img" src="" alt="Detail">
+            </div>
+            <a href="#" class="btn btn-primary" onclick="closeModal()">Close</a>
+        </div>
+    </div>
+
+    <!-- Contact Section -->
+    <section id="contact" class="contact">
+        <div class="container">
+            <div class="contact-wrapper">
+                <div class="contact-info">
+                    <h2>Get in Touch</h2>
+                    <p>Ready to start a conversation? Let's build the future together.</p>
+                    <p><strong>Email:</strong> contact@auratech.com</p>
+                    <p><strong>Phone:</strong> +1 (555) 123-4567</p>
+                    <p><strong>Location:</strong> San Francisco, CA</p>
+                </div>
+                <div class="contact-form">
+                    <form>
+                        <div class="form-group">
+                            <input type="text" placeholder="Name" required>
+                            <input type="email" placeholder="Email" required>
+                            <textarea placeholder="Message" rows="4" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <a href="#" class="footer-logo">✺ AURA<span class="highlight">TECH</span></a>
+            <p class="copyright">&copy; 2023 AuraTech. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // Scroll Spy for Navigation
+        window.addEventListener('scroll', function() {
+            let sections = document.querySelectorAll('section');
+            let navLinks = document.querySelectorAll('.nav-link');
+            
+            sections.forEach(section => {
+                let sectionTop = section.offsetTop;
+                let sectionHeight = section.clientHeight;
+                if (pageYOffset >= (sectionTop - sectionHeight / 3)) {
+                    navLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href').includes(section.id)) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+            });
+        });
+
+        // Gallery Modal Functionality
+        const modal = document.getElementById('gallery-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = <span id="modal-desc">Description</span>;
+        const modalImg = document.getElementById('modal-img');
+
+        // Gallery images and data (simplified)
+        const galleryData = [
+            { title: "Artificial Intelligence", desc: "Intelligent systems that learn and adapt.", img: "https://picsum.photos/seed/aura/800/600.jpg" },
+            { title: "Renewable Energy", desc: "Sustainable solutions for a greener future.", img: "https://picsum.photos/seed/future/800/600.jpg" }
+        ];
+
+        function openModal(index) {
+            modalTitle.innerText = galleryData[index].title;
+            modalDesc.innerText = galleryData[index].desc;
+            modalImg.src = galleryData[index].img;
+            modal.style.display = "flex";
+        }
+
+        function closeModal() {
+            modal.style.display = "none";
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

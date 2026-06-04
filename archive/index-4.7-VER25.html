@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AETHER — 生成式粒子场</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0f;
+    --bg-2: #14121a;
+    --fg: #f4e8d8;
+    --muted: #8a7e6e;
+    --accent: #ffb547;
+    --accent-2: #ff5e3a;
+    --panel: rgba(20, 18, 24, 0.55);
+    --border: rgba(255, 181, 71, 0.18);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    cursor: crosshair;
+    user-select: none;
+  }
+
+  canvas { display: block; position: fixed; inset: 0; }
+
+  .ui { position: fixed; z-index: 10; pointer-events: none; }
+  .ui > * { pointer-events: auto; }
+
+  /* ===== 标题 ===== */
+  .title { top: 36px; left: 40px; }
+  .title h1 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: clamp(56px, 8vw, 104px);
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 0.88;
+    color: var(--fg);
+    text-shadow: 0 0 60px rgba(255, 181, 71, 0.08);
+  }
+  .title h1 em {
+    font-style: italic;
+    color: var(--accent);
+    display: inline-block;
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.9); }
+  }
+  .title .sub {
+    margin-top: 12px;
+    font-size: 11px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .title .sub::before {
+    content: '';
+    width: 32px; height: 1px;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  /* ===== 状态条 ===== */
+  .stats {
+    bottom: 32px; left: 40px;
+    display: flex; gap: 32px;
+  }
+  .stat .label {
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .stat .value {
+    color: var(--fg);
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .value.accent { color: var(--accent); }
+
+  /* ===== 控制面板 ===== */
+  .panel {
+    top: 36px; right: 36px;
+    width: 290px;
+    background: var(--panel);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 22px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .panel h2 {
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel h2::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--border), transparent);
+  }
+
+  .modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  .mode-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 11px 8px;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(.2,.7,.3,1);
+    position: relative;
+    overflow: hidden;
+  }
+  .mode-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform: translateY(101%);
+    transition: transform 0.3s cubic-bezier(.2,.7,.3,1);
+    z-index: -1;
+  }
+  .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .mode-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    box-shadow: 0 0 24px rgba(255, 181, 71, 0.4);
+  }
+
+  .control { margin-bottom: 14px; }
+  .control label {
+    display: flex; justify-content: space-between;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .control label span {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    height: 16px;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 2px;
+    background: linear-gradient(to right, var(--accent) var(--p,50%), rgba(255,255,255,0.08) var(--p,50%));
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: -5px;
+    box-shadow: 0 0 14px var(--accent), 0 0 0 1px rgba(0,0,0,0.4);
+  }
+  input[type=range]::-moz-range-track {
+    height: 2px;
+    background: rgba(255,255,255,0.08);
+  }
+  input[type=range]::-moz-range-progress {
+    height: 2px;
+    background: var(--accent);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    box-shadow: 0 0 14px var(--accent);
+  }
+
+  .palettes {
+    display: flex; gap: 6px;
+    margin-top: 4px;
+  }
+  .palette {
+    flex: 1;
+    height: 30px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+  }
+  .palette:hover { transform: translateY(-2px); }
+  .palette.active {
+    border-color: var(--fg);
+    box-shadow: 0 0 0 1px var(--fg), 0 6px 20px rgba(0,0,0,0.4);
+  }
+  .palette.active::after {
+    content: '';
+    position: absolute;
+    top: -4px; left: 50%;
+    transform: translateX(-50%);
+    width: 4px; height: 4px;
+    background: var(--fg);
+    border-radius: 50%;
+  }
+
+  /* ===== 提示 ===== */
+  .hints {
+    bottom: 36px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 28px;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .hints span { display: flex; align-items: center; }
+  .hints kbd {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    padding: 4px 9px;
+    border-radius: 2px;
+    color: var(--fg);
+    font-family: inherit;
+    margin-right: 8px;
+    font-size: 9px;
+  }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed;
+    bottom: 100px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--panel);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--accent);
+    padding: 12px 24px;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--accent);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(.2,.7,.3,1);
+    pointer-events: none;
+    z-index: 100;
+    box-shadow: 0 10px 40px rgba(255, 181, 71, 0.15);
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ===== 视觉氛围层 ===== */
+  .vignette {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+    z-index: 5;
+  }
+  .grain {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 6;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .corner {
+    position: fixed;
+    width: 24px; height: 24px;
+    border: 1px solid var(--accent);
+    opacity: 0.5;
+    z-index: 7;
+    pointer-events: none;
+  }
+  .corner.tl { top: 16px; left: 16px; border-right: none; border-bottom: none; }
+  .corner.tr { top: 16px; right: 16px; border-left: none; border-bottom: none; }
+  .corner.bl { bottom: 16px; left: 16px; border-right: none; border-top: none; }
+  .corner.br { bottom: 16px; right: 16px; border-left: none; border-top: none; }
+
+  /* ===== 响应式 ===== */
+  @media (max-width: 820px) {
+    .title { top: 24px; left: 24px; }
+    .title h1 { font-size: 56px; }
+    .panel {
+      width: calc(100% - 48px);
+      top: auto; bottom: 90px;
+      right: 24px; left: 24px;
+      padding: 16px;
+    }
+    .hints { display: none; }
+    .stats { left: 24px; gap: 18px; }
+    .stat .value { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+  <canvas id="cv"></canvas>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <div class="ui title">
+    <h1>AETHER<em>·</em></h1>
+    <div class="sub">Generative Particle Field / Vol.01</div>
+  </div>
+
+  <div class="ui stats">
+    <div class="stat"><span class="label">FPS</span><span class="value" id="fps">60</span></div>
+    <div class="stat"><span class="label">Particles</span><span class="value" id="pcount">0</span></div>
+    <div class="stat"><span class="label">Mode</span><span class="value accent" id="modeName">FLOW</span></div>
+  </div>
+
+  <aside class="ui panel">
+    <h2>Behavior</h2>
+    <div class="modes">
+      <button class="mode-btn active" data-mode="flow">Flow</button>
+      <button class="mode-btn" data-mode="orbit">Orbit</button>
+      <button class="mode-btn" data-mode="vortex">Vortex</button>
+      <button class="mode-btn" data-mode="swarm">Swarm</button>
+    </div>
+
+    <div class="control">
+      <label>Density <span id="vDensity">2000</span></label>
+      <input type="range" id="density" min="500" max="5000" step="100" value="2000">
+    </div>
+    <div class="control">
+      <label>Velocity <span id="vSpeed">1.0</span></label>
+      <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1.0">
+    </div>
+    <div class="control">
+      <label>Persistence <span id="vTrail">0.92</span></label>
+      <input type="range" id="trail" min="0.70" max="0.99" step="0.01" value="0.92">
+    </div>
+    <div class="control">
+      <label>Mouse Force <span id="vForce">1.0</span></label>
+      <input type="range" id="force" min="0" max="2" step="0.1" value="1.0">
+    </div>
+
+    <h2 style="margin-top: 22px;">Palette</h2>
+    <div class="palettes" id="palettes"></div>
+  </aside>
+
+  <div class="ui hints">
+    <span><kbd>Click</kbd>Burst</span>
+    <span><kbd>Drag</kbd>Attract</span>
+    <span><kbd>Space</kbd>Cycle</span>
+    <span><kbd>R</kbd>Reset</span>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   AETHER — 生成式粒子场
+   完全自包含，无外部库
+============================================================ */
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  cv.width = Math.max(1, Math.floor(W * DPR));
+  cv.height = Math.max(1, Math.floor(H * DPR));
+  cv.style.width = W + 'px';
+  cv.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // 清空一次，避免缩放后留下旧画面
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, W, H);
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---------- 调色板 ---------- */
+const palettes = [
+  { name: 'Ember',  colors: ['#ff5e3a','#ffb547','#ff2e63','#fff1c1','#e84855'] },
+  { name: 'Toxic',  colors: ['#aaff00','#00ffaa','#39ff14','#caff00','#7fff00'] },
+  { name: 'Sakura', colors: ['#ff9ec7','#ffc8dd','#ffafcc','#fdfd96','#ffb3c6'] },
+  { name: 'Solar',  colors: ['#ffffff','#ffd700','#ff8c00','#ff4500','#fffacd'] },
+];
+let currentPalette = 0;
+
+/* ---------- 全局状态 ---------- */
+const state = {
+  mode: 'flow',
+  density: 2000,
+  speed: 1.0,
+  trail: 0.92,
+  force: 1.0,
+  time: 0,
+  mouse: { x: W/2, y: H/2, px: W/2, py: H/2, down: false, active: false },
+};
+
+/* ---------- 简易噪声（多频正弦混合） ---------- */
+function noise(x, y, t) {
+  const n =
+      Math.sin(x * 0.0030 + t * 0.30) * Math.cos(y * 0.0030 - t * 0.20)
+    + Math.sin((x + y) * 0.0050 + t * 0.15) * 0.5
+    + Math.cos(x * 0.0012 - y * 0.0012 + t * 0.10) * 0.3;
+  return n; // 大致范围 [-1.8, 1.8]
+}
+
+/* ---------- 粒子 ---------- */
+class Particle {
+  constructor() { this.reset(true); }
+
+  reset(initial = false) {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.vx = 0;
+    this.vy = 0;
+    this.life = initial ? Math.random() * 200 : 0;
+    this.maxLife = 160 + Math.random() * 180;
+    const pal = palettes[currentPalette].colors;
+    this.color = pal[Math.floor(Math.random() * pal.length)];
+    this.size = 0.5 + Math.random() * 1.4;
+  }
+
+  update(dt) {
+    const s = state.speed;
+    const m = state.mode;
+
+    if (m === 'flow') {
+      // 噪声驱动的向量场
+      const a = noise(this.x, this.y, state.time) * Math.PI;
+      this.vx += Math.cos(a) * 0.18 * s;
+      this.vy += Math.sin(a) * 0.18 * s;
+    } else if (m === 'orbit') {
+      // 围绕鼠标做切向运动
+      const dx = state.mouse.x - this.x;
+      const dy = state.mouse.y - this.y;
+      const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+      this.vx += (-dy / d) * 0.55 * s;
+      this.vy += ( dx / d) * 0.55 * s;
+      this.vx += (dx / d) * 0.025 * s;
+      this.vy += (dy / d) * 0.025 * s;
+    } else if (m === 'vortex') {
+      // 中心漩涡
+      const cx = W / 2, cy = H / 2;
+      const dx = cx - this.x, dy = cy - this.y;
+      const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+      this.vx += (-dy / d) * 0.85 * s;
+      this.vy += ( dx / d) * 0.85 * s;
+      this.vx += (dx / d) * 0.06 * s;
+      this.vy += (dy / d) * 0.06 * s;
+    } else if (m === 'swarm') {
+      // 噪声 + 向中心微弱汇聚
+      const a = noise(this.x, this.y, state.time * 0.6) * Math.PI;
+      this.vx += Math.cos(a) * 0.22 * s;
+      this.vy += Math.sin(a) * 0.22 * s;
+      this.vx += (W / 2 - this.x) * 0.00025 * s;
+      this.vy += (H / 2 - this.y) * 0.00025 * s;
+    }
+
+    // 鼠标力场
+    if (state.mouse.active) {
+      const dx = state.mouse.x - this.x;
+      const dy = state.mouse.y - this.y;
+      const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+      const R = 240;
+      if (d < R) {
+        // 按下：吸引；未按：排斥
+        const sign = state.mouse.down ? 1 : -1;
+        const f = sign * state.force * (1 - d / R) * 0.9;
+        this.vx += (dx / d) * f;
+        this.vy += (dy / d) * f;
+      }
+    }
+
+    // 阻尼
+    this.vx *= 0.93;
+    this.vy *= 0.93;
+
+    this.x += this.vx;
+    this.y += this.vy;
+
+    this.life++;
+
+    // 边界环绕
+    if (this.x < -20) this.x = W + 20;
+    if (this.x > W + 20) this.x = -20;
+    if (this.y < -20) this.y = H + 20;
+    if (this.y > H + 20) this.y = -20;
+
+    if (this.life > this.maxLife) this.reset();
+  }
+
+  draw(ctx) {
+    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    const lifeAlpha = 1 - this.life / this.maxLife;
+    const alpha = Math.max(0, Math.min(1, speed * 0.35 + 0.25)) * lifeAlpha;
+    if (alpha < 0.01) return;
+
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = alpha * 0.85;
+    const r = this.size + speed * 0.18;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/* ---------- 粒子池 ---------- */
+let particles = [];
+function initParticles(n) {
+  particles = [];
+  for (let i = 0; i < n; i++) particles.push(new Particle());
+}
+initParticles(state.density);
+
+/* ---------- 输入 ---------- */
+function setMouse(x, y) {
+  state.mouse.px = state.mouse.x;
+  state.mouse.py = state.mouse.y;
+  state.mouse.x = x;
+  state.mouse.y = y;
+  state.mouse.active = true;
+}
+
+cv.addEventListener('mousemove', e => setMouse(e.clientX, e.clientY));
+cv.addEventListener('mouseleave', () => state.mouse.active = false);
+cv.addEventListener('mouseenter', () => state.mouse.active = true);
+cv.addEventListener('mousedown', e => {
+  state.mouse.down = true;
+  burst(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', () => state.mouse.down = false);
+
+cv.addEventListener('touchmove', e => {
+  if (e.touches[0]) {
+    setMouse(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault();
+  }
+}, { passive: false });
+cv.addEventListener('touchstart', e => {
+  if (e.touches[0]) {
+    setMouse(e.touches[0].clientX, e.touches[0].clientY);
+    state.mouse.down = true;
+    burst(state.mouse.x, state.mouse.y);
+  }
+});
+cv.addEventListener('touchend', () => {
+  state.mouse.down = false;
+  state.mouse.active = false;
+});
+
+function burst(x, y) {
+  const pal = palettes[currentPalette].colors;
+  const N = 90;
+  for (let i = 0; i < N; i++) {
+    const p = new Particle();
+    p.x = x; p.y = y;
+    const a = (i / N) * Math.PI * 2 + Math.random() * 0.3;
+    const v = 2.5 + Math.random() * 7;
+    p.vx = Math.cos(a) * v;
+    p.vy = Math.sin(a) * v;
+    p.color = pal[Math.floor(Math.random() * pal.length)];
+    p.size = 1 + Math.random() * 2.2;
+    p.life = 0;
+    p.maxLife = 70 + Math.random() * 80;
+    particles.push(p);
+  }
+  // 上限保护
+  const cap = state.density + 600;
+  if (particles.length > cap) particles.splice(0, particles.length - cap);
+}
+
+/* ---------- 主循环 ---------- */
+let lastTime = performance.now();
+let fpsAcc = 0, fpsCount = 0;
+
+function loop(now) {
+  const dt = Math.min(50, now - lastTime);
+  lastTime = now;
+  state.time += dt * 0.001;
+
+  // FPS 统计
+  fpsAcc += 1000 / Math.max(1, dt);
+  fpsCount++;
+  if (fpsCount >= 20) {
+    document.getElementById('fps').textContent = Math.round(fpsAcc / fpsCount);
+    document.getElementById('pcount').textContent = particles.length;
+    fpsAcc = 0; fpsCount = 0;
+  }
+
+  // 拖尾衰减（半透明覆盖）
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = `rgba(10, 10, 15, ${1 - state.trail})`;
+  ctx.fillRect(0, 0, W, H);
+
+  // 粒子（加法混合制造辉光）
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < particles.length; i++) {
+    particles[i].update(dt);
+    particles[i].draw(ctx);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+
+  // 鼠标光环
+  if (state.mouse.active) {
+    const R = 240 * Math.max(0.3, state.force);
+    const grad = ctx.createRadialGradient(state.mouse.x, state.mouse.y, 0, state.mouse.x, state.mouse.y, R);
+    const col = state.mouse.down ? '255,94,58' : '255,181,71';
+    grad.addColorStop(0, `rgba(${col},0.10)`);
+    grad.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(state.mouse.x, state.mouse.y, R, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = state.mouse.down ? '#ff5e3a' : 'rgba(255,181,71,0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(state.mouse.x, state.mouse.y, R, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = state.mouse.down ? '#ff5e3a' : '#ffb547';
+    ctx.beginPath();
+    ctx.arc(state.mouse.x, state.mouse.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 十字准星
+    ctx.strokeStyle = 'rgba(255,181,71,0.25)';
+    ctx.beginPath();
+    ctx.moveTo(state.mouse.x - 10, state.mouse.y);
+    ctx.lineTo(state.mouse.x - 4, state.mouse.y);
+    ctx.moveTo(state.mouse.x + 4, state.mouse.y);
+    ctx.lineTo(state.mouse.x + 10, state.mouse.y);
+    ctx.moveTo(state.mouse.x, state.mouse.y - 10);
+    ctx.lineTo(state.mouse.x, state.mouse.y - 4);
+    ctx.moveTo(state.mouse.x, state.mouse.y + 4);
+    ctx.lineTo(state.mouse.x, state.mouse.y + 10);
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- UI 绑定 ---------- */
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.mode = btn.dataset.mode;
+    document.getElementById('modeName').textContent = state.mode.toUpperCase();
+    toast('Mode → ' + state.mode.toUpperCase());
+  });
+});
+
+function bindSlider(id, prop, fmt) {
+  const el = document.getElementById(id);
+  const out = document.getElementById('v' + id.charAt(0).toUpperCase() + id.slice(1));
+  const update = () => {
+    state[prop] = parseFloat(el.value);
+    out.textContent = fmt(state[prop]);
+    const p = ((el.value - el.min) / (el.max - el.min)) * 100;
+    el.style.setProperty('--p', p + '%');
+  };
+  el.addEventListener('input', update);
+  update();
+}
+bindSlider('density', 'density', v => v.toFixed(0));
+bindSlider('speed', 'speed', v => v.toFixed(1));
+bindSlider('trail', 'trail', v => v.toFixed(2));
+bindSlider('force', 'force', v => v.toFixed(1));
+
+// 密度变化时增删粒子（用 change 避免拖动中频繁操作）
+document.getElementById('density').addEventListener('change', () => {
+  const target = Math.floor(state.density);
+  while (particles.length < target) particles.push(new Particle());
+  if (particles.length > target) particles.length = target;
+});
+
+/* ---------- 调色板 UI ---------- */
+const palContainer = document.getElementById('palettes');
+palettes.forEach((p, i) => {
+  const el = document.createElement('div');
+  el.className = 'palette' + (i === 0 ? ' active' : '');
+  el.style.background = `linear-gradient(90deg, ${p.colors.join(',')})`;
+  el.title = p.name;
+  el.addEventListener('click', () => {
+    currentPalette = i;
+    document.querySelectorAll('.palette').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+    // 给现有粒子重新染色
+    const cols = p.colors;
+    for (let j = 0; j < particles.length; j++) {
+      particles[j].color = cols[Math.floor(Math.random() * cols.length)];
+    }
+    toast('Palette → ' + p.name);
+  });
+  palContainer.appendChild(el);
+});
+
+/* ---------- 键盘 ---------- */
+const modeOrder = ['flow', 'orbit', 'vortex', 'swarm'];
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    const i = modeOrder.indexOf(state.mode);
+    const next = modeOrder[(i + 1) % modeOrder.length];
+    document.querySelector(`.mode-btn[data-mode="${next}"]`).click();
+  } else if (e.code === 'KeyR') {
+    initParticles(state.density);
+    toast('Field reset');
+  } else if (e.code === 'KeyP') {
+    const next = (currentPalette + 1) % palettes.length;
+    document.querySelectorAll('.palette')[next].click();
+  }
+});
+
+/* ---------- Toast ---------- */
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+/* ---------- 开场欢迎 ---------- */
+setTimeout(() => toast('Move · Click · Drag'), 600);
+</script>
+</body>
+</html>

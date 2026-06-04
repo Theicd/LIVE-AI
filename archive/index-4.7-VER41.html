@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Horizon | Sci-Fi City</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* CSS Reset and Base Styles */
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #bc13fe;
+            --neon-green: #0aff0a;
+            --bg-dark: #050510;
+            --glass: rgba(0, 243, 255, 0.1);
+            --border-glow: 0 0 10px var(--neon-blue);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Rajdhani', sans-serif;
+            color: white;
+        }
+
+        /* Main Container */
+        #scene-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Canvas for City Rendering */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Scanline Overlay Effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0),
+                rgba(255, 255, 255, 0) 50%,
+                rgba(0, 0, 0, 0.2) 50%,
+                rgba(0, 0, 0, 0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0) 50%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        /* Heads-Up Display (HUD) */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+            background: 
+                linear-gradient(90deg, rgba(0, 243, 255, 0.05) 0%, transparent 10%),
+                linear-gradient(270deg, rgba(188, 19, 254, 0.05) 0%, transparent 10%);
+        }
+
+        /* Header UI */
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .brand {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--neon-blue);
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .system-status {
+            text-align: right;
+        }
+
+        .status-text {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 1px;
+        }
+
+        .blink {
+            animation: blinker 1.5s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+
+        /* Footer UI */
+        .hud-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .clock {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+        .coords {
+            text-align: right;
+            font-size: 0.9rem;
+            color: var(--neon-pink);
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .brand { font-size: 1.2rem; }
+            .clock { font-size: 1.8rem; }
+            .hud { padding: 1rem; }
+        }
+
+        /* Interactive Hint */
+        .interaction-hint {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: pulse 2s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+
+    <main id="scene-container">
+        <!-- The Canvas where the city is drawn -->
+        <canvas id="cityCanvas"></canvas>
+
+        <!-- Visual Filters -->
+        <div class="scanlines"></div>
+        <div class="vignette"></div>
+
+        <!-- Heads-Up Display -->
+        <aside id="hud">
+            <div class="hud-top">
+                <div class="brand">
+                    NeoTokyo <span style="font-size:0.6em; opacity:0.8">V.4.2</span>
+                </div>
+                <div class="system-status">
+                    <div class="status-text">NET_LINK: <span style="color:var(--neon-green)">ONLINE</span></div>
+                    <div class="status-text">SECURITY: <span class="blink">SCANNING</span></div>
+                    <div class="status-text">THREAT_LVL: <span style="color:var(--neon-pink)">LOW</span></div>
+                </div>
+            </div>
+
+            <div class="interaction-hint">
+                Move mouse to navigate view
+            </div>
+
+            <div class="hud-bottom">
+                <div class="coords">
+                    LAT: 35.6762° N <br>
+                    LNG: 139.6503° E
+                </div>
+                <div class="clock" id="clock">00:00:00</div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        /**
+         * Futuristic City Generator & Engine
+         * Handles rendering of buildings, traffic, and atmosphere on HTML5 Canvas.
+         */
+        
+        const canvas = document.getElementById('cityCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        let mouseX = 0;
+        let mouseY = 0;
+        
+        // Configuration
+        const config = {
+            buildingCount: 30,
+            carCount: 15,
+            starCount: 100,
+            gridSpeed: 0.5,
+            colors: {
+                buildingBack: '#0a0a1a',
+                buildingFront: '#120520',
+                window: '#00f3ff',
+                grid: 'rgba(0, 243, 255, 0.3)',
+                gridLine: 'rgba(0, 243, 255, 0.6)',
+                car1: '#00f3ff', // Cyan
+                car2: '#bc13fe', // Magenta
+                car3: '#ffffff'
+            }
+        };
+
+        // State Objects
+        const stars = [];
+        const buildings = [];
+        const cars = [];
+        let cameraOffset = 0;
+        
+        // Resize Handling
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            initCity();
+        }
+
+        window.addEventListener('resize', resize);
+        
+        // Mouse/Touch Interaction
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX / width;
+            mouseY = e.clientY / height;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if(e.touches.length > 0) {
+                mouseX = e.touches[0].clientX / width;
+                mouseY = e.touches[0].clientY / height;
+            }
+        });
+
+        // --- Classes ---
+
+        class Star {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * (height / 2); // Only in top half
+                this.size = Math.random() * 2;
+                this.speed = Math.random() * 0.2 + 0.05;
+                this.opacity = Math.random();
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            update() {
+                this.x -= this.speed;
+                if (this.x < 0) this.x = width;
+                
+                // Twinkle effect
+                this.opacity += (Math.random() - 0.5) * 0.05;
+                if (this.opacity < 0) this.opacity = 0;
+                if (this.opacity > 1) this.opacity = 1;
+            }
+        }
+
+        class Building {
+            constructor(zIndex, isStreet) {
+                this.zIndex = zIndex; // 1 = back, 2 = mid, 3 = front
+                this.width = (Math.random() * 100) + 60;
+                this.height = (Math.random() * 200) + 50;
+                this.depth = (Math.random() * 20) + 10; // How far apart they are
+                this.x = (Math.random() * width) - (width/2); // Start from left/right
+                
+                // Parallax properties
+                if (zIndex === 1) {
+                    this.speed = 0.2;
+                    this.color = config.colors.buildingBack;
+                    this.layer = 'back';
+                } else if (zIndex === 2) {
+                    this.speed = 0.5;
+                    this.color = '#150a25';
+                    this.layer = 'mid';
+                } else {
+                    this.speed = 1.0;
+                    this.color = config.colors.buildingFront;
+                    this.layer = 'front';
+                }
+
+                // Street logic (only for front layer usually, but simplified here)
+                this.isStreet = isStreet;
+                
+                // Windows: randomly lit
+                this.windows = [];
+                if (zIndex < 3) {
+                    const cols = Math.floor(this.width / 10);
+                    const rows = Math.floor(this.height / 15);
+                    for(let r=0; r<rows; r++) {
+                        for(let c=0; c<cols; c++) {
+                            if (Math.random() > 0.3) {
+                                this.windows.push({
+                                    x: c * 10 + 2,
+                                    y: r * 15 + 5,
+                                    w: 4,
+                                    h: 8,
+                                    on: Math.random() > 0.5
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            update() {
+                this.x += this.speed * config.gridSpeed;
+                
+                // Wrap around
+                if (this.x > width / 2) {
+                    this.x = -width / 2;
+                    // Regenerate windows for variety
+                    this.windows = [];
+                    const cols = Math.floor(this.width / 10);
+                    const rows = Math.floor(this.height / 15);
+                    for(let r=0; r<rows; r++) {
+                        for(let c=0; c<cols; c++) {
+                            if (Math.random() > 0.3) {
+                                this.windows.push({
+                                    x: c * 10 + 2,
+                                    y: r * 15 + 5,
+                                    w: 4,
+                                    h: 8,
+                                    on: Math.random() > 0.5
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            draw(offsetX) {
+                // Parallax shift based on mouse
+                const parallaxX = offsetX * (this.zIndex * 50);
+
+                const drawX = this.x - parallaxX;
+                
+                // Draw Building
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 0;
+                
+                // Scale based on depth
+                const scale = this.zIndex; 
+                const currentW = this.width * scale;
+                const currentH = this.height * scale;
+                const currentX = drawX + (width/2); // Center baseline
+
+                // Main building shape
+                ctx.beginPath();
+                ctx.rect(currentX, height/2 - currentH, currentW, currentH);
+                ctx.fill();
+
+                // Outline
+                ctx.strokeStyle = this.zIndex === 1 ? '#1a1a40' : '#2a0a50';
+                ctx.lineWidth = 2 * scale;
+                ctx.stroke();
+
+                // Glow effect for front layer
+                if (this.zIndex === 3) {
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = config.colors.neonBlue;
+                    ctx.strokeStyle = config.colors.neonBlue;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // Windows
+                if (this.windows.length > 0) {
+                    this.windows.forEach(win => {
+                        if (win.on) {
+                            ctx.fillStyle = this.zIndex === 3 ? config.colors.window : 'rgba(0, 243, 255, 0.3)';
+                            // Apply scale to windows
+                            ctx.fillRect(
+                                currentX + win.x * scale, 
+                                (height/2 - currentH) + win.y * scale, 
+                                win.w * scale, 
+                                win.h * scale
+                            );
+                        }
+                    });
+                }
+            }
+        }
+
+        class Car {
+            constructor() {
+                this.init(true);
+            }
+
+            init(randomX = false) {
+                this.y = height/2 + (Math.random() * 20); // On the road
+                this.direction = Math.random() > 0.5 ? 1 : -1;
+                this.speed = (Math.random() * 3 + 2) * this.direction;
+                this.color = Math.random() > 0.6 ? config.colors.car2 : (Math.random() > 0.3 ? config.colors.car1 : config.colors.car3);
+                this.width = (Math.random() * 40) + 20;
+                this.height = 10;
+                this.x = randomX ? (Math.random() * width) : (this.direction === 1 ? -50 : width + 50);
+                this.tilt = (Math.random() - 0.5) * 0.2;
+            }
+
+            update() {
+                this.x += this.speed;
+
+                // Reset if out of bounds
+                if ((this.direction === 1 && this.x > width + 100) || 
+                    (this.direction === -1 && this.x < -100)) {
+                    this.init(false);
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.tilt * (this.direction === 1 ? 0.05 : -0.05));
+
+                // Neon Glow
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                
+                // Car Body
+                ctx.fillStyle = '#000';
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+
+                // Simple futuristic car shape
+                ctx.beginPath();
+                ctx.moveTo(-this.width/2, this.height/2);
+                ctx.lineTo(this.width/2, this.height/2);
+                ctx.lineTo(this.width/2 - 5, -this.height/2);
+                ctx.lineTo(-(this.width/2 - 5), -this.height/2);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Headlights/Taillights
+                ctx.shadowColor = '#fff';
+                if (this.direction === 1) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // Headlight
+                    ctx.fillRect(this.width/2 - 4, -this.height/2, 4, 4);
+                } else {
+                    ctx.fillStyle = this.color; // Taillight
+                    ctx.shadowBlur = 20;
+                    ctx.fillRect(-this.width/2, -this.height/2, 4, 4);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // --- Initialization ---
+
+        function initStars() {
+            stars.length = 0;
+            for (let i = 0; i < config.starCount; i++) {
+                stars.push(new Star());
+            }
+        }
+
+        function initCity() {
+            buildings.length = 0;
+            
+            // Create Layers
+            // Layer 1: Far back buildings
+            for (let i = 0; i < config.buildingCount; i++) {
+                buildings.push(new Building(1, false));
+            }
+            
+            // Layer 2: Mid buildings
+            for (let i = 0; i < config.buildingCount; i++) {
+                buildings.push(new Building(2, false));
+            }
+            
+            // Layer 3: Front buildings (with gaps for streets)
+            for (let i = 0; i < config.buildingCount * 1.5; i++) {
+                buildings.push(new Building(3, true));
+            }
+
+            // Initialize Cars
+            cars.length = 0;
+            for (let i = 0; i < config.carCount; i++) {
+                cars.push(new Car());
+            }
+
+            initStars();
+        }
+
+        // --- Rendering Functions ---
+
+        function drawGrid() {
+            // Perspective Grid
+            const horizon = height / 2;
+            
+            ctx.lineWidth = 1;
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = config.colors.neonBlue;
+            ctx.strokeStyle = config.colors.gridLine;
+
+            // Moving vertical lines
+            const spacing = 50;
+            const offset = (cameraOffset * 20) % spacing;
+
+            // Determine perspective shift based on mouse
+            const perspectiveX = (mouseX - 0.5) * 200;
+
+            for (let x = -width; x < width * 2; x += spacing) {
+                // Actual X position with movement
+                const drawX = x - offset;
+                
+                // Simple perspective logic
+                ctx.beginPath();
+                ctx.moveTo(drawX + perspectiveX, horizon);
+                ctx.lineTo(width/2 + (drawX - width/2) * 0.1, height);
+                ctx.stroke();
+            }
+
+            // Horizontal moving lines
+            for (let y = 0; y < height; y += 40) {
+                // Calculate distance from center to fade out near horizon
+                // Not strictly necessary for retro aesthetic, but adds depth
+                const drawY = horizon + y + (cameraOffset * 50);
+                
+                // Fade near horizon
+                const alpha = Math.min(1, (drawY - horizon) / 200);
+
+                ctx.beginPath();
+                ctx.strokeStyle = `rgba(0, 243, 255, ${alpha})`;
+                
+                ctx.moveTo(0, drawY);
+                ctx.lineTo(width, drawY);
+                ctx.stroke();
+            }
+            
+            ctx.shadowBlur = 0;
+        }
+
+        function drawMoon() {
+            const mx = width * 0.8;
+            const my = height * 0.2;
+            
+            // Glowing orb
+            const gradient = ctx.createRadialGradient(mx, my, 10, mx, my, 60);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+            gradient.addColorStop(0.2, 'rgba(188, 19, 254, 0.4)');
+            gradient.addColorStop(1, 'rgba(188, 19, 254, 0)');
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(mx, my, 60, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function animate() {
+            // Clear Screen
+            ctx.fillStyle = config.colors.bgDark; // Use deep blue/black
+            ctx.fillRect(0, 0, width, height);
+
+            cameraOffset += config.gridSpeed;
+
+            // 1. Draw Stars
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+
+            // 2. Draw Moon
+            drawMoon();
+
+            // 3. Draw Grid (Floor)
+            drawGrid();
+
+            // 4. Draw Buildings
+            // Sort by Y position roughly or Z-index logic handled by array order
+            // Sort buildings by Z index to ensure correct layering
+            buildings.sort((a, b) => a.zIndex - b.zIndex);
+
+            const mouseXFactor = (mouseX - 0.5) * 100; // Parallax strength
+            
+            buildings.forEach(b => {
+                b.update();
+                b.draw(mouseXFactor);
+            });
+
+            // 5. Draw Cars
+            cars.forEach(c => {
+                c.update();
+                c.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- Clock Logic ---
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            document.getElementById('clock').textContent = timeString;
+        }
+
+        // --- Boot ---
+        resize(); // Initial setup
+        updateClock();
+        setInterval(updateClock, 1000);
+        animate();
+
+    </script>
+</body>
+</html>

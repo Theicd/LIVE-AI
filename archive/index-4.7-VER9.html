@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sunset Serenade | Animated Experience</title>
+    <style>
+        :root {
+            /* Color Palette - Day */
+            --sky-top: #4a3b69;
+            --sky-mid: #ff7e5f;
+            --sky-bot: #feb47b;
+            --sun-color: #ffdd55;
+            --sun-glow: rgba(255, 221, 85, 0.6);
+            --mountain-back: #5c4b75;
+            --mountain-front: #2d2438;
+            --cloud-color: rgba(255, 255, 255, 0.8);
+            --text-color: #ffffff;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Color Palette - Night */
+        [data-theme="night"] {
+            --sky-top: #0f0c29;
+            --sky-mid: #302b63;
+            --sky-bot: #24243e;
+            --sun-color: #ffffff; /* Moon */
+            --sun-glow: rgba(255, 255, 255, 0.5);
+            --mountain-back: #1a1a2e;
+            --mountain-front: #000000;
+            --cloud-color: rgba(200, 200, 255, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            background-color: var(--sky-top);
+            transition: background-color 3s ease;
+        }
+
+        /* --- Scene Container --- */
+        .scene {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* --- Sky & Sun --- */
+        .sky {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--sky-top), var(--sky-mid), var(--sky-bot));
+            background-size: 400% 400%;
+            animation: skyShift 30s ease infinite alternate;
+            z-index: 1;
+        }
+
+        @keyframes skyShift {
+            0% { background-position: 50% 0%; }
+            100% { background-position: 50% 100%; }
+        }
+
+        .sun {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 120px;
+            background: var(--sun-color);
+            border-radius: 50%;
+            box-shadow: 0 0 60px 20px var(--sun-glow);
+            z-index: 2;
+            animation: sunPulse 6s ease-in-out infinite alternate;
+            transition: all 1s ease;
+        }
+
+        @keyframes sunPulse {
+            0% { transform: translateX(-50%) scale(1); box-shadow: 0 0 50px 15px var(--sun-glow); }
+            100% { transform: translateX(-50%) scale(1.1); box-shadow: 0 0 80px 30px var(--sun-glow); }
+        }
+
+        /* --- Stars (Hidden by default) --- */
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            z-index: 2;
+            opacity: 0;
+            transition: opacity 3s ease;
+            pointer-events: none;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite ease-in-out;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        /* --- Mountains --- */
+        .mountains {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            z-index: 3;
+            transition: transform 0.5s ease;
+        }
+
+        .mountains.back {
+            height: 40vh;
+            background-repeat: repeat-x;
+            background-size: 50% 100%;
+            clip-path: polygon(0% 100%, 0% 40%, 15% 55%, 30% 35%, 50% 60%, 70% 30%, 85% 50%, 100% 20%, 100% 100%);
+            background-color: var(--mountain-back);
+            opacity: 0.8;
+        }
+
+        .mountains.front {
+            height: 25vh;
+            background-repeat: repeat-x;
+            background-size: 50% 100%;
+            clip-path: polygon(0% 100%, 0% 70%, 20% 40%, 40% 60%, 60% 30%, 80% 50%, 100% 20%, 100% 100%);
+            background-color: var(--mountain-front);
+            z-index: 4;
+        }
+
+        /* --- Clouds --- */
+        .clouds {
+            position: absolute;
+            top: 10%;
+            left: 0;
+            width: 200%; /* Wider for looping */
+            height: 40%;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .cloud {
+            position: absolute;
+            background: var(--cloud-color);
+            border-radius: 50px;
+            filter: blur(8px);
+            opacity: 0.7;
+        }
+
+        .cloud::after, .cloud::before {
+            content: '';
+            position: absolute;
+            background: inherit;
+            border-radius: 50%;
+        }
+
+        /* Cloud Shapes */
+        .cloud-1 {
+            width: 300px;
+            height: 100px;
+            top: 10%;
+            left: -10%;
+            animation: drift 60s linear infinite;
+        }
+        .cloud-1::after { width: 150px; height: 150px; top: -50px; left: 50px; }
+        .cloud-1::before { width: 100px; height: 100px; top: -30px; left: 120px; }
+
+        .cloud-2 {
+            width: 400px;
+            height: 120px;
+            top: 25%;
+            left: -20%;
+            animation: drift 80s linear infinite;
+            opacity: 0.4;
+        }
+        .cloud-2::after { width: 200px; height: 200px; top: -60px; left: 80px; }
+        .cloud-2::before { width: 140px; height: 140px; top: -40px; left: 160px; }
+
+        .cloud-3 {
+            width: 250px;
+            height: 80px;
+            top: 40%;
+            left: -15%;
+            animation: drift 100s linear infinite;
+            opacity: 0.3;
+        }
+        .cloud-3::after { width: 120px; height: 120px; top: -40px; left: 40px; }
+
+        @keyframes drift {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); } /* Move half width because container is 200% */
+        }
+
+        /* --- Fireflies (Particles) --- */
+        .firefly-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .firefly {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px 2px rgba(255, 255, 100, 0.8);
+            opacity: 0;
+            animation: floatUp 8s linear infinite;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { transform: translateY(-10vh) translateX(50px); opacity: 0; }
+        }
+
+        /* --- UI Overlay --- */
+        .ui-overlay {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+        }
+
+        .btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, color 0.2s;
+        }
+
+        .btn:hover {
+            transform: scale(1.1);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        /* Music Visualizer Bars */
+        .visualizer {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 20px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .bar {
+            width: 3px;
+            background: var(--text-color);
+            border-radius: 2px;
+            animation: equalize 0.8s ease-in-out infinite alternate;
+        }
+
+        .bar:nth-child(1) { animation-delay: 0.1s; height: 10px; }
+        .bar:nth-child(2) { animation-delay: 0.3s; height: 15px; }
+        .bar:nth-child(3) { animation-delay: 0.5s; height: 8px; }
+        .bar:nth-child(4) { animation-delay: 0.2s; height: 12px; }
+        .bar:nth-child(5) { animation-delay: 0.4s; height: 16px; }
+
+        .visualizer.active {
+            opacity: 0.7;
+        }
+
+        .visualizer.paused .bar {
+            animation-play-state: paused;
+            height: 4px !important;
+        }
+
+        @keyframes equalize {
+            0% { height: 5px; }
+            100% { height: 20px; }
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255,255,255,0.2);
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: rgba(255,255,255,0.4);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        /* --- Toast Notification --- */
+        .toast {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 100;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* --- Noise Texture --- */
+        .noise {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0.04;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* --- Mobile Adjustments --- */
+        @media (max-width: 600px) {
+            .sun { width: 80px; height: 80px; bottom: 15%; }
+            .mountains.back { height: 30vh; }
+            .mountains.front { height: 20vh; }
+            .cloud-1 { width: 200px; height: 70px; }
+            .cloud-2 { width: 300px; height: 90px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        <span id="toast-msg">Notification</span>
+    </div>
+
+    <main class="scene">
+        <!-- Background Sky -->
+        <div class="sky" id="sky"></div>
+
+        <!-- Stars -->
+        <div class="stars" id="stars"></div>
+
+        <!-- Sun / Moon -->
+        <div class="sun" id="sun"></div>
+
+        <!-- Clouds -->
+        <div class="clouds">
+            <div class="cloud cloud-1"></div>
+            <div class="cloud cloud-2"></div>
+            <div class="cloud cloud-3"></div>
+        </div>
+
+        <!-- Mountains -->
+        <div class="mountains back"></div>
+        <div class="mountains front"></div>
+
+        <!-- Fireflies -->
+        <div class="firefly-container" id="firefly-container"></div>
+
+        <!-- UI Overlay -->
+        <footer class="ui-overlay">
+            <div class="glass-panel">
+                <!-- Play/Pause Button -->
+                <button class="btn" id="play-btn" aria-label="Play Music">
+                    <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+
+                <!-- Visualizer -->
+                <div class="visualizer" id="visualizer">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+
+                <!-- Theme Toggle -->
+                <label class="toggle-switch" title="Toggle Day/Night">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </footer>
+
+        <!-- Film Grain Overlay -->
+        <div class="noise"></div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Elements ---
+            const playBtn = document.getElementById('play-btn');
+            const iconPlay = document.getElementById('icon-play');
+            const iconPause = document.getElementById('icon-pause');
+            const visualizer = document.getElementById('visualizer');
+            const themeToggle = document.getElementById('theme-toggle');
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const sun = document.getElementById('sun');
+            const stars = document.getElementById('stars');
+            const fireflyContainer = document.getElementById('firefly-container');
+            const body = document.body;
+
+            // --- State ---
+            let isPlaying = false;
+            let isNight = false;
+
+            // --- Functions ---
+
+            // 1. Toast Notification System
+            function showToast(message) {
+                toastMsg.textContent = message;
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            // 2. Generate Stars
+            function createStars() {
+                stars.innerHTML = '';
+                const count = 50;
+                for (let i = 0; i < count; i++) {
+                    const star = document.createElement('div');
+                    star.classList.add('star');
+                    // Random position
+                    star.style.left = Math.random() * 100 + '%';
+                    star.style.top = Math.random() * 100 + '%';
+                    // Random size
+                    const size = Math.random() * 2 + 1;
+                    star.style.width = size + 'px';
+                    star.style.height = size + 'px';
+                    // Random animation delay
+                    star.style.animationDelay = Math.random() * 3 + 's';
+                    stars.appendChild(star);
+                }
+            }
+
+            // 3. Generate Fireflies
+            function createFireflies() {
+                fireflyContainer.innerHTML = '';
+                const count = 20;
+                for (let i = 0; i < count; i++) {
+                    const fly = document.createElement('div');
+                    fly.classList.add('firefly');
+                    fly.style.left = Math.random() * 100 + '%';
+                    fly.style.animationDuration = (Math.random() * 5 + 5) + 's'; // 5-10s
+                    fly.style.animationDelay = (Math.random() * 5) + 's';
+                    fireflyContainer.appendChild(fly);
+                }
+            }
+
+            // 4. Theme Toggle Logic
+            function toggleTheme() {
+                isNight = !isNight;
+                
+                if (isNight) {
+                    body.setAttribute('data-theme', 'night');
+                    stars.style.opacity = '1';
+                    showToast("Switched to Moonlit Mode");
+                } else {
+                    body.removeAttribute('data-theme');
+                    stars.style.opacity = '0';
+                    showToast("Switched to Sunset Mode");
+                }
+            }
+
+            // 5. Play/Pause Logic
+            function togglePlay() {
+                isPlaying = !isPlaying;
+
+                if (isPlaying) {
+                    iconPlay.style.display = 'none';
+                    iconPause.style.display = 'block';
+                    visualizer.classList.add('active');
+                    visualizer.classList.remove('paused');
+                    showToast("Jazz Ambience Playing...");
+                } else {
+                    iconPlay.style.display = 'block';
+                    iconPause.style.display = 'none';
+                    visualizer.classList.remove('active');
+                    visualizer.classList.add('paused');
+                    showToast("Paused");
+                }
+            }
+
+            // --- Event Listeners ---
+            playBtn.addEventListener('click', togglePlay);
+            themeToggle.addEventListener('change', toggleTheme);
+
+            // --- Initialization ---
+            createStars();
+            createFireflies();
+            
+            // Auto-play hint or initial state could go here
+            // For this design, we start in paused state to respect user control
+        });
+    </script>
+</body>
+</html>

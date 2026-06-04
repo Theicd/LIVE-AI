@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recursive Fractal Tree Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020205; /* Deep dark background */
+            font-family: 'Inter', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        /* Custom scrollbar for the control panel if needed */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #22d3ee;
+            cursor: pointer;
+            margin-top: -6px; 
+            box-shadow: 0 0 10px #22d3ee;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <!-- Canvas Layer -->
+    <canvas id="fractalCanvas"></canvas>
+
+    <!-- UI Overlay -->
+    <div class="absolute top-6 left-6 z-10 w-80">
+        <div class="glass-panel rounded-xl p-6 transition-all duration-300 hover:bg-white/10">
+            <h1 class="text-2xl font-bold mb-1 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">
+                Fractal Tree
+            </h1>
+            <p class="text-xs text-gray-400 mb-6 font-mono">RECURSIVE BINARY SIMULATION</p>
+
+            <!-- Controls -->
+            <div class="space-y-5">
+                <div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-gray-300">Recursion Depth</span>
+                        <span id="depthVal" class="text-cyan-400 font-mono">10</span>
+                    </div>
+                    <input type="range" id="depthInput" min="4" max="14" value="10" step="1" class="w-full">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-gray-300">Wind Force</span>
+                        <span id="windVal" class="text-purple-400 font-mono">1.5</span>
+                    </div>
+                    <input type="range" id="windInput" min="0" max="5" value="1.5" step="0.1" class="w-full">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-gray-300">Branch Ratio</span>
+                        <span id="ratioVal" class="text-green-400 font-mono">0.75</span>
+                    </div>
+                    <input type="range" id="ratioInput" min="0.5" max="0.85" value="0.75" step="0.01" class="w-full">
+                </div>
+                
+                <div class="pt-2 flex gap-3">
+                    <button id="regenBtn" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 px-4 rounded-lg transition-all shadow-[0_0_15px_rgba(8,145,178,0.5)] hover:shadow-[0_0_25px_rgba(34,211,238,0.6)]">
+                        Regrow
+                    </button>
+                    <button id="resetBtn" class="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10 text-gray-300 transition-colors">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 text-[10px] text-gray-500 font-mono">
+            RENDERER: HTML5 CANVAS 2D<br>
+            PHYSICS: SINE WAVE PROPAGATION
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Recursive Fractal Tree Simulation
+         * Implements high-performance canvas drawing with physics-based wind.
+         */
+
+        const canvas = document.getElementById('fractalCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const depthInput = document.getElementById('depthInput');
+        const windInput = document.getElementById('windInput');
+        const ratioInput = document.getElementById('ratioInput');
+        const depthVal = document.getElementById('depthVal');
+        const windVal = document.getElementById('windVal');
+        const ratioVal = document.getElementById('ratioVal');
+        const regenBtn = document.getElementById('regenBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // State
+        let width, height;
+        let animationId;
+        let time = 0;
+        
+        // Configuration
+        let config = {
+            depth: 10,
+            baseLength: 150,
+            lengthMultiplier: 0.75,
+            branchWidthRatio: 0.7,
+            windForce: 1.5,
+            growthSpeed: 0.005, // Speed of the growth animation
+            colorStart: { h: 160, s: 80, l: 40 }, // Trunk color
+            colorEnd: { h: 300, s: 100, l: 70 },  // Leaf color
+        };
+
+        // Animation State
+        let growthFactor = 0;
+        let targetGrowth = 1;
+        
+        // Particles system for atmosphere
+        const particles = [];
+        const MAX_PARTICLES = 100;
+
+        // --- Initialization ---
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            // Re-center the tree if needed, currently handled in draw
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Particle System ---
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height - height; // Start above screen
+                this.size = Math.random() * 2;
+                this.speedY = Math.random() * 1 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.alpha = Math.random() * 0.5 + 0.1;
+                this.life = Math.random() * 100;
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.x += Math.sin(time * 0.5 + this.life) * 0.2 + this.speedX;
+                this.life++;
+
+                if (this.y > height) {
+                    this.reset();
+                }
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(100, 200, 255, ${this.alpha})`;
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < MAX_PARTICLES; i++) {
+            particles.push(new Particle());
+        }
+
+        // --- Core Fractal Logic ---
+
+        function drawBranch(x, y, len, angle, depth, currentWidth) {
+            ctx.beginPath();
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Dynamic width based on depth and global growth
+            ctx.lineWidth = currentWidth * growthFactor;
+            
+            // Color Gradient Logic
+            // We mix between trunk color and leaf color based on depth
+            const t = 1 - (depth / config.depth); // 0 at trunk, 1 at leaves
+            const h = config.colorStart.h + (config.colorEnd.h - config.colorStart.h) * t;
+            const s = config.colorStart.s + (config.colorEnd.s - config.colorStart.s) * t;
+            const l = config.colorStart.l + (config.colorEnd.l - config.colorStart.l) * t;
+            
+            ctx.strokeStyle = `hsl(${h}, ${s}%, ${l}%)`;
+            
+            // Glow effect for leaves (tips)
+            if (depth < 3) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = `hsl(${h}, ${s}%, ${l}%)`;
+            } else {
+                ctx.shadowBlur = 0;
+            }
+
+            // Draw the line segment
+            // Calculate end point based on current frame growth
+            // We scale length by growthFactor
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -len * growthFactor);
+            ctx.stroke();
+
+            // Recursion
+            if (depth > 0) {
+                // Calculate next segment properties
+                const newLen = len * config.lengthMultiplier;
+                const newWidth = currentWidth * config.branchWidthRatio;
+                
+                // Wind Physics:
+                // The wind effect is stronger at the tips (lower depth index in recursion)
+                // We use sine waves with different phases based on depth
+                const sway = Math.sin(time * 1.5 + depth * 0.8) * config.windForce * (1 - depth * 0.05);
+                const sway2 = Math.cos(time * 0.9 + depth * 0.5) * config.windForce * (0.5 - depth * 0.03);
+
+                // Add a tiny bit of random noise for natural variation
+                const noise = (Math.random() - 0.5) * 0.05 * (config.windForce * 0.2);
+
+                // Recursive calls
+                // Right Branch
+                drawBranch(0, -len * growthFactor, newLen, sway + noise, depth - 1, newWidth);
+                // Left Branch
+                drawBranch(0, -len * growthFactor, newLen, sway2 + noise, depth - 1, newWidth);
+            }
+
+            ctx.restore();
+        }
+
+        // --- Animation Loop ---
+
+        function animate() {
+            // Update time
+            time += 0.01;
+
+            // Smoothly handle growth animation
+            if (growthFactor < targetGrowth) {
+                growthFactor += config.growthSpeed;
+                if (growthFactor > targetGrowth) growthFactor = targetGrowth;
+            } else if (growthFactor > targetGrowth) {
+                // Shrinking reset
+                growthFactor -= config.growthSpeed * 5;
+                if (growthFactor < 0) growthFactor = 0;
+            }
+
+            // Clear Screen with a slight fade for trail effect? 
+            // No, strict clear is better for crisp vector lines.
+            ctx.fillStyle = '#020205';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Particles
+            particles.forEach(p => {
+                p.update();
+                p.draw(ctx);
+            });
+
+            // Draw Tree
+            // Start at bottom center
+            drawBranch(width / 2, height, config.baseLength, 0, config.depth, 10);
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners & Logic ---
+
+        function updateConfig() {
+            config.depth = parseInt(depthInput.value);
+            config.windForce = parseFloat(windInput.value);
+            config.lengthMultiplier = parseFloat(ratioInput.value);
+            
+            // Update text labels
+            depthVal.innerText = config.depth;
+            windVal.innerText = config.windForce;
+            ratioVal.innerText = config.lengthMultiplier;
+        }
+
+        function regenerate() {
+            // Trigger growth reset
+            targetGrowth = 1;
+            // Randomize seed slightly for visual variety if desired
+            // config.baseLength = 120 + Math.random() * 60; 
+        }
+
+        function resetSimulation() {
+            targetGrowth = 0;
+            growthFactor = 0;
+        }
+
+        // Inputs
+        depthInput.addEventListener('input', updateConfig);
+        windInput.addEventListener('input', updateConfig);
+        ratioInput.addEventListener('input', updateConfig);
+        
+        regenBtn.addEventListener('click', () => {
+            regenerate();
+            // Add a little pop animation to button
+            regenBtn.style.transform = "scale(0.95)";
+            setTimeout(() => regenBtn.style.transform = "scale(1)", 100);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            resetSimulation();
+        });
+
+        // Touch support for mobile
+        document.addEventListener('touchmove', (e) => {
+             // Subtle wind effect based on mouse X
+             const touchX = e.touches[0].clientX;
+             const center = width / 2;
+             const diff = (touchX - center) / center;
+             config.windForce = 0.5 + (diff * 2); // Modulate wind based on swipe
+        }, { passive: true });
+
+        // Start
+        updateConfig();
+        animate();
+
+    </script>
+</body>
+</html>

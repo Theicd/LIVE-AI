@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dreamy Butterfly Swarm</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a0b2e;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        #canvas-container {
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 12px;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+        
+        p {
+            font-size: 0.9rem;
+            margin-top: 5px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <div class="overlay">
+            <h1>Sunset Swarm</h1>
+            <p>Boids Algorithm • 200 Entities</p>
+        </div>
+        <canvas id="canvas" width="1000" height="700"></canvas>
+    </div>
+
+    <script>
+        /**
+         * Configuration and Constants
+         */
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = 1000;
+        const HEIGHT = 700;
+
+        // Visual Settings
+        const COLORS = [
+            'rgba(255, 183, 197, 0.9)', // Pastel Pink
+            'rgba(221, 160, 221, 0.9)', // Plum
+            'rgba(173, 216, 230, 0.9)', // Light Blue
+            'rgba(255, 228, 181, 0.9)', // Moccasin
+            'rgba(255, 192, 203, 0.9)', // Pink
+            'rgba(240, 248, 255, 0.9)'  // Alice Blue
+        ];
+
+        // Flocking Parameters
+        const NUM_BOIDS = 220;
+        const VISUAL_RANGE = 100;
+        const NEIGHBOR_RANGE = 50;
+        const MAX_SPEED = 3.5;
+        const MIN_SPEED = 1.5;
+        const MAX_FORCE = 0.05;
+
+        /**
+         * Utility Functions
+         */
+        function randomRange(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        function distSq(x1, y1, x2, y2) {
+            const dx = x1 - x2;
+            const dy = y1 - y2;
+            return dx * dx + dy * dy;
+        }
+
+        /**
+         * Butterfly Class (Boid)
+         */
+        class Butterfly {
+            constructor() {
+                this.x = randomRange(0, WIDTH);
+                this.y = randomRange(0, HEIGHT);
+                
+                // Random velocity vector
+                const angle = randomRange(0, Math.PI * 2);
+                this.vx = Math.cos(angle) * randomRange(MIN_SPEED, MAX_SPEED);
+                this.vy = Math.sin(angle) * randomRange(MIN_SPEED, MAX_SPEED);
+                
+                this.ax = 0;
+                this.ay = 0;
+                
+                this.size = randomRange(6, 10); // Size of the butterfly
+                this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                
+                // Animation properties
+                this.wingPhase = randomRange(0, Math.PI * 2);
+                this.wingSpeed = randomRange(0.2, 0.4);
+                this.wingSpan = this.size * 1.5;
+            }
+
+            // Flocking Logic
+            flock(boids) {
+                let sepX = 0, sepY = 0; // Separation
+                let aliX = 0, aliY = 0; // Alignment
+                let cohX = 0, cohY = 0; // Cohesion
+
+                let total = 0;
+                
+                for (let other of boids) {
+                    if (other === this) continue;
+
+                    const dSq = distSq(this.x, this.y, other.x, other.y);
+
+                    // Separation (if too close)
+                    if (dSq < NEIGHBOR_RANGE * NEIGHBOR_RANGE && dSq > 0) {
+                        const d = Math.sqrt(dSq);
+                        sepX -= (other.x - this.x) / d;
+                        sepY -= (other.y - this.y) / d;
+                    }
+
+                    // Alignment & Cohesion (if within visual range)
+                    if (dSq < VISUAL_RANGE * VISUAL_RANGE) {
+                        aliX += other.vx;
+                        aliY += other.vy;
+                        cohX += other.x;
+                        cohY += other.y;
+                        total++;
+                    }
+                }
+
+                // Apply Separation
+                if (total > 0) {
+                    sepX /= total;
+                    sepY /= total;
+                    const sepMag = Math.sqrt(sepX * sepX + sepY * sepY);
+                    if (sepMag > 0) {
+                        sepX = (sepX / sepMag) * MAX_SPEED - this.vx;
+                        sepY = (sepY / sepMag) * MAX_SPEED - this.vy;
+                        const steerMag = Math.sqrt(sepX * sepX + sepY * sepY);
+                        if (steerMag > MAX_FORCE) {
+                            sepX = (sepX / steerMag) * MAX_FORCE;
+                            sepY = (sepY / steerMag) * MAX_FORCE;
+                        }
+                    }
+                    this.ax += sepX;
+                    this.ay += sepY;
+                }
+
+                // Apply Alignment
+                if (total > 0) {
+                    aliX /= total;
+                    aliY /= total;
+                    const aliMag = Math.sqrt(aliX * aliX + aliY * aliY);
+                    if (aliMag > 0) {
+                        aliX = (aliX / aliMag) * MAX_SPEED - this.vx;
+                        aliY = (aliY / aliMag) * MAX_SPEED - this.vy;
+                        const steerMag = Math.sqrt(aliX * aliX + aliY * aliY);
+                        if (steerMag > MAX_FORCE) {
+                            aliX = (aliX / steerMag) * MAX_FORCE;
+                            aliY = (aliY / steerMag) * MAX_FORCE;
+                        }
+                    }
+                    this.ax += aliX;
+                    this.ay += aliY;
+                }
+
+                // Apply Cohesion
+                if (total > 0) {
+                    cohX = cohX / total - this.x;
+                    cohY = cohY / total - this.y;
+                    const cohMag = Math.sqrt(cohX * cohX + cohY * cohY);
+                    if (cohMag > 0) {
+                        cohX = (cohX / cohMag) * MAX_SPEED - this.vx;
+                        cohY = (cohY / cohMag) * MAX_SPEED - this.vy;
+                        const steerMag = Math.sqrt(cohX * cohX + cohY * cohY);
+                        if (steerMag > MAX_FORCE) {
+                            cohX = (cohX / steerMag) * MAX_FORCE;
+                            cohY = (cohY / steerMag) * MAX_FORCE;
+                        }
+                    }
+                    this.ax += cohX;
+                    this.ay += cohY;
+                }
+            }
+
+            update() {
+                // Update velocity
+                this.vx += this.ax;
+                this.vy += this.ay;
+
+                // Limit speed
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > MAX_SPEED) {
+                    this.vx = (this.vx / speed) * MAX_SPEED;
+                    this.vy = (this.vy / speed) * MAX_SPEED;
+                } else if (speed < MIN_SPEED && speed > 0) {
+                    this.vx = (this.vx / speed) * MIN_SPEED;
+                    this.vy = (this.vy / speed) * MIN_SPEED;
+                }
+
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Reset acceleration
+                this.ax = 0;
+                this.ay = 0;
+
+                // Wrap around screen
+                if (this.x < -this.size) this.x = WIDTH + this.size;
+                if (this.x > WIDTH + this.size) this.x = -this.size;
+                if (this.y < -this.size) this.y = HEIGHT + this.size;
+                if (this.y > HEIGHT + this.size) this.y = -this.size;
+
+                // Update wing animation phase
+                this.wingPhase += this.wingSpeed;
+            }
+
+            draw(ctx) {
+                const angle = Math.atan2(this.vy, this.vx);
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(angle);
+
+                // Wing flap calculation
+                // Sine wave oscillates between -1 and 1. 
+                // We map it to a scale factor for the wings.
+                const flap = Math.sin(this.wingPhase); 
+                const wingScale = 1 + flap * 0.5; // Scale between 0.5 and 1.5
+
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 1;
+                
+                // Add a slight glow for dreaminess
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = this.color;
+
+                // Draw Wings
+                ctx.beginPath();
+                
+                // Right Wing
+                ctx.ellipse(0, 0, this.wingSpan, this.size * 0.8, Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Left Wing (mirrored)
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.wingSpan, this.size * 0.8, -Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw Body
+                ctx.beginPath();
+                ctx.moveTo(0, -this.size * 1.2);
+                ctx.lineTo(0, this.size * 1.2);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        /**
+         * Background Rendering
+         */
+        const bokehCircles = [];
+        // Create 8 random bokeh circles
+        for (let i = 0; i < 8; i++) {
+            bokehCircles.push({
+                x: randomRange(0, WIDTH),
+                y: randomRange(0, HEIGHT),
+                r: randomRange(100, 300),
+                opacity: randomRange(0.05, 0.2),
+                color: i % 2 === 0 ? 'rgba(255, 100, 150,' : 'rgba(100, 150, 255,'
+            });
+        }
+
+        function drawBackground() {
+            // Sunset Gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+            gradient.addColorStop(0, '#FFD194'); // Peach
+            gradient.addColorStop(0.5, '#D1913C'); // Deep Orange
+            gradient.addColorStop(1, '#7D5BA6'); // Purple
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            // Draw Bokeh
+            bokehCircles.forEach(c => {
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+                ctx.fillStyle = c.color + c.opacity + ')';
+                ctx.filter = 'blur(40px)'; // Heavy blur for dreamy effect
+                ctx.fill();
+                ctx.filter = 'none'; // Reset filter
+            });
+        }
+
+        /**
+         * Main Execution
+         */
+        const boids = [];
+
+        function init() {
+            for (let i = 0; i < NUM_BOIDS; i++) {
+                boids.push(new Butterfly());
+            }
+        }
+
+        function animate() {
+            // 1. Clear and Draw Background
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            drawBackground();
+
+            // 2. Update and Draw Boids
+            // We use 'lighter' blend mode to make overlapping butterflies glow
+            ctx.globalCompositeOperation = 'lighter';
+            
+            for (let boid of boids) {
+                boid.flock(boids);
+                boid.update();
+                boid.draw(ctx);
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start
+        init();
+        animate();
+
+    </script>
+</body>
+</html>

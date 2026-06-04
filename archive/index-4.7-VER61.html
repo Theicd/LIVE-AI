@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#050a18">
+<title>Moonlit Tide — A Jazz Nocturne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #f4e8d0;
+    --amber: #f4b572;
+    --amber-soft: rgba(244, 181, 114, 0.6);
+    --deep: #050a18;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--deep);
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  body {
+    font-family: 'Inter', sans-serif;
+    font-weight: 300;
+  }
+  canvas#scene {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+  }
+  .vignette {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 90% 70% at 50% 45%, transparent 50%, rgba(5, 8, 16, 0.55) 100%),
+      linear-gradient(180deg, rgba(5, 10, 24, 0.4) 0%, transparent 15%, transparent 85%, rgba(5, 10, 24, 0.5) 100%);
+    z-index: 1;
+  }
+  .grain {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.9'/></svg>");
+  }
+  .overlay {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    padding: max(env(safe-area-inset-top), 22px) 22px max(env(safe-area-inset-bottom), 22px);
+    z-index: 3;
+  }
+  .top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px;
+  }
+  .brand { display: flex; flex-direction: column; gap: 6px; }
+  .brand .mark {
+    font-size: 10px; letter-spacing: 0.42em; text-transform: uppercase;
+    color: rgba(244, 232, 208, 0.5);
+    font-weight: 400;
+  }
+  .brand .mark::before {
+    content: ''; display: inline-block;
+    width: 18px; height: 1px;
+    background: var(--amber-soft);
+    vertical-align: middle;
+    margin-right: 10px;
+    transform: translateY(-1px);
+  }
+  .brand .title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(32px, 7.5vw, 52px);
+    font-weight: 500;
+    font-style: italic;
+    color: rgba(244, 232, 208, 0.94);
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+    text-shadow: 0 2px 30px rgba(0,0,0,0.5);
+  }
+  .brand .sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: rgba(244, 181, 114, 0.7);
+    margin-top: 2px;
+  }
+  .meta {
+    text-align: right;
+    font-size: 9.5px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(244, 232, 208, 0.42);
+    line-height: 2;
+    font-weight: 400;
+  }
+  .meta .row { display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+  .meta .row::before {
+    content: ''; width: 4px; height: 4px; border-radius: 50%;
+    background: rgba(244, 181, 114, 0.4);
+    display: inline-block;
+  }
+  .meta .v { color: rgba(244, 232, 208, 0.85); font-weight: 500; }
+  .meta .a { color: var(--amber); }
+
+  .bottom {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    gap: 16px;
+  }
+  .quote {
+    max-width: 260px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(13px, 3.4vw, 15px);
+    line-height: 1.55;
+    color: rgba(244, 232, 208, 0.72);
+    position: relative;
+    padding-left: 14px;
+  }
+  .quote::before {
+    content: ''; position: absolute;
+    left: 0; top: 4px; bottom: 18px;
+    width: 1px;
+    background: linear-gradient(180deg, transparent, var(--amber-soft), transparent);
+  }
+  .quote .by {
+    display: block;
+    margin-top: 8px;
+    font-style: normal;
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(244, 181, 114, 0.55);
+    font-weight: 400;
+  }
+
+  .controls {
+    display: flex; gap: 10px;
+    pointer-events: auto;
+    align-items: center;
+  }
+  .ctrl {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(244, 232, 208, 0.16);
+    background: rgba(10, 22, 40, 0.35);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: rgba(244, 232, 208, 0.78);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(.2,.7,.3,1);
+    position: relative;
+  }
+  .ctrl:hover, .ctrl.active {
+    border-color: rgba(244, 181, 114, 0.55);
+    color: var(--amber);
+    background: rgba(244, 181, 114, 0.08);
+    box-shadow: 0 0 24px rgba(244, 181, 114, 0.18);
+  }
+  .ctrl svg { width: 16px; height: 16px; }
+  .ctrl .ring {
+    position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 1px solid rgba(244, 181, 114, 0.3);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .ctrl.active .ring { opacity: 1; animation: ringPulse 2.6s ease-in-out infinite; }
+  @keyframes ringPulse {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.15); opacity: 0; }
+  }
+
+  .beat {
+    position: fixed;
+    bottom: max(env(safe-area-inset-bottom), 96px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 14px;
+    z-index: 3;
+    pointer-events: none;
+    align-items: center;
+  }
+  .beat span {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: rgba(244, 232, 208, 0.18);
+    transition: all 0.25s cubic-bezier(.2,.7,.3,1);
+  }
+  .beat span.on {
+    background: var(--amber);
+    box-shadow: 0 0 14px rgba(244, 181, 114, 0.9), 0 0 28px rgba(244, 181, 114, 0.4);
+    transform: scale(1.6);
+  }
+  .beat .label {
+    position: absolute;
+    bottom: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 8px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: rgba(244, 232, 208, 0.3);
+    white-space: nowrap;
+  }
+
+  .toast {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: rgba(10, 22, 40, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(244, 181, 114, 0.3);
+    padding: 14px 22px;
+    border-radius: 100px;
+    color: var(--ink);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(.2,.7,.3,1);
+    white-space: nowrap;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  @media (max-width: 380px) {
+    .meta { font-size: 8.5px; }
+    .quote { max-width: 200px; }
+  }
+  @media (orientation: landscape) and (max-height: 500px) {
+    .quote { display: none; }
+    .beat { bottom: 16px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<div class="overlay">
+  <header class="top">
+    <div class="brand">
+      <div class="mark">Nocturne · Side B</div>
+      <h1 class="title">Moonlit Tide</h1>
+      <div class="sub">for low brass &amp; open water</div>
+    </div>
+    <div class="meta" aria-hidden="true">
+      <div class="row"><span>Tempo</span><span class="v a">62 BPM</span></div>
+      <div class="row"><span>Key</span><span class="v">D♭ Minor 9</span></div>
+      <div class="row"><span>Mood</span><span class="v">Drifting</span></div>
+    </div>
+  </header>
+
+  <footer class="bottom">
+    <blockquote class="quote">
+      The sea has never been friendly to the rest of us — but tonight she hums a low refrain, and the moon keeps time.
+      <cite class="by">— from the liner notes</cite>
+    </blockquote>
+    <div class="controls">
+      <button class="ctrl" id="muteBtn" aria-label="Toggle ambient sound">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+        <span class="ring"></span>
+      </button>
+      <button class="ctrl active" id="playBtn" aria-label="Play scene">
+        <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+        <span class="ring"></span>
+      </button>
+    </div>
+  </footer>
+</div>
+
+<div class="beat" id="beat" aria-hidden="true">
+  <span></span><span></span><span></span><span></span>
+  <div class="label">in four</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('scene');
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W, H, DPR;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    rebuildStars();
+  }
+
+  // --- Stars ---
+  let stars = [];
+  function rebuildStars() {
+    stars = [];
+    const count = Math.floor((W * H) / 9000);
+    for (let i = 0; i < count; i++) {
+      stars.push({
+        x: Math.random(),
+        y: Math.random() * 0.45,
+        r: Math.pow(Math.random(), 2.4) * 1.4 + 0.2,
+        tw: Math.random() * Math.PI * 2,
+        tws: 0.4 + Math.random() * 1.2,
+        hue: Math.random() < 0.15 ? 'warm' : 'cool'
+      });
+    }
+  }
+
+  // --- Mist ---
+  const mist = [];
+  for (let i = 0; i < 22; i++) {
+    mist.push({
+      x: Math.random(),
+      y: 0.40 + Math.random() * 0.30,
+      r: 80 + Math.random() * 160,
+      s: 0.008 + Math.random() * 0.018,
+      o: 0.025 + Math.random() * 0.045,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+  const mistFront = [];
+  for (let i = 0; i < 8; i++) {
+    mistFront.push({
+      x: Math.random(),
+      y: 0.78 + Math.random() * 0.15,
+      r: 140 + Math.random() * 200,
+      s: 0.015 + Math.random() * 0.02,
+      o: 0.04 + Math.random() * 0.04,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+
+  // --- Wave layers (back to front) ---
+  const waveLayers = [
+    { baseY: 0.555, amp: 5,  freq: 0.014, speed: 0.30, phase: 0.0, c1: '#1a2a44', c2: '#0e1a30' },
+    { baseY: 0.615, amp: 7,  freq: 0.012, speed: 0.42, phase: 1.3, c1: '#15243c', c2: '#0a1626' },
+    { baseY: 0.690, amp: 9,  freq: 0.010, speed: 0.55, phase: 2.7, c1: '#101e34', c2: '#070f1e' },
+    { baseY: 0.780, amp: 11, freq: 0.0085,speed: 0.68, phase: 4.1, c1: '#0a1626', c2: '#040a14' },
+    { baseY: 0.880, amp: 13, freq: 0.007, speed: 0.80, phase: 5.5, c1: '#050d1c', c2: '#02060e' },
+  ];
+
+  function waveY(x, layer, t) {
+    const baseY = H * layer.baseY;
+    return baseY
+      + Math.sin(x * layer.freq + t * layer.speed + layer.phase) * layer.amp
+      + Math.sin(x * layer.freq * 2.35 + t * layer.speed * 1.27 + layer.phase * 0.7) * layer.amp * 0.42
+      + Math.sin(x * layer.freq * 0.51 + t * layer.speed * 0.63) * layer.amp * 0.55;
+  }
+
+  // Moon position (normalized)
+  const moon = { x: 0.72, y: 0.24, r: 0.045 };
+
+  // --- Jazz beat timing ---
+  const BPM = 62;
+  const beatInterval = 60 / BPM;
+  const startTime = performance.now();
+  let pausedAt = 0;
+  let isPaused = false;
+
+  function getTime() {
+    if (isPaused) return pausedAt;
+    return (performance.now() - startTime) / 1000;
+  }
+
+  // --- Renderers ---
+  function drawSky(t, beatPulse) {
+    const sky = ctx.createLinearGradient(0, 0, 0, H * 0.7);
+    sky.addColorStop(0,    '#040814');
+    sky.addColorStop(0.35, '#0a1830');
+    sky.addColorStop(0.55, '#2a3850');
+    sky.addColorStop(0.62, '#7a4a48');
+    sky.addColorStop(0.66, '#d97e4a');
+    sky.addColorStop(0.70, '#a05a3c');
+    sky.addColorStop(0.74, '#2a2440');
+    sky.addColorStop(1,    '#0a1428');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle horizon glow band, pulsing with beat
+    const horizonY = H * 0.66;
+    const glow = ctx.createLinearGradient(0, horizonY - 30, 0, horizonY + 50);
+    const glowAlpha = 0.18 + beatPulse * 0.08;
+    glow.addColorStop(0,   `rgba(244, 181, 114, 0)`);
+    glow.addColorStop(0.5, `rgba(244, 181, 114, ${glowAlpha})`);
+    glow.addColorStop(1,   `rgba(244, 181, 114, 0)`);
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, horizonY - 30, W, 80);
+  }
+
+  function drawStars(t) {
+    for (const s of stars) {
+      const tw = 0.45 + 0.55 * Math.sin(t * s.tws + s.tw);
+      const a = 0.25 + tw * 0.55;
+      const color = s.hue === 'warm'
+        ? `rgba(244, 200, 150, ${a})`
+        : `rgba(220, 230, 245, ${a})`;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+      ctx.fill();
+      // Tiny bloom on brighter stars
+      if (s.r > 0.9) {
+        ctx.fillStyle = s.hue === 'warm'
+          ? `rgba(244, 200, 150, ${a * 0.15})`
+          : `rgba(220, 230, 245, ${a * 0.15})`;
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H, s.r * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  function drawMoon(t, beatPulse) {
+    const mx = moon.x * W;
+    const my = moon.y * H;
+    const mr = Math.max(18, Math.min(W, H) * moon.r);
+
+    // Outer halo
+    const halo = ctx.createRadialGradient(mx, my, mr * 0.5, mx, my, mr * 8);
+    halo.addColorStop(0,   `rgba(244, 232, 208, ${0.18 + beatPulse * 0.06})`);
+    halo.addColorStop(0.25,'rgba(244, 200, 150, 0.10)');
+    halo.addColorStop(0.6, 'rgba(244, 181, 114, 0.04)');
+    halo.addColorStop(1,   'rgba(244, 181, 114, 0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(mx - mr * 8, my - mr * 8, mr * 16, mr * 16);
+
+    // Inner glow
+    const inner = ctx.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * 2.2);
+    inner.addColorStop(0, 'rgba(255, 245, 220, 0.5)');
+    inner.addColorStop(1, 'rgba(255, 245, 220, 0)');
+    ctx.fillStyle = inner;
+    ctx.fillRect(mx - mr * 2.2, my - mr * 2.2, mr * 4.4, mr * 4.4);
+
+    // Moon disc
+    const disc = ctx.createRadialGradient(mx - mr * 0.35, my - mr * 0.35, 0, mx, my, mr);
+    disc.addColorStop(0,   '#fff8e8');
+    disc.addColorStop(0.6, '#f4d8a8');
+    disc.addColorStop(0.92,'#d8a878');
+    disc.addColorStop(1,   '#a87858');
+    ctx.fillStyle = disc;
+    ctx.beginPath();
+    ctx.arc(mx, my, mr, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crater hints
+    ctx.fillStyle = 'rgba(120, 80, 50, 0.10)';
+    ctx.beginPath(); ctx.arc(mx + mr * 0.2, my - mr * 0.1, mr * 0.18, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx - mr * 0.25, my + mr * 0.3, mr * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx + mr * 0.35, my + mr * 0.25, mr * 0.09, 0, Math.PI * 2); ctx.fill();
+
+    return { mx, my, mr };
+  }
+
+  function drawMist(t, particles, opacityMult = 1) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    for (const m of particles) {
+      const drift = (m.x + t * m.s + Math.sin(t * 0.3 + m.phase) * 0.02) % 1.2;
+      const px = (drift < -0.1 ? drift + 1.0 : drift) * W;
+      const py = m.y * H + Math.sin(t * 0.4 + m.phase) * 8;
+      const g = ctx.createRadialGradient(px, py, 0, px, py, m.r);
+      g.addColorStop(0, `rgba(180, 170, 200, ${m.o * opacityMult})`);
+      g.addColorStop(0.5, `rgba(160, 150, 180, ${m.o * 0.5 * opacityMult})`);
+      g.addColorStop(1, 'rgba(160, 150, 180, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(px - m.r, py - m.r, m.r * 2, m.r * 2);
+    }
+    ctx.restore();
+  }
+
+  function drawWaves(t) {
+    const step = W < 480 ? 5 : 4;
+    for (let li = 0; li < waveLayers.length; li++) {
+      const layer = waveLayers[li];
+      const depth = li / (waveLayers.length - 1);
+
+      // Fill
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      const pts = [];
+      for (let x = 0; x <= W; x += step) {
+        const y = waveY(x, layer, t);
+        pts.push({ x, y });
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, H * layer.baseY - layer.amp * 2, 0, H);
+      grad.addColorStop(0, layer.c1);
+      grad.addColorStop(1, layer.c2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Crest highlight
+      ctx.strokeStyle = `rgba(244, 232, 208, ${0.06 + 0.08 * (1 - depth)})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+
+      // Warm horizon reflection on back layers
+      if (li === 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.strokeStyle = 'rgba(244, 181, 114, 0.18)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  function drawMoonReflection(t, moonInfo) {
+    const { mx, mr } = moonInfo;
+    const reflStart = waveLayers[0].baseY * H;
+    const reflEnd = H * 0.98;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+
+    // Soft vertical beam
+    const beamTop = mr * 0.6;
+    const beamBot = mr * 5;
+    ctx.beginPath();
+    ctx.moveTo(mx - beamTop, reflStart);
+    ctx.lineTo(mx + beamTop, reflStart);
+    ctx.lineTo(mx + beamBot, reflEnd);
+    ctx.lineTo(mx - beamBot, reflEnd);
+    ctx.closePath();
+    const beam = ctx.createLinearGradient(0, reflStart, 0, reflEnd);
+    beam.addColorStop(0,   'rgba(244, 232, 208, 0.22)');
+    beam.addColorStop(0.4, 'rgba(244, 200, 150, 0.14)');
+    beam.addColorStop(1,   'rgba(244, 181, 114, 0)');
+    ctx.fillStyle = beam;
+    ctx.fill();
+
+    // Shimmer: small horizontal ellipses on wave crests within beam
+    const shimmerCount = 28;
+    for (let i = 0; i < shimmerCount; i++) {
+      const yt = i / shimmerCount;
+      const y = reflStart + (reflEnd - reflStart) * yt;
+      const layerIdx = Math.min(waveLayers.length - 1, Math.floor(yt * waveLayers.length * 0.95));
+      const layer = waveLayers[layerIdx];
+
+      // Sample several x positions around moon
+      for (let k = -2; k <= 2; k++) {
+        const xOff = k * (mr * 0.6) * (0.4 + yt * 1.8);
+        const sx = mx + xOff;
+        if (sx < 0 || sx > W) continue;
+
+        const wave = Math.sin(sx * layer.freq + t * layer.speed + layer.phase)
+                   + Math.sin(sx * layer.freq * 2.35 + t * layer.speed * 1.27) * 0.4;
+        const shimmer = Math.max(0, wave);
+        if (shimmer < 0.3) continue;
+
+        const distFromBeamCenter = Math.abs(xOff) / (mr * 2.5 * (0.5 + yt * 1.5));
+        const beamMask = Math.max(0, 1 - distFromBeamCenter);
+        const opacity = shimmer * beamMask * (1 - yt * 0.7) * 0.55
+                      * (0.7 + 0.3 * Math.sin(t * 2.4 + i * 0.7 + k * 1.3));
+
+        if (opacity > 0.04) {
+          const w = 6 + shimmer * 8 + yt * 6;
+          const h = 0.8 + shimmer * 0.6;
+          ctx.fillStyle = `rgba(255, 240, 210, ${opacity})`;
+          ctx.beginPath();
+          ctx.ellipse(sx, y, w, h, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  // --- Main loop ---
+  function frame() {
+    const t = getTime();
+    const beatPhase = (t % beatInterval) / beatInterval;
+    const beatPulse = Math.pow(1 - beatPhase, 2.2);
+
+    drawSky(t, beatPulse);
+    drawStars(t);
+    const moonInfo = drawMoon(t, beatPulse);
+    drawMist(t, mist, 1);
+    drawWaves(t);
+    drawMoonReflection(t, moonInfo);
+    drawMist(t, mistFront, 0.7);
+
+    requestAnimationFrame(frame);
+  }
+
+  // --- Beat dots ---
+  const beatDots = document.querySelectorAll('#beat span');
+  function updateBeat() {
+    if (!isPaused) {
+      const t = getTime();
+      const beatInBar = Math.floor((t / beatInterval) % 4);
+      beatDots.forEach((d, i) => d.classList.toggle('on', i === beatInBar));
+    }
+    requestAnimationFrame(updateBeat);
+  }
+
+  // --- Toast ---
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+  }
+
+  // --- Audio (ambient jazz pad) ---
+  let audioCtx = null;
+  let audioMaster = null;
+  let audioOn = false;
+
+  function initAudio() {
+    if (audioCtx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audioCtx = new AC();
+    audioMaster = audioCtx.createGain();
+    audioMaster.gain.value = 0;
+    audioMaster.connect(audioCtx.destination);
+
+    // Warm lowpass
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 700;
+    filter.Q.value = 0.8;
+    filter.connect(audioMaster);
+
+    // Slow filter LFO (breath)
+    const fLfo = audioCtx.createOscillator();
+    fLfo.frequency.value = 0.06;
+    const fLfoGain = audioCtx.createGain();
+    fLfoGain.gain.value = 280;
+    fLfo.connect(fLfoGain);
+    fLfoGain.connect(filter.frequency);
+    fLfo.start();
+
+    // D minor 9 chord: D2 F2 A2 C3 E3
+    const notes = [73.42, 87.31, 110.00, 130.81, 164.81];
+    notes.forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      osc.type = i < 2 ? 'sine' : 'triangle';
+      osc.frequency.value = freq;
+      // Detune for warmth
+      osc.detune.value = (i - 2) * 4;
+
+      const g = audioCtx.createGain();
+      g.gain.value = 0.18 / (i * 0.3 + 1);
+
+      // Per-voice amplitude LFO
+      const lfo = audioCtx.createOscillator();
+      lfo.frequency.value = 0.08 + i * 0.04;
+      const lfoGain = audioCtx.createGain();
+      lfoGain.gain.value = 0.08;
+      lfo.connect(lfoGain);
+      lfoGain.connect(g.gain);
+
+      osc.connect(g);
+      g.connect(filter);
+      osc.start();
+      lfo.start();
+    });
+
+    // Subtle vinyl crackle — short noise bursts
+    const noiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.5, audioCtx.sampleRate);
+    const nd = noiseBuf.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * 0.6;
+    const noiseSrc = audioCtx.createBufferSource();
+    noiseSrc.buffer = noiseBuf;
+    noiseSrc.loop = true;
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.value = 0.012;
+    const noiseFilter = audioCtx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 3000;
+    noiseSrc.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(audioMaster);
+    noiseSrc.start();
+  }
+
+  function audioFade(target, dur = 1.2) {
+    if (!audioCtx || !audioMaster) return;
+    const now = audioCtx.currentTime;
+    audioMaster.gain.cancelScheduledValues(now);
+    audioMaster.gain.setValueAtTime(audioMaster.gain.value, now);
+    audioMaster.gain.linearRampToValueAtTime(target, now + dur);
+  }
+
+  // --- Controls ---
+  const playBtn = document.getElementById('playBtn');
+  const muteBtn = document.getElementById('muteBtn');
+  const playIcon = document.getElementById('playIcon');
+
+  const PLAY_SVG = '<path d="M8 5v14l11-7z"/>';
+  const PAUSE_SVG = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+
+  playBtn.addEventListener('click', async () => {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch(e) {}
+    }
+    if (isPaused) {
+      isPaused = false;
+      pausedAt = (performance.now() - startTime) / 1000 - pausedAt;
+      // adjust startTime so getTime() continues from pausedAt
+      // simpler: reset startTime
+      const elapsed = pausedAt;
+      // we stored elapsed time at pause; resume by shifting startTime
+      // (handled by getTime logic above)
+      playIcon.innerHTML = PAUSE_SVG;
+      playBtn.classList.add('active');
+      showToast('Now Playing');
+      if (audioOn) audioFade(0.09, 1.5);
+    } else {
+      isPaused = true;
+      pausedAt = getTime();
+      playIcon.innerHTML = PLAY_SVG;
+      playBtn.classList.remove('active');
+      showToast('Paused');
+      audioFade(0, 0.6);
+    }
+  });
+
+  muteBtn.addEventListener('click', async () => {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch(e) {}
+    }
+    audioOn = !audioOn;
+    if (audioOn) {
+      muteBtn.classList.add('active');
+      if (!isPaused) audioFade(0.09, 1.5);
+      showToast('Ambient · On');
+    } else {
+      muteBtn.classList.remove('active');
+      audioFade(0, 0.8);
+      showToast('Ambient · Off');
+    }
+  });
+
+  // --- Touch interaction: gentle moon drag ---
+  let touching = false;
+  let targetMoonX = moon.x, targetMoonY = moon.y;
+  function setTargetFromEvent(e) {
+    const touch = e.touches ? e.touches[0] : e;
+    targetMoonX = Math.max(0.15, Math.min(0.85, touch.clientX / W));
+    targetMoonY = Math.max(0.08, Math.min(0.45, touch.clientY / H));
+  }
+  canvas.addEventListener('touchstart', (e) => {
+    touching = true; setTargetFromEvent(e);
+  }, { passive: true });
+  canvas.addEventListener('touchmove', (e) => {
+    if (touching) setTargetFromEvent(e);
+  }, { passive: true });
+  canvas.addEventListener('touchend', () => { touching = false; });
+  canvas.addEventListener('mousedown', (e) => { touching = true; setTargetFromEvent(e); });
+  window.addEventListener('mousemove', (e) => { if (touching) setTargetFromEvent(e); });
+  window.addEventListener('mouseup', () => { touching = false; });
+
+  function moonFollow() {
+    moon.x += (targetMoonX - moon.x) * 0.04;
+    moon.y += (targetMoonY - moon.y) * 0.04;
+    requestAnimationFrame(moonFollow);
+  }
+
+  // Subtle autonomous moon drift when not touched
+  let driftT = 0;
+  function autoDrift() {
+    if (!touching) {
+      driftT += 0.005;
+      targetMoonX = 0.72 + Math.sin(driftT * 0.7) * 0.06;
+      targetMoonY = 0.24 + Math.sin(driftT * 0.5) * 0.025;
+    }
+    requestAnimationFrame(autoDrift);
+  }
+
+  // --- Init ---
+  window.addEventListener('resize', resize);
+  resize();
+  frame();
+  updateBeat();
+  moonFollow();
+  autoDrift();
+
+  // Pause animation when tab hidden (saves battery on mobile)
+  let wasPlayingBeforeHidden = !isPaused;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      wasPlayingBeforeHidden = !isPaused;
+      if (audioOn) audioFade(0, 0.4);
+    } else {
+      if (audioOn && wasPlayingBeforeHidden) audioFade(0.09, 1.2);
+    }
+  });
+})();
+</script>
+</body>
+</html>

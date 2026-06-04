@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cyber-Nebula Core | Interactive 3D Experience</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg-dark: #050510;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden; /* Prevent scrolling */
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* 3D Canvas Container */
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* UI Layer */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to 3D where needed */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: auto;
+        }
+
+        .brand {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            background: linear-gradient(90deg, var(--primary), white);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+        }
+
+        .status {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--primary);
+            animation: pulse 2s infinite;
+        }
+
+        /* Controls Panel */
+        .controls {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            border-radius: 12px;
+            width: 300px;
+            pointer-events: auto;
+            transform: translateX(0);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .controls.hidden {
+            transform: translateX(120%);
+            opacity: 0;
+        }
+
+        .control-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--primary);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Toggle Button */
+        .toggle-btn {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            pointer-events: auto;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+        }
+
+        .toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary);
+        }
+
+        /* Overdrive Action */
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(45deg, var(--secondary), #7000ff);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            box-shadow: 0 0 15px rgba(188, 19, 254, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
+        .action-btn i {
+            margin-right: 8px;
+        }
+
+        /* Footer / Instructions */
+        footer {
+            text-align: center;
+            pointer-events: none;
+            opacity: 0.7;
+            font-size: 0.8rem;
+        }
+
+        .interaction-hint {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { opacity: 0.5; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0.5; transform: scale(0.9); }
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.8s ease;
+        }
+
+        .loader-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        .loader-text {
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 3px;
+            font-size: 0.9rem;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.2rem; }
+            .controls {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                border-radius: 20px 20px 0 0;
+                padding-bottom: 2rem;
+            }
+            .toggle-btn { top: 1rem; right: 1rem; }
+        }
+    </style>
+    
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">INITIALIZING CORE...</div>
+    </div>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        <header>
+            <div class="brand">
+                <h1>Aether Core</h1>
+                <div class="status">
+                    <div class="status-dot"></div>
+                    SYSTEM ONLINE
+                </div>
+            </div>
+            <button class="toggle-btn" id="toggle-ui">
+                <i class="fas fa-cog"></i> SETTINGS
+            </button>
+        </header>
+
+        <main>
+            <div class="controls" id="controls-panel">
+                <div class="control-group">
+                    <label>Rotation Speed <span id="speed-val">1.0x</span></label>
+                    <input type="range" id="speed-slider" min="0" max="5" step="0.1" value="1">
+                </div>
+                <div class="control-group">
+                    <label>Bloom Intensity <span id="bloom-val">1.5</span></label>
+                    <input type="range" id="bloom-slider" min="0" max="3" step="0.1" value="1.5">
+                </div>
+                <div class="control-group">
+                    <label>Core Stability <span id="pulse-val">Normal</span></label>
+                    <input type="range" id="pulse-slider" min="0" max="100" value="50">
+                </div>
+                <button class="action-btn" id="overdrive-btn">
+                    <i class="fas fa-bolt"></i> Overdrive Mode
+                </button>
+            </div>
+        </main>
+
+        <footer>
+            <div class="interaction-hint">
+                <i class="fas fa-mouse-pointer"></i>
+                <span>DRAG TO ROTATE • SCROLL TO ZOOM • CLICK TO PULSE</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Application Logic -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- Configuration ---
+        const config = {
+            rotationSpeed: 0.001,
+            baseColor: new THREE.Color(0x00f3ff),
+            secondaryColor: new THREE.Color(0xbc13fe),
+            isOverdrive: false,
+            bloomStrength: 1.5,
+            pulseIntensity: 1.0
+        };
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050510, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 18);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimize for mobile
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        container.appendChild(renderer.domElement);
+
+        // --- Controls ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enableZoom = true;
+        controls.minDistance = 5;
+        controls.maxDistance = 30;
+
+        // --- Post Processing (Bloom) ---
+        const renderScene = new RenderPass(scene, camera);
+        
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0;
+        bloomPass.strength = config.bloomStrength;
+        bloomPass.radius = 0.5;
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- Objects Creation ---
+
+        // 1. Central Core (Icosahedron)
+        const coreGeometry = new THREE.IcosahedronGeometry(2, 1); // Detail level 1
+        const coreMaterial = new THREE.MeshPhysicalMaterial({
+            color: config.baseColor,
+            roughness: 0.1,
+            metalness: 0.9,
+            transmission: 0.2, // Glass-like
+            thickness: 1.0,
+            emissive: config.baseColor,
+            emissiveIntensity: 0.5,
+            flatShading: true
+        });
+        const core = new THREE.Mesh(coreGeometry, coreMaterial);
+        scene.add(core);
+
+        // Core Wireframe Overlay
+        const wireframeGeometry = new THREE.WireframeGeometry(coreGeometry);
+        const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+        const wireframe = new THREE.LineSegments(wireframeGeometry, wireframeMaterial);
+        core.add(wireframe);
+
+        // 2. Orbiting Rings
+        const rings = [];
+        const ringGroup = new THREE.Group();
+        scene.add(ringGroup);
+
+        function createRing(radius, tube, color, speed, tilt) {
+            const geometry = new THREE.TorusGeometry(radius, tube, 16, 100);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: color, 
+                transparent: true, 
+                opacity: 0.6,
+                wireframe: true
+            });
+            const ring = new THREE.Mesh(geometry, material);
+            ring.rotation.x = tilt.x;
+            ring.rotation.y = tilt.y;
+            
+            // Store rotation speed in user data
+            ring.userData = { 
+                rotSpeedX: speed.x, 
+                rotSpeedY: speed.y,
+                baseScale: 1
+            };
+            
+            rings.push(ring);
+            ringGroup.add(ring);
+        }
+
+        createRing(3.5, 0.02, config.baseColor, {x: 0.005, y: 0.01}, {x: 0.2, y: 0.5});
+        createRing(4.5, 0.03, config.secondaryColor, {x: -0.008, y: 0.005}, {x: -0.5, y: 0.2});
+        createRing(5.5, 0.01, config.baseColor, {x: 0.002, y: -0.015}, {x: 0.8, y: -0.1});
+
+        // 3. Particle System (Starfield & Dust)
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 1500;
+        const posArray = new Float32Array(particlesCount * 3);
+        const colorArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i+=3) {
+            // Spread particles in a sphere around the center
+            const r = 10 + Math.random() * 30;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos((Math.random() * 2) - 1);
+
+            posArray[i] = r * Math.sin(phi) * Math.cos(theta);
+            posArray[i+1] = r * Math.sin(phi) * Math.sin(theta);
+            posArray[i+2] = r * Math.cos(phi);
+
+            // Mix colors
+            const mixedColor = Math.random() > 0.5 ? config.baseColor : config.secondaryColor;
+            colorArray[i] = mixedColor.r;
+            colorArray[i+1] = mixedColor.g;
+            colorArray[i+2] = mixedColor.b;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.08,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        // 4. Floating Data Cubes (Procedural)
+        const cubesGroup = new THREE.Group();
+        scene.add(cubesGroup);
+        const cubes = [];
+
+        for (let i = 0; i < 20; i++) {
+            const size = Math.random() * 0.2 + 0.05;
+            const geo = new THREE.BoxGeometry(size, size, size);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.3 });
+            const cube = new THREE.Mesh(geo, mat);
+            
+            // Random position around core
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 4 + Math.random() * 4;
+            cube.position.set(Math.cos(angle) * radius, (Math.random() - 0.5) * 5, Math.sin(angle) * radius);
+            
+            cube.userData = {
+                speed: Math.random() * 0.02 + 0.005,
+                orbitRadius: radius,
+                angle: angle,
+                yOffset: cube.position.y
+            };
+            
+            cubesGroup.add(cube);
+            cubes.push(cube);
+        }
+
+        // --- Interaction Logic ---
+
+        // Raycaster for clicking
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('touchstart', onPointerDown, {passive: false});
+
+        function onPointerDown(event) {
+            // Normalize mouse position
+            let clientX, clientY;
+            if (event.changedTouches) {
+                clientX = event.changedTouches[0].clientX;
+                clientY = event.changedTouches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([core]);
+
+            if (intersects.length > 0) {
+                triggerPulse();
+            }
+        }
+
+        function triggerPulse() {
+            // Visual feedback
+            const originalScale = core.scale.x;
+            
+            // Animation sequence
+            let scale = originalScale;
+            let expanding = true;
+
+            const pulseAnim = () => {
+                if (expanding) {
+                    scale += 0.05;
+                    if (scale >= originalScale + 0.5) expanding = false;
+                } else {
+                    scale -= 0.05;
+                    if (scale <= originalScale) {
+                        scale = originalScale;
+                        core.scale.set(scale, scale, scale);
+                        return; // End animation
+                    }
+                }
+                core.scale.set(scale, scale, scale);
+                requestAnimationFrame(pulseAnim);
+            };
+            pulseAnim();
+        }
+
+        // UI Event Listeners
+        const toggleBtn = document.getElementById('toggle-ui');
+        const controlsPanel = document.getElementById('controls-panel');
+        const speedSlider = document.getElementById('speed-slider');
+        const bloomSlider = document.getElementById('bloom-slider');
+        const pulseSlider = document.getElementById('pulse-slider');
+        const overdriveBtn = document.getElementById('overdrive-btn');
+
+        let isUIOpen = false;
+
+        toggleBtn.addEventListener('click', () => {
+            isUIOpen = !isUIOpen;
+            controlsPanel.classList.toggle('hidden', !isUIOpen);
+        });
+
+        speedSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            config.rotationSpeed = val * 0.001;
+            document.getElementById('speed-val').innerText = val.toFixed(1) + 'x';
+        });
+
+        bloomSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            bloomPass.strength = val;
+            document.getElementById('bloom-val').innerText = val.toFixed(1);
+        });
+
+        pulseSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            config.pulseIntensity = val / 50; // Normalize 0-2
+            document.getElementById('pulse-val').innerText = val < 30 ? 'Stable' : (val > 70 ? 'Unstable' : 'Normal');
+        });
+
+        overdriveBtn.addEventListener('click', () => {
+            config.isOverdrive = !config.isOverdrive;
+            
+            if (config.isOverdrive) {
+                // Activate Overdrive
+                overdriveBtn.innerHTML = '<i class="fas fa-stop"></i> Stabilize Core';
+                overdriveBtn.style.background = 'linear-gradient(45deg, #ff0055, #ff9900)';
+                
+                // Speed up everything
+                config.rotationSpeed = 0.02;
+                bloomPass.strength = 3.0;
+                
+                // Change colors to Red/Orange
+                core.material.color.setHex(0xff3300);
+                core.material.emissive.setHex(0xff0000);
+                
+                // Shake camera slightly
+                camera.position.x += 0.2;
+                
+            } else {
+                // Deactivate Overdrive
+                overdriveBtn.innerHTML = '<i class="fas fa-bolt"></i> Overdrive Mode';
+                overdriveBtn.style.background = 'linear-gradient(45deg, var(--secondary), #7000ff)';
+                
+                // Reset speed
+                const sliderVal = parseFloat(speedSlider.value);
+                config.rotationSpeed = sliderVal * 0.001;
+                bloomPass.strength = parseFloat(bloomSlider.value);
+                
+                // Reset colors
+                core.material.color.copy(config.baseColor);
+                core.material.emissive.copy(config.baseColor);
+            }
+        });
+
+        // --- Animation Loop ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = clock.getElapsedTime();
+            const delta = clock.getDelta();
+
+            // 1. Animate Core (Breathing)
+            const pulse = Math.sin(time * 2 * config.pulseIntensity) * 0.1 + 1;
+            core.scale.set(pulse, pulse, pulse);
+            core.rotation.y += config.rotationSpeed * 2;
+            core.rotation.z += config.rotationSpeed;
+
+            // 2. Animate Rings
+            rings.forEach((ring, index) => {
+                ring.rotation.x += ring.userData.rotSpeedX * (config.isOverdrive ? 5 : 1);
+                ring.rotation.y += ring.userData.rotSpeedY * (config.isOverdrive ? 5 : 1);
+                
+                // Subtle wobble
+                if (!config.isOverdrive) {
+                    ring.scale.setScalar(1 + Math.sin(time + index) * 0.02);
+                }
+            });
+
+            // 3. Animate Particles
+            particlesMesh.rotation.y = -time * 0.05;
+
+            // 4. Animate Floating Cubes
+            cubes.forEach(cube => {
+                cube.userData.angle += cube.userData.speed * (config.isOverdrive ? 5 : 1);
+                cube.position.x = Math.cos(cube.userData.angle) * cube.userData.orbitRadius;
+                cube.position.z = Math.sin(cube.userData.angle) * cube.userData.orbitRadius;
+                cube.rotation.x += 0.01;
+                cube.rotation.y += 0.01;
+            });
+
+            // 5. Update Controls
+            controls.update();
+
+            // 6. Render with Bloom
+            composer.render();
+        }
+
+        // --- Resize Handler ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- Init ---
+        // Hide loader after a brief moment
+        window.onload = () => {
+            setTimeout(() => {
+                const loader = document.getElementById('loader');
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 800);
+            }, 1000);
+            animate();
+        };
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETHER | Future Tech Solutions</title>
+    <style>
+        /* --- RESET & VARIABLES --- */
+        :root {
+            --bg-color: #050505;
+            --primary-neon: #00f3ff;
+            --secondary-neon: #bc13fe;
+            --text-color: #e0e0e0;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: 'Courier New', Courier, monospace;
+            --transition-speed: 0.3s;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* --- SCROLLBAR --- */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-neon);
+            border-radius: 4px;
+        }
+
+        /* --- BACKGROUND ANIMATION --- */
+        .bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+        }
+
+        .grid-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            perspective: 500px;
+            transform-style: preserve-3d;
+            animation: gridMove 20s linear infinite;
+            opacity: 0.3;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translateY(0) scale(1.2); }
+            100% { transform: translateY(50px) scale(1.2); }
+        }
+
+        /* --- NAVIGATION --- */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 5%;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+        }
+
+        .logo {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-neon);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--primary-neon);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            transition: color var(--transition-speed);
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -5px;
+            left: 0;
+            background-color: var(--secondary-neon);
+            transition: width var(--transition-speed);
+            box-shadow: 0 0 8px var(--secondary-neon);
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-neon);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .cta-btn {
+            padding: 0.5rem 1.5rem;
+            border: 1px solid var(--primary-neon);
+            color: var(--primary-neon);
+            background: transparent;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            transition: all var(--transition-speed);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-btn:hover {
+            background: var(--primary-neon);
+            color: #000;
+            box-shadow: 0 0 20px var(--primary-neon);
+        }
+
+        /* --- HERO SECTION --- */
+        header {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0 20px;
+            position: relative;
+        }
+
+        .hero-title {
+            font-size: 4rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Glitch Effect */
+        .glitch {
+            position: relative;
+            color: #fff;
+        }
+        
+        .glitch::before, .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+        }
+        
+        .glitch::before {
+            left: 2px;
+            text-shadow: -1px 0 var(--secondary-neon);
+            clip: rect(24px, 550px, 90px, 0);
+            animation: glitch-anim-2 3s infinite linear alternate-reverse;
+        }
+        
+        .glitch::after {
+            left: -2px;
+            text-shadow: -1px 0 var(--primary-neon);
+            clip: rect(85px, 550px, 140px, 0);
+            animation: glitch-anim 2.5s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim {
+            0% { clip: rect(13px, 9999px, 81px, 0); }
+            5% { clip: rect(78px, 9999px, 19px, 0); }
+            10% { clip: rect(2px, 9999px, 6px, 0); }
+            15% { clip: rect(98px, 9999px, 4px, 0); }
+            20% { clip: rect(56px, 9999px, 88px, 0); }
+            25% { clip: rect(23px, 9999px, 54px, 0); }
+            30% { clip: rect(65px, 9999px, 12px, 0); }
+            35% { clip: rect(12px, 9999px, 76px, 0); }
+            40% { clip: rect(89px, 9999px, 33px, 0); }
+            45% { clip: rect(4px, 9999px, 98px, 0); }
+            50% { clip: rect(32px, 9999px, 45px, 0); }
+            55% { clip: rect(67px, 9999px, 87px, 0); }
+            60% { clip: rect(12px, 9999px, 21px, 0); }
+            65% { clip: rect(90px, 9999px, 5px, 0); }
+            70% { clip: rect(44px, 9999px, 78px, 0); }
+            75% { clip: rect(22px, 9999px, 33px, 0); }
+            80% { clip: rect(55px, 9999px, 66px, 0); }
+            85% { clip: rect(11px, 9999px, 99px, 0); }
+            90% { clip: rect(77px, 9999px, 22px, 0); }
+            95% { clip: rect(33px, 9999px, 44px, 0); }
+            100% { clip: rect(66px, 9999px, 77px, 0); }
+        }
+
+        @keyframes glitch-anim-2 {
+            0% { clip: rect(65px, 9999px, 100px, 0); }
+            100% { clip: rect(2px, 9999px, 40px, 0); }
+        }
+
+        .hero-subtitle {
+            font-size: 1.2rem;
+            max-width: 600px;
+            margin-bottom: 2.5rem;
+            color: #aaa;
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 30px;
+            animation: bounce 2s infinite;
+            opacity: 0.7;
+        }
+
+        .scroll-indicator span {
+            display: block;
+            width: 20px;
+            height: 20px;
+            border-right: 2px solid var(--primary-neon);
+            border-bottom: 2px solid var(--primary-neon);
+            transform: rotate(45deg);
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+            40% {transform: translateY(-10px);}
+            60% {transform: translateY(-5px);}
+        }
+
+        /* --- FEATURES SECTION --- */
+        .section {
+            padding: 5rem 10%;
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .section-header p {
+            color: var(--primary-neon);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--glass-bg);
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-neon), var(--secondary-neon));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 30px rgba(0, 243, 255, 0.1);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--primary-neon);
+        }
+
+        .feature-card h3 {
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+        }
+
+        .feature-card p {
+            color: #bbb;
+            font-size: 0.95rem;
+        }
+
+        /* --- VISUALIZER SECTION --- */
+        .visualizer-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--glass-bg);
+            padding: 3rem;
+            border-radius: 12px;
+            border: 1px solid rgba(188, 19, 254, 0.3);
+            position: relative;
+        }
+
+        canvas#waveCanvas {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 2rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            background: rgba(0, 243, 255, 0.1);
+            color: var(--primary-neon);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--primary-neon);
+        }
+
+        /* --- CONTACT SECTION --- */
+        .contact-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3rem;
+        }
+
+        .contact-info, .contact-form {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .info-item {
+            margin-bottom: 2rem;
+            border-left: 2px solid var(--secondary-neon);
+            padding-left: 1rem;
+        }
+
+        .info-item h4 {
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+            color: #fff;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-neon);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        .form-input::placeholder {
+            color: #555;
+        }
+
+        /* --- FOOTER --- */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            background: #000;
+            border-top: 1px solid #222;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        /* --- TOAST NOTIFICATION --- */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(5, 5, 5, 0.95);
+            border: 1px solid var(--primary-neon);
+            color: var(--primary-neon);
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            transform: translateX(150%);
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 2000;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 768px) {
+            .hero-title { font-size: 2.5rem; }
+            .nav-links { display: none; } /* Simplified for demo */
+            .section { padding: 3rem 5%; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Animation Elements -->
+    <canvas id="particleCanvas" class="bg-canvas"></canvas>
+    <div class="grid-overlay"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="logo">AETHER</div>
+        <ul class="nav-links">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#features">Capabilities</a></li>
+            <li><a href="#system">System</a></li>
+            <li><a href="#contact">Connect</a></li>
+        </ul>
+        <button class="cta-btn" onclick="scrollToSection('contact')">Initialize</button>
+    </nav>
+
+    <!-- Hero Section -->
+    <header id="home">
+        <h1 class="hero-title glitch" data-text="FUTURE REALITY">FUTURE REALITY</h1>
+        <p class="hero-subtitle">Merging artificial intelligence with human intuition. Experience the next generation of digital interaction.</p>
+        <button class="cta-btn" style="padding: 1rem 2.5rem; font-size: 1rem;" onclick="scrollToSection('features')">Explore System</button>
+        
+        <div class="scroll-indicator">
+            <span></span>
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="section">
+        <div class="section-header">
+            <p>// CORE MODULES</p>
+            <h2>System Capabilities</h2>
+        </div>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Neural Processing</h3>
+                <p>Advanced algorithms that adapt to user behavior in real-time, creating a seamless digital environment.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Quantum Security</h3>
+                <p>Encrypted data transmission protocols that are virtually impenetrable against modern cyber threats.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">👁️</div>
+                <h3>Visual Synthesis</h3>
+                <p>High-fidelity rendering engines that bring abstract concepts into tangible digital realities.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive System Section -->
+    <section id="system" class="section">
+        <div class="section-header">
+            <p>// LIVE FEED</p>
+            <h2>Core System Status</h2>
+        </div>
+        
+        <div class="visualizer-container">
+            <div class="status-badge" id="statusBadge">SYSTEM ONLINE</div>
+            <canvas id="waveCanvas"></canvas>
+            <div style="display: flex; gap: 20px; margin-top: 1rem;">
+                <button class="cta-btn" id="toggleWaveBtn">Pause Stream</button>
+                <button class="cta-btn" onclick="triggerPulse()">Pulse Energy</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="section">
+        <div class="section-header">
+            <p>// ESTABLISH LINK</p>
+            <h2>Establish Connection</h2>
+        </div>
+
+        <div class="contact-container">
+            <div class="contact-info">
+                <div class="info-item">
+                    <h4>COORDINATES</h4>
+                    <p>Level 42, Neo-Tokyo District</p>
+                    <p>Cybernetics Hub, Sector 7</p>
+                </div>
+                <div class="info-item">
+                    <h4>FREQUENCY</h4>
+                    <p>+1 (800) 555-0199</p>
+                    <p>signal@aether.tech</p>
+                </div>
+                <div class="info-item">
+                    <h4>STATUS</h4>
+                    <p>Open for commissions</p>
+                    <p>Accepting new protocols</p>
+                </div>
+            </div>
+
+            <form class="contact-form" id="contactForm">
+                <div class="form-group">
+                    <input type="text" class="form-input" placeholder="Identity Name" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" class="form-input" placeholder="Digital Address" required>
+                </div>
+                <div class="form-group">
+                    <textarea class="form-input" rows="4" placeholder="Transmission Data..." required></textarea>
+                </div>
+                <button type="submit" class="cta-btn" style="width: 100%;">Transmit Data</button>
+            </form>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; 2077 AETHER SYSTEMS. ALL RIGHTS RESERVED.</p>
+    </footer>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <span>✓</span>
+        <span id="toastMessage">Transmission Successful</span>
+    </div>
+
+    <script>
+        // --- 1. PARTICLE BACKGROUND SYSTEM ---
+        const particleCanvas = document.getElementById('particleCanvas');
+        const pCtx = particleCanvas.getContext('2d');
+        
+        let width, height;
+        let particles = [];
+        
+        // Resize handling
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            particleCanvas.width = width;
+            particleCanvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.size = Math.random() * 2;
+                this.color = Math.random() > 0.5 ? '#00f3ff' : '#bc13fe';
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Bounce off edges
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+
+            draw() {
+                pCtx.beginPath();
+                pCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                pCtx.fillStyle = this.color;
+                pCtx.fill();
+            }
+        }
+
+        // Initialize particles
+        for (let i = 0; i < 80; i++) {
+            particles.push(new Particle());
+        }
+
+        function animateParticles() {
+            pCtx.clearRect(0, 0, width, height);
+            
+            // Draw connections
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 100) {
+                        pCtx.beginPath();
+                        pCtx.strokeStyle = `rgba(100, 100, 255, ${1 - distance / 100})`;
+                        pCtx.lineWidth = 0.5;
+                        pCtx.moveTo(particles[i].x, particles[i].y);
+                        pCtx.lineTo(particles[j].x, particles[j].y);
+                        pCtx.stroke();
+                    }
+                }
+                particles[i].update();
+                particles[i].draw();
+            }
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+
+        // --- 2. WAVE VISUALIZER ---
+        const waveCanvas = document.getElementById('waveCanvas');
+        const wCtx = waveCanvas.getContext('2d');
+        const toggleBtn = document.getElementById('toggleWaveBtn');
+        let isWavePlaying = true;
+        let waveOffset = 0;
+
+        function resizeWave() {
+            waveCanvas.width = waveCanvas.offsetWidth;
+            waveCanvas.height = waveCanvas.offsetHeight;
+        }
+        window.addEventListener('resize', resizeWave);
+        resizeWave();
+
+        function drawWave() {
+            if (!isWavePlaying) return;
+
+            wCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+            
+            const centerY = waveCanvas.height / 2;
+            const amplitude = 30;
+            const frequency = 0.02;
+            
+            wCtx.beginPath();
+            wCtx.moveTo(0, centerY);
+
+            for (let x = 0; x < waveCanvas.width; x++) {
+                // Combine two sine waves for a more complex look
+                const y = centerY + 
+                          Math.sin(x * frequency + waveOffset) * amplitude * Math.sin(waveOffset * 0.5) +
+                          Math.cos(x * 0.01 - waveOffset) * (amplitude / 2);
+                wCtx.lineTo(x, y);
+            }
+
+            wCtx.strokeStyle = '#00f3ff';
+            wCtx.lineWidth = 2;
+            wCtx.shadowBlur = 10;
+            wCtx.shadowColor = '#00f3ff';
+            wCtx.stroke();
+
+            // Second wave (purple)
+            wCtx.beginPath();
+            for (let x = 0; x < waveCanvas.width; x++) {
+                const y = centerY + 
+                          Math.sin(x * 0.03 + waveOffset + 2) * amplitude * 0.8;
+                wCtx.lineTo(x, y);
+            }
+            wCtx.strokeStyle = '#bc13fe';
+            wCtx.lineWidth = 1;
+            wCtx.shadowColor = '#bc13fe';
+            wCtx.stroke();
+
+            waveOffset += 0.05;
+            requestAnimationFrame(drawWave);
+        }
+        drawWave();
+
+        // Wave Controls
+        toggleBtn.addEventListener('click', () => {
+            isWavePlaying = !isWavePlaying;
+            toggleBtn.textContent = isWavePlaying ? "Pause Stream" : "Resume Stream";
+            if(isWavePlaying) drawWave();
+        });
+
+        function triggerPulse() {
+            // Visual feedback for button click
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = "ENERGY SURGE DETECTED";
+            badge.style.color = "#fff";
+            badge.style.borderColor = "#fff";
+            badge.style.background = "rgba(255, 255, 255, 0.2)";
+            
+            setTimeout(() => {
+                badge.textContent = "SYSTEM ONLINE";
+                badge.style.color = "var(--primary-neon)";
+                badge.style.borderColor = "var(--primary-neon)";
+                badge.style.background = "rgba(0, 243, 255, 0.1)";
+            }, 1500);
+        }
+
+
+        // --- 3. UI INTERACTION ---
+        
+        // Smooth Scroll
+        function scrollToSection(id) {
+            document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Contact Form Handling
+        const contactForm = document.getElementById('contactForm');
+        const toast = document.getElementById('toast');
+
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            // Simulate sending data
+            const btn = contactForm.querySelector('button');
+            const originalText = btn.textContent;
+            btn.textContent = "Transmitting...";
+            btn.disabled = true;
+
+            setTimeout(() => {
+                // Reset form
+                contactForm.reset();
+                btn.textContent = originalText;
+                btn.disabled = false;
+
+                // Show Toast
+                showToast("Data Packet Transmitted Successfully");
+            }, 1500);
+        });
+
+        function showToast(message) {
+            const msgSpan = document.getElementById('toastMessage');
+            msgSpan.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Parallax Effect on Scroll
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const grid = document.querySelector('.grid-overlay');
+            const nav = document.querySelector('nav');
+            
+            // Move grid slower for depth
+            grid.style.transform = `translateY(${scrolled * 0.5}px)`;
+            
+            // Nav transparency adjustment
+            if (scrolled > 50) {
+                nav.style.background = "rgba(5, 5, 5, 0.95)";
+                nav.style.padding = "1rem 5%";
+            } else {
+                nav.style.background = "rgba(5, 5, 5, 0.8)";
+                nav.style.padding = "2rem 5%";
+            }
+        });
+
+    </script>
+</body>
+</html>

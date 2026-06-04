@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS | Digital Museum of Tomorrow</title>
+    
+    <!-- Load Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Load Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts: Orbitron (Futuristic) & Roboto Mono (Tech) -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #030308;
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --text-main: #e0e0e0;
+            --text-muted: #8892b0;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --font-head: 'Orbitron', sans-serif;
+            --font-body: 'Roboto Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* --- 3D Background Canvas --- */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+        }
+
+        /* --- UI Overlay --- */
+        #ui-layer {
+            position: relative;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to canvas where needed */
+        }
+
+        /* Navigation */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 5%;
+            pointer-events: auto;
+        }
+
+        .logo {
+            font-family: var(--font-head);
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            transition: color 0.3s, text-shadow 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+            text-shadow: 0 0 8px var(--primary);
+        }
+
+        .mobile-toggle {
+            display: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+
+        /* Hero Section */
+        header {
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 0 5%;
+            pointer-events: auto;
+        }
+
+        h1 {
+            font-family: var(--font-head);
+            font-size: clamp(2.5rem, 8vw, 5rem);
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            background: linear-gradient(to right, #fff, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin-bottom: 2rem;
+            border-left: 3px solid var(--secondary);
+            padding-left: 1rem;
+        }
+
+        .cta-btn {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            font-family: var(--font-head);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--primary);
+            z-index: -1;
+            transition: left 0.3s ease;
+        }
+
+        .cta-btn:hover {
+            color: #000;
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        .cta-btn:hover::before {
+            left: 0;
+        }
+
+        /* Main Content */
+        main {
+            padding: 4rem 5%;
+            pointer-events: auto;
+        }
+
+        .section-title {
+            font-family: var(--font-head);
+            font-size: 2rem;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, var(--glass-border), transparent);
+        }
+
+        /* Gallery Grid */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 5rem;
+        }
+
+        .artifact-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            transition: transform 0.3s, border-color 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .artifact-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--secondary);
+        }
+
+        .artifact-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+
+        .artifact-card:hover .artifact-img {
+            opacity: 1;
+        }
+
+        .artifact-title {
+            font-family: var(--font-head);
+            font-size: 1.2rem;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+        }
+
+        .artifact-meta {
+            font-size: 0.8rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .collect-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text-main);
+            padding: 0.5rem 1rem;
+            width: 100%;
+            cursor: pointer;
+            font-family: var(--font-body);
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .collect-btn:hover {
+            background: var(--secondary);
+        }
+
+        /* Interactive Controls */
+        .controls-section {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 2rem;
+            border-radius: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .control-group h3 {
+            font-family: var(--font-head);
+            margin-bottom: 1rem;
+            color: var(--secondary);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: transparent;
+            margin: 10px 0;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        /* Footer */
+        footer {
+            padding: 2rem 5%;
+            text-align: center;
+            border-top: 1px solid var(--glass-border);
+            margin-top: 4rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        /* Custom Toast Notification */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid var(--primary);
+            color: var(--text-main);
+            padding: 1rem 2rem;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transform: translateY(150%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+        }
+
+        #toast.show {
+            transform: translateY(0);
+        }
+
+        #toast i {
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                position: fixed;
+                top: 0;
+                right: -100%;
+                height: 100vh;
+                width: 70%;
+                background: #000;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                border-left: 1px solid var(--glass-border);
+                transition: right 0.3s ease;
+            }
+
+            .nav-links.active {
+                right: 0;
+            }
+
+            .mobile-toggle {
+                display: block;
+            }
+
+            .controls-section {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+        
+        /* Utility */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Background -->
+    <div id="canvas-container"></div>
+    
+    <!-- CRT Scanline Effect -->
+    <div class="scanline"></div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <nav>
+            <div class="logo">Nexus<span style="color:var(--text-main)">Archive</span></div>
+            <div class="mobile-toggle" id="mobile-menu-btn">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div class="nav-links" id="nav-links">
+                <a href="#hero">Home</a>
+                <a href="#exhibits">Artifacts</a>
+                <a href="#controls">Simulation</a>
+                <a href="#contact">Contact</a>
+            </div>
+        </nav>
+
+        <header id="hero">
+            <h1>Preserving the<br>Digital Horizon</h1>
+            <p class="subtitle">Explore a curated collection of procedurally generated artifacts from the year 2077. Enter the void and witness the fusion of art and code.</p>
+            <a href="#exhibits" class="cta-btn">Initialize Tour</a>
+        </header>
+
+        <main>
+            <section id="exhibits">
+                <div class="section-title">Artifact Registry</div>
+                <div class="gallery-grid">
+                    <!-- Artifact 1 -->
+                    <article class="artifact-card">
+                        <img src="https://picsum.photos/seed/cyber1/400/300" alt="Neon Geometry" class="artifact-img">
+                        <h3 class="artifact-title">Quantum Knot</h3>
+                        <div class="artifact-meta">Type: Abstract • Data: 404TB</div>
+                        <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 1rem;">A representation of infinite loops in the mainframe.</p>
+                        <button class="collect-btn" onclick="addToCollection(this)">
+                            <i class="fas fa-download"></i> Scan
+                        </button>
+                    </article>
+
+                    <!-- Artifact 2 -->
+                    <article class="artifact-card">
+                        <img src="https://picsum.photos/seed/cyber2/400/300" alt="Liquid Metal" class="artifact-img">
+                        <h3 class="artifact-title">Aero Stream</h3>
+                        <div class="artifact-meta">Type: Fluid Sim • Data: 12PB</div>
+                        <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 1rem;">Simulated liquid metal reacting to sub-zero temperatures.</p>
+                        <button class="collect-btn" onclick="addToCollection(this)">
+                            <i class="fas fa-download"></i> Scan
+                        </button>
+                    </article>
+
+                    <!-- Artifact 3 -->
+                    <article class="artifact-card">
+                        <img src="https://picsum.photos/seed/cyber3/400/300" alt="Digital Rain" class="artifact-img">
+                        <h3 class="artifact-title">Matrix Echo</h3>
+                        <div class="artifact-meta">Type: Audio Visual • Data: 1GB</div>
+                        <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 1rem;">Visual data harvested from a crashed server node.</p>
+                        <button class="collect-btn" onclick="addToCollection(this)">
+                            <i class="fas fa-download"></i> Scan
+                        </button>
+                    </article>
+
+                    <!-- Artifact 4 -->
+                    <article class="artifact-card">
+                        <img src="https://picsum.photos/seed/cyber4/400/300" alt="Cyber Skull" class="artifact-img">
+                        <h3 class="artifact-title">Ghost Shell</h3>
+                        <div class="artifact-meta">Type: AI Core • Data: Unknown</div>
+                        <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 1rem;">An artificial consciousness trapped in a glass prism.</p>
+                        <button class="collect-btn" onclick="addToCollection(this)">
+                            <i class="fas fa-download"></i> Scan
+                        </button>
+                    </article>
+                </div>
+            </section>
+
+            <section id="controls">
+                <div class="section-title">Core Simulation</div>
+                <div class="controls-section">
+                    <div class="control-group">
+                        <h3><i class="fas fa-atom"></i> Rotation Speed</h3>
+                        <input type="range" id="speed-control" min="0" max="100" value="20">
+                    </div>
+                    <div class="control-group">
+                        <h3><i class="fas fa-palette"></i> Core Tint</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="collect-btn" style="width: 40px; padding: 0;" onclick="changeColor('#00f3ff')"><i class="fas fa-circle" style="color:#00f3ff"></i></button>
+                            <button class="collect-btn" style="width: 40px; padding: 0;" onclick="changeColor('#bc13fe')"><i class="fas fa-circle" style="color:#bc13fe"></i></button>
+                            <button class="collect-btn" style="width: 40px; padding: 0;" onclick="changeColor('#ff0055')"><i class="fas fa-circle" style="color:#ff0055"></i></button>
+                            <button class="collect-btn" style="width: 40px; padding: 0;" onclick="changeColor('#ffffff')"><i class="fas fa-circle" style="color:#ffffff"></i></button>
+                        </div>
+                    </div>
+                    <div class="control-group" style="text-align: right;">
+                        <button class="cta-btn" style="font-size: 0.8rem; padding: 0.5rem 1.5rem;" onclick="resetView()">Reset View</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer id="contact">
+            <p>EST. 2077 | NEXUS DIGITAL MUSEUM</p>
+            <p>SYSTEM STATUS: ONLINE</p>
+        </footer>
+    </div>
+
+    <!-- Custom Toast -->
+    <div id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span>Artifact Uploaded to Neural Link</span>
+    </div>
+
+    <script>
+        // --- UI Interactions ---
+
+        // Mobile Menu Toggle
+        const mobileBtn = document.getElementById('mobile-menu-btn');
+        const navLinks = document.getElementById('nav-links');
+        
+        mobileBtn.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+            const icon = mobileBtn.querySelector('i');
+            if (navLinks.classList.contains('active')) {
+                icon.classList.remove('fa-bars');
+                icon.classList.add('fa-times');
+            } else {
+                icon.classList.remove('fa-times');
+                icon.classList.add('fa-bars');
+            }
+        });
+
+        // Smooth Scroll for Anchors
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                navLinks.classList.remove('active');
+                mobileBtn.querySelector('i').classList.remove('fa-times');
+                mobileBtn.querySelector('i').classList.add('fa-bars');
+                
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Toast Notification System
+        function addToCollection(btn) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing';
+            btn.style.background = 'var(--primary)';
+            btn.style.color = '#000';
+
+            setTimeout(() => {
+                // Show Toast
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                
+                // Reset Button
+                btn.innerHTML = originalText;
+                btn.style.background = '';
+                btn.style.color = '';
+
+                // Hide Toast after 3s
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }, 800);
+        }
+
+        // --- Three.js 3D Scene ---
+        
+        const init3D = () => {
+            const container = document.getElementById('canvas-container');
+            
+            // Scene setup
+            const scene = new THREE.Scene();
+            // Fog to blend objects into background
+            scene.fog = new THREE.FogExp2(0x030308, 0.002);
+
+            // Camera
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 30;
+
+            // Renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // --- Objects ---
+
+            // 1. The Core (Icosahedron)
+            const geometryCore = new THREE.IcosahedronGeometry(8, 1);
+            const materialCore = new THREE.MeshStandardMaterial({ 
+                color: 0x00f3ff, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            const core = new THREE.Mesh(geometryCore, materialCore);
+            scene.add(core);
+
+            // 2. The Cage (Outer Wireframe)
+            const geometryCage = new THREE.DodecahedronGeometry(12, 0);
+            const materialCage = new THREE.MeshBasicMaterial({ 
+                color: 0xbc13fe, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.1
+            });
+            const cage = new THREE.Mesh(geometryCage, materialCage);
+            scene.add(cage);
+
+            // 3. Particles (Stars/Dust)
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 1000;
+            const posArray = new Float32Array(particlesCount * 3);
+
+            for(let i = 0; i < particlesCount * 3; i++) {
+                // Spread particles widely
+                posArray[i] = (Math.random() - 0.5) * 100;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.15,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+
+            // --- Lighting ---
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+            scene.add(ambientLight);
+
+            const pointLight1 = new THREE.PointLight(0x00f3ff, 1, 100);
+            pointLight1.position.set(10, 10, 10);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0xbc13fe, 1, 100);
+            pointLight2.position.set(-10, -10, 10);
+            scene.add(pointLight2);
+
+            // --- Interaction State ---
+            let mouseX = 0;
+            let mouseY = 0;
+            let targetRotationX = 0;
+            let targetRotationY = 0;
+            let rotationSpeed = 0.005;
+
+            // Mouse Move Event
+            document.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX - window.innerWidth / 2) * 0.001;
+                mouseY = (event.clientY - window.innerHeight / 2) * 0.001;
+            });
+
+            // UI Controls
+            const speedInput = document.getElementById('speed-control');
+            speedInput.addEventListener('input', (e) => {
+                rotationSpeed = (e.target.value / 100) * 0.02;
+            });
+
+            window.changeColor = (hex) => {
+                materialCore.color.set(hex);
+            };
+
+            window.resetView = () => {
+                camera.position.set(0, 0, 30);
+                rotationSpeed = 0.005;
+                speedInput.value = 25;
+                materialCore.color.set(0x00f3ff);
+            };
+
+            // --- Animation Loop ---
+            const clock = new THREE.Clock();
+
+            const animate = () => {
+                requestAnimationFrame(animate);
+                const elapsedTime = clock.getElapsedTime();
+
+                // Rotate Core
+                core.rotation.y += rotationSpeed;
+                core.rotation.x += rotationSpeed * 0.5;
+                
+                // Rotate Cage (opposite direction)
+                cage.rotation.y -= rotationSpeed * 0.5;
+                cage.rotation.z += rotationSpeed * 0.2;
+
+                // Pulse Core Effect (Scale)
+                const scale = 1 + Math.sin(elapsedTime * 2) * 0.05;
+                core.scale.set(scale, scale, scale);
+
+                // Rotate Particles slowly
+                particlesMesh.rotation.y = elapsedTime * 0.05;
+
+                // Interactive Camera Movement (Smooth Lerp)
+                targetRotationX = mouseY * 2;
+                targetRotationY = mouseX * 2;
+
+                scene.rotation.x += 0.05 * (targetRotationX - scene.rotation.x);
+                scene.rotation.y += 0.05 * (targetRotationY - scene.rotation.y);
+
+                renderer.render(scene, camera);
+            };
+
+            animate();
+
+            // Handle Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        };
+
+        // Initialize 3D Scene when DOM is ready
+        document.addEventListener('DOMContentLoaded', init3D);
+
+    </script>
+</body>
+</html>

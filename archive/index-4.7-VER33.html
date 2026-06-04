@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NEXUS // Quantum Interface System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root{
+    --bg:#05070d;
+    --bg-2:#0a0e18;
+    --fg:#e8f4ff;
+    --muted:#6b7a93;
+    --accent:#00f0ff;
+    --accent-2:#ff6b1a;
+    --accent-3:#7cf57c;
+    --border:rgba(0,240,255,0.15);
+    --card:rgba(10,14,24,0.6);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:'Space Grotesk',sans-serif;overflow-x:hidden;cursor:none}
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  /* Custom cursor */
+  .cursor-dot,.cursor-ring{position:fixed;top:0;left:0;pointer-events:none;z-index:9999;border-radius:50%;transform:translate(-50%,-50%);will-change:transform}
+  .cursor-dot{width:6px;height:6px;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  .cursor-ring{width:36px;height:36px;border:1px solid rgba(0,240,255,0.5);transition:width .25s ease,height .25s ease,border-color .25s ease,background .25s ease}
+  .cursor-ring.hover{width:64px;height:64px;background:rgba(0,240,255,0.08);border-color:var(--accent)}
+
+  /* Background canvas */
+  #bgCanvas{position:fixed;inset:0;z-index:0;opacity:.7}
+  .grid-floor{position:fixed;bottom:-20vh;left:0;right:0;height:80vh;z-index:1;perspective:600px;perspective-origin:50% 0;pointer-events:none;opacity:.5}
+  .grid-floor::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(0,240,255,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,0.25) 1px,transparent 1px);background-size:60px 60px;transform:rotateX(60deg);transform-origin:50% 0;animation:gridMove 8s linear infinite;mask-image:linear-gradient(to top,#000 30%,transparent 100%)}
+  @keyframes gridMove{from{background-position:0 0}to{background-position:0 60px}}
+
+  /* Spotlight that follows mouse */
+  .spotlight{position:fixed;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(0,240,255,0.08),transparent 60%);pointer-events:none;z-index:2;transform:translate(-50%,-50%);transition:transform .15s ease-out;mix-blend-mode:screen}
+
+  /* Nav */
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;backdrop-filter:blur(20px);background:rgba(5,7,13,0.6);border-bottom:1px solid var(--border)}
+  .nav-link{position:relative;color:var(--muted);transition:color .3s}
+  .nav-link:hover{color:var(--fg)}
+  .nav-link::after{content:"";position:absolute;left:0;bottom:-6px;width:0;height:1px;background:var(--accent);transition:width .3s}
+  .nav-link:hover::after{width:100%}
+
+  /* Buttons */
+  .btn-primary{position:relative;background:var(--accent);color:#001018;padding:14px 32px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:13px;border:none;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);transition:all .3s;overflow:hidden}
+  .btn-primary:hover{background:var(--fg);box-shadow:0 0 40px rgba(0,240,255,0.6)}
+  .btn-ghost{background:transparent;color:var(--fg);padding:14px 32px;border:1px solid var(--border);font-weight:500;letter-spacing:.05em;text-transform:uppercase;font-size:13px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);transition:all .3s}
+  .btn-ghost:hover{border-color:var(--accent);background:rgba(0,240,255,0.05)}
+
+  /* Hero title */
+  .hero-title{font-size:clamp(56px,11vw,180px);font-weight:700;line-height:.9;letter-spacing:-.04em;background:linear-gradient(180deg,#fff 0%,#7dd3fc 50%,#0ea5e9 100%);-webkit-background-clip:text;background-clip:text;color:transparent;position:relative}
+  .hero-title .char{display:inline-block;animation:charFloat 4s ease-in-out infinite}
+  @keyframes charFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+  /* Glitch */
+  .glitch{position:relative;display:inline-block}
+  .glitch::before,.glitch::after{content:attr(data-text);position:absolute;left:0;top:0;width:100%;height:100%}
+  .glitch::before{color:var(--accent);animation:glitch1 3s infinite;clip-path:polygon(0 0,100% 0,100% 33%,0 33%)}
+  .glitch::after{color:var(--accent-2);animation:glitch2 3s infinite;clip-path:polygon(0 66%,100% 66%,100% 100%,0 100%)}
+  @keyframes glitch1{0%,90%,100%{transform:translate(0)}92%{transform:translate(-3px,1px)}94%{transform:translate(3px,-1px)}96%{transform:translate(-2px,2px)}}
+  @keyframes glitch2{0%,90%,100%{transform:translate(0)}92%{transform:translate(3px,-1px)}94%{transform:translate(-3px,1px)}96%{transform:translate(2px,-2px)}}
+
+  /* Floating orbs */
+  .orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.5;pointer-events:none}
+  .orb-1{width:500px;height:500px;background:#00f0ff;top:10%;left:-10%;animation:orbFloat1 18s ease-in-out infinite}
+  .orb-2{width:400px;height:400px;background:#ff6b1a;top:40%;right:-10%;animation:orbFloat2 22s ease-in-out infinite}
+  .orb-3{width:350px;height:350px;background:#7cf57c;bottom:10%;left:30%;animation:orbFloat3 25s ease-in-out infinite}
+  @keyframes orbFloat1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(80px,60px) scale(1.15)}}
+  @keyframes orbFloat2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-100px,40px) scale(.9)}}
+  @keyframes orbFloat3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,-80px) scale(1.1)}}
+
+  /* Card */
+  .card{position:relative;background:var(--card);border:1px solid var(--border);backdrop-filter:blur(10px);padding:32px;transition:all .4s;overflow:hidden;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px))}
+  .card::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,transparent 30%,rgba(0,240,255,0.06) 50%,transparent 70%);transform:translateX(-100%);transition:transform .6s}
+  .card:hover::before{transform:translateX(100%)}
+  .card:hover{border-color:var(--accent);transform:translateY(-4px)}
+  .card-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:.2em}
+  .card-icon{width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(0,240,255,0.08);border:1px solid var(--border);color:var(--accent);font-size:20px;margin-bottom:20px;transition:all .3s}
+  .card:hover .card-icon{background:var(--accent);color:#001018;box-shadow:0 0 30px rgba(0,240,255,0.5)}
+
+  /* Marquee */
+  .marquee{display:flex;overflow:hidden;gap:60px;mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+  .marquee-track{display:flex;gap:60px;animation:marquee 30s linear infinite;flex-shrink:0}
+  @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+
+  /* Stat */
+  .stat-num{font-size:clamp(48px,7vw,96px);font-weight:700;line-height:1;background:linear-gradient(180deg,var(--accent),#0891b2);-webkit-background-clip:text;background-clip:text;color:transparent;font-family:'JetBrains Mono',monospace}
+
+  /* HUD corners */
+  .hud{position:relative}
+  .hud::before,.hud::after{content:"";position:absolute;width:14px;height:14px;border:1px solid var(--accent)}
+  .hud::before{top:-1px;left:-1px;border-right:none;border-bottom:none}
+  .hud::after{bottom:-1px;right:-1px;border-left:none;border-top:none}
+
+  /* Section label */
+  .section-label{display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:.3em;text-transform:uppercase}
+  .section-label::before{content:"";width:30px;height:1px;background:var(--accent)}
+
+  /* Reveal */
+  .reveal{opacity:0;transform:translateY(40px);transition:opacity .8s ease,transform .8s ease}
+  .reveal.in{opacity:1;transform:translateY(0)}
+
+  /* Scrolling indicator */
+  .scroll-ind{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);font-size:10px;letter-spacing:.3em}
+  .scroll-ind .line{width:1px;height:50px;background:linear-gradient(to bottom,var(--accent),transparent);animation:scrollLine 2s ease-in-out infinite}
+  @keyframes scrollLine{0%,100%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1)}}
+
+  /* Vertical text */
+  .vtext{writing-mode:vertical-rl;text-orientation:mixed;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.4em;color:var(--muted)}
+
+  /* Live dot */
+  .live-dot{width:8px;height:8px;background:var(--accent-3);border-radius:50%;box-shadow:0 0 12px var(--accent-3);animation:pulse 1.5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+
+  /* Code block */
+  .code-block{background:rgba(0,0,0,0.5);border:1px solid var(--border);padding:20px;font-family:'JetBrains Mono',monospace;font-size:13px;color:#94a3b8;line-height:1.7}
+  .code-block .key{color:var(--accent)}
+  .code-block .str{color:var(--accent-3)}
+  .code-block .com{color:#475569}
+
+  /* CTA section */
+  .cta-box{position:relative;background:linear-gradient(135deg,rgba(0,240,255,0.08),rgba(255,107,26,0.04));border:1px solid var(--border);padding:80px;clip-path:polygon(24px 0,100% 0,100% calc(100% - 24px),calc(100% - 24px) 100%,0 100%,0 24px);overflow:hidden}
+
+  /* Footer */
+  footer{border-top:1px solid var(--border);background:rgba(5,7,13,0.8)}
+
+  @media (max-width:768px){
+    body{cursor:auto}
+    .cursor-dot,.cursor-ring{display:none}
+    .cta-box{padding:40px 24px}
+  }
+</style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div class="cursor-dot"></div>
+<div class="cursor-ring"></div>
+
+<!-- Background -->
+<canvas id="bgCanvas"></canvas>
+<div class="grid-floor"></div>
+<div class="spotlight" id="spotlight"></div>
+
+<!-- Floating orbs -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- Side vertical text -->
+<div class="vtext fixed left-4 top-1/2 -translate-y-1/2 z-50 hidden md:block">NEXUS.SYS // v2.4.1 // ONLINE</div>
+<div class="vtext fixed right-4 top-1/2 -translate-y-1/2 z-50 hidden md:block" style="writing-mode:vertical-lr">LAT 37.7749° N // LONG 122.4194° W</div>
+
+<!-- Navigation -->
+<nav class="px-6 md:px-12 py-5">
+  <div class="max-w-7xl mx-auto flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 hud flex items-center justify-center">
+        <div class="w-3 h-3 bg-cyan-400" style="clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)"></div>
+      </div>
+      <div>
+        <div class="font-bold tracking-widest text-sm">NEXUS</div>
+        <div class="mono text-[9px] text-slate-500 tracking-widest">QUANTUM.SYSTEM</div>
+      </div>
+    </div>
+    <div class="hidden md:flex items-center gap-10 text-sm">
+      <a href="#platform" class="nav-link">Platform</a>
+      <a href="#capabilities" class="nav-link">Capabilities</a>
+      <a href="#network" class="nav-link">Network</a>
+      <a href="#access" class="nav-link">Access</a>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="hidden md:flex items-center gap-2 mono text-[10px] text-slate-400">
+        <span class="live-dot"></span> SYSTEM ONLINE
+      </div>
+      <button class="btn-primary">Initialize</button>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="relative min-h-screen flex items-center px-6 md:px-12 pt-24 z-10">
+  <div class="max-w-7xl mx-auto w-full">
+    <div class="flex items-center gap-4 mb-8">
+      <div class="section-label">PROTOCOL 042 / TRANSMISSION ACTIVE</div>
+    </div>
+
+    <h1 class="hero-title mb-8">
+      <span class="block">ENGINEER</span>
+      <span class="block" style="background:linear-gradient(180deg,#ff6b1a,#f97316 50%,#c2410c);-webkit-background-clip:text;background-clip:text;color:transparent">THE&nbsp;FUTURE</span>
+    </h1>
+
+    <div class="grid md:grid-cols-2 gap-12 items-end">
+      <div>
+        <p class="text-lg md:text-xl text-slate-300 max-w-xl leading-relaxed mb-8">
+          A neural-synthetic compute fabric for teams operating at the edge of physics, biology, and machine cognition. Build, simulate, and deploy at the speed of thought.
+        </p>
+        <div class="flex flex-wrap gap-4">
+          <button class="btn-primary flex items-center gap-2">
+            <span>Request Access</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+          <button class="btn-ghost flex items-center gap-2">
+            <i class="fa-solid fa-play text-[10px]"></i>
+            <span>Watch Demo</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="flex items-center justify-between mono text-xs text-slate-500">
+          <span>// LIVE TELEMETRY</span>
+          <span id="timeStamp">00:00:00 UTC</span>
+        </div>
+        <div class="code-block hud">
+          <div><span class="com"># nexus runtime</span></div>
+          <div><span class="key">$</span> nexus init --core quantum</div>
+          <div><span class="key">→</span> linking <span class="str">12,480</span> compute nodes</div>
+          <div><span class="key">→</span> entropy stable at <span class="str">0.0023</span></div>
+          <div><span class="key">→</span> coherence window: <span class="str">98.7%</span></div>
+          <div><span class="key">→</span> <span style="color:var(--accent)">ready.</span> awaiting input_<span class="str">"</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-ind">
+    <span>SCROLL</span>
+    <div class="line"></div>
+  </div>
+</section>
+
+<!-- Marquee -->
+<section class="relative py-8 border-y border-cyan-500/10 bg-black/30 backdrop-blur-sm z-10">
+  <div class="marquee">
+    <div class="marquee-track">
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-cyan-400"></i> QUANTUM COMPUTING</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-orange-400"></i> NEURAL SYNTHESIS</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-cyan-400"></i> EDGE INFERENCE</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-green-400"></i> HOLOGRAPHIC RENDER</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-cyan-400"></i> BIO-COMPATIBLE API</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-orange-400"></i> CRYPTOGRAPHIC MESH</span>
+    </div>
+    <div class="marquee-track" aria-hidden="true">
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-cyan-400"></i> QUANTUM COMPUTING</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-orange-400"></i> NEURAL SYNTHESIS</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-cyan-400"></i> EDGE INFERENCE</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-green-400"></i> HOLOGRAPHIC RENDER</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-cyan-400"></i> BIO-COMPATIBLE API</span>
+      <span class="mono text-sm text-slate-500 flex items-center gap-3"><i class="fa-solid fa-circle text-[6px] text-orange-400"></i> CRYPTOGRAPHIC MESH</span>
+    </div>
+  </div>
+</section>
+
+<!-- Platform / Capabilities -->
+<section id="capabilities" class="relative py-32 px-6 md:px-12 z-10">
+  <div class="max-w-7xl mx-auto">
+    <div class="grid md:grid-cols-2 gap-16 mb-20 items-end reveal">
+      <div>
+        <div class="section-label mb-6">02 / CAPABILITIES</div>
+        <h2 class="text-5xl md:text-6xl font-bold leading-tight tracking-tight">
+          Built for problems that <span style="color:var(--accent)">don't exist yet</span>.
+        </h2>
+      </div>
+      <p class="text-slate-400 text-lg leading-relaxed">
+        Six interlocking subsystems. Zero compromise. From sub-millisecond inference on orbital hardware to genome-scale simulation in your browser, NEXUS adapts to the shape of your problem.
+      </p>
+    </div>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="card reveal hud">
+        <div class="card-num mb-4">/ 001</div>
+        <div class="card-icon"><i class="fa-solid fa-atom"></i></div>
+        <h3 class="text-xl font-semibold mb-3">Quantum Core</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Superconducting qubit scheduler with native error correction. Run Shor-class algorithms in production.</p>
+      </div>
+      <div class="card reveal hud">
+        <div class="card-num mb-4">/ 002</div>
+        <div class="card-icon"><i class="fa-solid fa-brain"></i></div>
+        <h3 class="text-xl font-semibold mb-3">Neural Mesh</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Distributed cognition layer. Train 700B-parameter models across continents as if on a single chip.</p>
+      </div>
+      <div class="card reveal hud">
+        <div class="card-num mb-4">/ 003</div>
+        <div class="card-icon"><i class="fa-solid fa-bolt"></i></div>
+        <h3 class="text-xl font-semibold mb-3">Edge Inference</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Sub-millisecond response from low-orbit relays. Your model runs everywhere your user is.</p>
+      </div>
+      <div class="card reveal hud">
+        <div class="card-num mb-4">/ 004</div>
+        <div class="card-icon"><i class="fa-solid fa-cube"></i></div>
+        <h3 class="text-xl font-semibold mb-3">Holo Render</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Volumetric pipeline for spatial computing. Stream photoreal scenes to any XR device at 240Hz.</p>
+      </div>
+      <div class="card reveal hud">
+        <div class="card-num mb-4">/ 005</div>
+        <div class="card-icon"><i class="fa-solid fa-dna"></i></div>
+        <h3 class="text-xl font-semibold mb-3">Bio Compiler</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Translate intent into protein. Design enzymes, therapeutics, and materials with a single prompt.</p>
+      </div>
+      <div class="card reveal hud">
+        <div class="card-num mb-4">/ 006</div>
+        <div class="card-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <h3 class="text-xl font-semibold mb-3">Cryptographic Mesh</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Post-quantum security by default. Zero-knowledge proofs across every node, every transaction.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats -->
+<section id="network" class="relative py-32 px-6 md:px-12 z-10 border-y border-cyan-500/10">
+  <div class="max-w-7xl mx-auto">
+    <div class="mb-16 reveal">
+      <div class="section-label mb-6">03 / NETWORK</div>
+      <h2 class="text-5xl md:text-6xl font-bold tracking-tight">A planetary-scale <span style="color:var(--accent-2)">nervous system</span>.</h2>
+    </div>
+
+    <div class="grid md:grid-cols-4 gap-8">
+      <div class="reveal">
+        <div class="mono text-xs text-cyan-400 mb-2">// NODES</div>
+        <div class="stat-num" data-target="12480">0</div>
+        <div class="text-slate-400 mt-2 text-sm">Active compute nodes across 47 regions</div>
+      </div>
+      <div class="reveal">
+        <div class="mono text-xs text-cyan-400 mb-2">// THROUGHPUT</div>
+        <div class="stat-num" data-target="892">0</div>
+        <div class="text-slate-400 mt-2 text-sm">Petabytes processed per day</div>
+      </div>
+      <div class="reveal">
+        <div class="mono text-xs text-cyan-400 mb-2">// LATENCY</div>
+        <div class="stat-num" data-target="0.8">0</div>
+        <div class="text-slate-400 mt-2 text-sm">Median response, milliseconds</div>
+      </div>
+      <div class="reveal">
+        <div class="mono text-xs text-cyan-400 mb-2">// UPTIME</div>
+        <div class="stat-num" data-target="99.99">0</div>
+        <div class="text-slate-400 mt-2 text-sm">Continuous operational window</div>
+      </div>
+    </div>
+
+    <!-- Network visualization -->
+    <div class="mt-20 relative h-96 hud reveal" style="background:linear-gradient(180deg,rgba(0,240,255,0.02),transparent)">
+      <canvas id="netCanvas" class="w-full h-full"></canvas>
+      <div class="absolute top-4 left-4 mono text-[10px] text-slate-500 flex items-center gap-2">
+        <span class="live-dot"></span> GLOBAL.TOPOLOGY.LIVE
+      </div>
+      <div class="absolute bottom-4 right-4 mono text-[10px] text-slate-500">FRAME 04829 / SEC</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="access" class="relative py-32 px-6 md:px-12 z-10">
+  <div class="max-w-7xl mx-auto">
+    <div class="cta-box reveal">
+      <div class="absolute inset-0 opacity-30" style="background:radial-gradient(circle at 20% 30%,rgba(0,240,255,0.3),transparent 50%),radial-gradient(circle at 80% 70%,rgba(255,107,26,0.2),transparent 50%)"></div>
+      <div class="relative grid md:grid-cols-2 gap-12 items-center">
+        <div>
+          <div class="section-label mb-6">04 / ACCESS</div>
+          <h2 class="text-4xl md:text-5xl font-bold leading-tight mb-6">
+            Step through the<br/>
+            <span style="color:var(--accent)">interface.</span>
+          </h2>
+          <p class="text-slate-300 text-lg leading-relaxed mb-8">
+            Closed beta open to research labs, frontier builders, and teams shipping the next decade. Limited to 240 founding seats.
+          </p>
+          <form class="flex flex-col sm:flex-row gap-3" onsubmit="handleSubmit(event)">
+            <input type="email" required placeholder="operator@frontier.lab" class="flex-1 bg-black/40 border border-cyan-500/20 px-5 py-4 text-sm mono focus:outline-none focus:border-cyan-400 transition" style="clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)"/>
+            <button type="submit" class="btn-primary flex items-center gap-2 justify-center">
+              <span>Transmit</span>
+              <i class="fa-solid fa-paper-plane text-xs"></i>
+            </button>
+          </form>
+        </div>
+        <div class="hidden md:block">
+          <div class="grid grid-cols-2 gap-4">
+            <div class="hud p-5 bg-black/40 border border-cyan-500/10">
+              <div class="mono text-[10px] text-cyan-400 mb-2">SEATS LEFT</div>
+              <div class="text-3xl font-bold mono">87</div>
+            </div>
+            <div class="hud p-5 bg-black/40 border border-cyan-500/10">
+              <div class="mono text-[10px] text-orange-400 mb-2">COHORT</div>
+              <div class="text-3xl font-bold mono">07</div>
+            </div>
+            <div class="hud p-5 bg-black/40 border border-cyan-500/10 col-span-2">
+              <div class="mono text-[10px] text-cyan-400 mb-2">NEXT WINDOW</div>
+              <div class="text-xl font-semibold">Q1 — 2026 / 14 days</div>
+              <div class="mt-3 h-1 bg-cyan-500/10 overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-cyan-400 to-orange-400" style="width:72%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="relative py-16 px-6 md:px-12 z-10">
+  <div class="max-w-7xl mx-auto">
+    <div class="grid md:grid-cols-4 gap-10 mb-12">
+      <div class="md:col-span-2">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-9 h-9 hud flex items-center justify-center">
+            <div class="w-3 h-3 bg-cyan-400" style="clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)"></div>
+          </div>
+          <div class="font-bold tracking-widest">NEXUS</div>
+        </div>
+        <p class="text-slate-400 text-sm max-w-md leading-relaxed">
+          A research initiative building the substrate for post-silicon computing. Headquartered between San Francisco, Zurich, and low-Earth orbit.
+        </p>
+      </div>
+      <div>
+        <div class="mono text-xs text-cyan-400 mb-4">// SYSTEM</div>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li><a href="#" class="hover:text-white transition">Platform</a></li>
+          <li><a href="#" class="hover:text-white transition">Documentation</a></li>
+          <li><a href="#" class="hover:text-white transition">Research Papers</a></li>
+          <li><a href="#" class="hover:text-white transition">Status</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="mono text-xs text-cyan-400 mb-4">// TRANSMIT</div>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li><a href="#" class="hover:text-white transition">Operator Network</a></li>
+          <li><a href="#" class="hover:text-white transition">Careers</a></li>
+          <li><a href="#" class="hover:text-white transition">Press Kit</a></li>
+          <li><a href="#" class="hover:text-white transition">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="pt-8 border-t border-cyan-500/10 flex flex-col md:flex-row justify-between items-center gap-4 mono text-[10px] text-slate-500 tracking-widest">
+      <div>© 2026 NEXUS QUANTUM SYSTEMS // ALL TRANSMISSIONS RESERVED</div>
+      <div class="flex items-center gap-6">
+        <span>BUILD 2.4.1-RC</span>
+        <span class="flex items-center gap-2"><span class="live-dot"></span> NETWORK NOMINAL</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-8 right-8 z-[10000] hidden">
+  <div class="hud bg-black/90 border border-cyan-400 px-6 py-4 backdrop-blur-xl flex items-center gap-3" style="clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)">
+    <i class="fa-solid fa-check text-cyan-400"></i>
+    <span class="text-sm">Transmission received. Standby for contact.</span>
+  </div>
+</div>
+
+<script>
+/* ===== Custom cursor ===== */
+const dot = document.querySelector('.cursor-dot');
+const ring = document.querySelector('.cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;dot.style.transform=`translate(${mx}px,${my}px) translate(-50%,-50%)`});
+function tick(){rx+=(mx-rx)*0.15;ry+=(my-ry)*0.15;ring.style.transform=`translate(${rx}px,${ry}px) translate(-50%,-50%)`;requestAnimationFrame(tick)}
+tick();
+document.querySelectorAll('a,button,input,.card').forEach(el=>{
+  el.addEventListener('mouseenter',()=>ring.classList.add('hover'));
+  el.addEventListener('mouseleave',()=>ring.classList.remove('hover'));
+});
+
+/* ===== Spotlight ===== */
+const spot = document.getElementById('spotlight');
+window.addEventListener('mousemove',e=>{spot.style.transform=`translate(${e.clientX}px,${e.clientY}px) translate(-50%,-50%)`});
+
+/* ===== Background particles ===== */
+const bg = document.getElementById('bgCanvas');
+const ctx = bg.getContext('2d');
+let W,H,particles;
+function resize(){W=bg.width=innerWidth;H=bg.height=innerHeight;initParticles()}
+function initParticles(){
+  const count = Math.min(80, Math.floor(W*H/22000));
+  particles = Array.from({length:count},()=>({
+    x:Math.random()*W,y:Math.random()*H,
+    vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,
+    r:Math.random()*1.5+0.5
+  }));
+}
+resize();addEventListener('resize',resize);
+
+function drawBG(){
+  ctx.clearRect(0,0,W,H);
+  for(let i=0;i<particles.length;i++){
+    const p=particles[i];
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0||p.x>W)p.vx*=-1;
+    if(p.y<0||p.y>H)p.vy*=-1;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,240,255,0.6)';ctx.fill();
+    for(let j=i+1;j<particles.length;j++){
+      const q=particles[j];
+      const dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy);
+      if(d<140){
+        ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+        ctx.strokeStyle=`rgba(0,240,255,${0.15*(1-d/140)})`;
+        ctx.lineWidth=0.5;ctx.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(drawBG);
+}
+drawBG();
+
+/* ===== Network canvas ===== */
+const net = document.getElementById('netCanvas');
+const nctx = net.getContext('2d');
+let NW,NH,nodes;
+function resizeNet(){
+  const r = net.getBoundingClientRect();
+  NW = net.width = r.width;
+  NH = net.height = r.height;
+  nodes = Array.from({length:40},()=>({
+    x:Math.random()*NW,y:Math.random()*NH,
+    vx:(Math.random()-0.5)*0.4,vy:(Math.random()-0.5)*0.4,
+    pulse:Math.random()*Math.PI*2
+  }));
+}
+resizeNet();addEventListener('resize',resizeNet);
+
+function drawNet(){
+  nctx.clearRect(0,0,NW,NH);
+  // grid
+  nctx.strokeStyle='rgba(0,240,255,0.05)';nctx.lineWidth=1;
+  for(let x=0;x<NW;x+=40){nctx.beginPath();nctx.moveTo(x,0);nctx.lineTo(x,NH);nctx.stroke()}
+  for(let y=0;y<NH;y+=40){nctx.beginPath();nctx.moveTo(0,y);nctx.lineTo(NW,y);nctx.stroke()}
+
+  for(let i=0;i<nodes.length;i++){
+    const n=nodes[i];
+    n.x+=n.vx;n.y+=n.vy;n.pulse+=0.04;
+    if(n.x<0||n.x>NW)n.vx*=-1;
+    if(n.y<0||n.y>NH)n.vy*=-1;
+    for(let j=i+1;j<nodes.length;j++){
+      const m=nodes[j];
+      const dx=n.x-m.x,dy=n.y-m.y,d=Math.hypot(dx,dy);
+      if(d<120){
+        nctx.beginPath();nctx.moveTo(n.x,n.y);nctx.lineTo(m.x,m.y);
+        nctx.strokeStyle=`rgba(0,240,255,${0.3*(1-d/120)})`;
+        nctx.lineWidth=0.6;nctx.stroke();
+      }
+    }
+    const glow = 3 + Math.sin(n.pulse)*1.5;
+    nctx.beginPath();nctx.arc(n.x,n.y,glow,0,Math.PI*2);
+    nctx.fillStyle='rgba(0,240,255,0.9)';nctx.fill();
+    nctx.beginPath();nctx.arc(n.x,n.y,glow*3,0,Math.PI*2);
+    nctx.fillStyle='rgba(0,240,255,0.1)';nctx.fill();
+  }
+  requestAnimationFrame(drawNet);
+}
+drawNet();
+
+/* ===== Time stamp ===== */
+function updateTime(){
+  const d=new Date();
+  const t=d.toUTCString().split(' ')[4]+' UTC';
+  document.getElementById('timeStamp').textContent=t;
+}
+setInterval(updateTime,1000);updateTime();
+
+/* ===== Reveal on scroll ===== */
+const io = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}});
+},{threshold:0.15});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* ===== Animated counters ===== */
+const countObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const el=e.target;
+      const target=parseFloat(el.dataset.target);
+      const isFloat = target%1!==0;
+      let cur=0;
+      const step = target/60;
+      const t = setInterval(()=>{
+        cur+=step;
+        if(cur>=target){cur=target;clearInterval(t)}
+        el.textContent = isFloat ? cur.toFixed(2) : Math.floor(cur).toLocaleString();
+      },24);
+      countObs.unobserve(el);
+    }
+  });
+},{threshold:0.4});
+document.querySelectorAll('.stat-num').forEach(el=>countObs.observe(el));
+
+/* ===== Form / toast ===== */
+function handleSubmit(e){
+  e.preventDefault();
+  const toast = document.getElementById('toast');
+  toast.classList.remove('hidden');
+  setTimeout(()=>toast.classList.add('hidden'),3500);
+  e.target.reset();
+}
+</script>
+</body>
+</html>

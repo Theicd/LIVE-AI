@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Storm Night — Realistic Rain & Lightning</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;500&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0a0d12;
+    --ink-2:#11151c;
+    --bone:#e8e4d8;
+    --amber:#f5a623;
+    --steel:#7a8a99;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--ink);color:var(--bone);font-family:'Space Mono',monospace;cursor:crosshair}
+
+  #scene{position:fixed;inset:0;display:block}
+
+  /* ---------- HUD ---------- */
+  .hud{
+    position:fixed;inset:0;pointer-events:none;z-index:5;
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:28px 36px;
+  }
+  .top{display:flex;justify-content:space-between;align-items:flex-start}
+  .brand{font-family:'Cormorant Garamond',serif;font-weight:300;letter-spacing:.4em;font-size:13px;color:#cfc9b8;opacity:.85}
+  .brand b{font-weight:500;color:var(--amber);letter-spacing:.5em}
+  .meta{text-align:right;font-size:10px;letter-spacing:.3em;color:#8a8678;line-height:1.9}
+  .meta span{color:var(--amber)}
+
+  .center{
+    align-self:center;text-align:center;max-width:760px;
+    transform:translateY(-20px);
+  }
+  .center h1{
+    font-family:'Cormorant Garamond',serif;font-weight:300;
+    font-size:clamp(56px,9vw,128px);line-height:.95;letter-spacing:-.02em;
+    color:#f2eedf;
+    text-shadow:0 1px 0 rgba(0,0,0,.4);
+  }
+  .center h1 em{font-style:italic;color:var(--amber);font-weight:500}
+  .center p{
+    margin-top:18px;font-size:11px;letter-spacing:.5em;
+    color:#a39d8c;text-transform:uppercase;
+  }
+
+  .bottom{display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;letter-spacing:.3em;color:#8a8678}
+  .controls{display:flex;gap:22px;pointer-events:auto}
+  .controls button{
+    background:rgba(20,24,30,.55);backdrop-filter:blur(8px);
+    border:1px solid rgba(245,166,35,.25);color:#cfc9b8;
+    font-family:inherit;font-size:10px;letter-spacing:.3em;
+    padding:11px 18px;cursor:pointer;transition:.25s;text-transform:uppercase;
+  }
+  .controls button:hover{border-color:var(--amber);color:var(--amber);background:rgba(245,166,35,.08)}
+  .controls button.active{background:var(--amber);color:#0a0d12;border-color:var(--amber)}
+
+  .stat{display:flex;gap:18px}
+  .stat div{display:flex;flex-direction:column;gap:4px}
+  .stat label{font-size:9px;color:#6a6658;letter-spacing:.4em}
+  .stat val{font-size:14px;color:var(--amber);font-weight:500;letter-spacing:.1em;font-variant-numeric:tabular-nums}
+
+  /* ---------- Flash overlay ---------- */
+  .flash{
+    position:fixed;inset:0;background:#dfe7f5;pointer-events:none;
+    opacity:0;z-index:3;mix-blend-mode:screen;
+  }
+
+  /* ---------- Vignette ---------- */
+  .vignette{
+    position:fixed;inset:0;pointer-events:none;z-index:4;
+    background:
+      radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,.55) 100%),
+      linear-gradient(180deg, rgba(0,0,0,.35) 0%, transparent 25%, transparent 75%, rgba(0,0,0,.5) 100%);
+  }
+
+  /* ---------- Scan/grain ---------- */
+  .grain{
+    position:fixed;inset:0;pointer-events:none;z-index:6;opacity:.08;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='.7'/></svg>");
+    mix-blend-mode:overlay;
+  }
+
+  /* hint */
+  .hint{
+    position:fixed;left:50%;bottom:90px;transform:translateX(-50%);
+    font-size:10px;letter-spacing:.5em;color:#6a6658;text-transform:uppercase;
+    z-index:7;pointer-events:none;animation:pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
+
+  @media (max-width:720px){
+    .hud{padding:18px}
+    .meta,.stat{display:none}
+    .center h1{font-size:64px}
+    .controls{gap:10px}
+    .controls button{padding:9px 12px;font-size:9px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div class="flash" id="flash"></div>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<div class="hud">
+  <div class="top">
+    <div class="brand">STORM<b>·</b>OBSERVATORY <b>·</b> 04°N</div>
+    <div class="meta">
+      LAT <span>34.0522°N</span><br>
+      LON <span>118.2437°W</span><br>
+      TEMP <span>11°C</span><br>
+      PRESSURE <span>1003 hPa</span>
+    </div>
+  </div>
+
+  <div class="center">
+    <h1>The Night <em>Burns</em><br>Quietly.</h1>
+    <p>— Move cursor · Click to summon lightning —</p>
+  </div>
+
+  <div class="bottom">
+    <div class="controls">
+      <button id="btnRain" class="active">Rain · Heavy</button>
+      <button id="btnLight">Auto Lightning</button>
+      <button id="btnThunder">Thunder Sound</button>
+    </div>
+    <div class="stat">
+      <div><label>DROPS</label><val id="dropCount">0</val></div>
+      <div><label>WIND</label><val id="windVal">0.0</val></div>
+      <div><label>STRIKES</label><val id="strikeCount">0</val></div>
+    </div>
+  </div>
+</div>
+
+<div class="hint">Click anywhere to strike</div>
+
+<script>
+/* ============================================================
+   STORM ENGINE — realistic rain, branching lightning & thunder
+   ============================================================ */
+const canvas = document.getElementById('scene');
+const ctx = canvas.getContext('2d');
+const flashEl = document.getElementById('flash');
+
+let W=0, H=0, DPR=Math.min(window.devicePixelRatio||1, 2);
+function resize(){
+  W = canvas.width  = innerWidth  * DPR;
+  H = canvas.height = innerHeight * DPR;
+  canvas.style.width = innerWidth+'px';
+  canvas.style.height = innerHeight+'px';
+  buildBackground();
+}
+addEventListener('resize', resize);
+
+/* ---------- State ---------- */
+const state = {
+  rainOn: true,
+  autoLight: true,
+  thunderOn: false,
+  wind: 1.4,            // wind strength
+  windTarget: 1.4,
+  rainDensity: 1.0,     // multiplier
+  flashes: [],          // active lightning flashes
+  bolts: [],            // active bolts
+  strikeCount: 0,
+  ambientFlash: 0,      // ambient sky illumination
+};
+
+/* ---------- Background layers (city silhouette + clouds) ---------- */
+let bgCanvas;
+function buildBackground(){
+  bgCanvas = document.createElement('canvas');
+  bgCanvas.width = W; bgCanvas.height = H;
+  const c = bgCanvas.getContext('2d');
+
+  // Sky gradient (deep storm)
+  const sky = c.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,    '#0a0d14');
+  sky.addColorStop(0.45, '#141a24');
+  sky.addColorStop(0.7,  '#1a2030');
+  sky.addColorStop(1,    '#070a10');
+  c.fillStyle = sky; c.fillRect(0,0,W,H);
+
+  // Distant clouds (noise blobs)
+  c.globalCompositeOperation = 'lighter';
+  for(let i=0;i<60;i++){
+    const x = Math.random()*W;
+    const y = Math.random()*H*0.55;
+    const r = (80+Math.random()*220)*DPR;
+    const g = c.createRadialGradient(x,y,0,x,y,r);
+    const a = 0.04+Math.random()*0.05;
+    g.addColorStop(0, `rgba(80,95,120,${a})`);
+    g.addColorStop(1, 'rgba(80,95,120,0)');
+    c.fillStyle = g;
+    c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill();
+  }
+  c.globalCompositeOperation = 'source-over';
+
+  // Far mountain ridge
+  c.fillStyle = '#0c1119';
+  c.beginPath();
+  c.moveTo(0, H*0.78);
+  for(let x=0;x<=W;x+=20*DPR){
+    const y = H*0.78 + Math.sin(x*0.003)*30*DPR + Math.sin(x*0.011)*15*DPR;
+    c.lineTo(x,y);
+  }
+  c.lineTo(W,H); c.lineTo(0,H); c.closePath(); c.fill();
+
+  // City silhouette (mid)
+  c.fillStyle = '#080b11';
+  const baseY = H*0.86;
+  c.beginPath(); c.moveTo(0, baseY);
+  let x=0;
+  while(x<W){
+    const bw = (40+Math.random()*120)*DPR;
+    const bh = (40+Math.random()*180)*DPR;
+    c.lineTo(x, baseY - bh);
+    c.lineTo(x+bw, baseY - bh);
+    // small antenna
+    if(Math.random()<0.25){
+      const ax = x+bw/2;
+      c.lineTo(ax, baseY - bh - 20*DPR);
+      c.lineTo(ax+2*DPR, baseY - bh - 20*DPR);
+      c.lineTo(ax+2*DPR, baseY - bh);
+    }
+    x += bw;
+  }
+  c.lineTo(W,H); c.lineTo(0,H); c.closePath(); c.fill();
+
+  // Random lit windows (will be re-rendered each frame for flicker)
+  windows.length = 0;
+  const winCount = Math.floor((W*H)/(80000*DPR*DPR));
+  for(let i=0;i<winCount;i++){
+    windows.push({
+      x: Math.random()*W,
+      y: H*0.78 + Math.random()*(H*0.12),
+      s: (1+Math.random()*2)*DPR,
+      hue: 30+Math.random()*20,
+      flicker: Math.random()*Math.PI*2
+    });
+  }
+
+  // Foreground ground wet sheen
+  const ground = c.createLinearGradient(0,H*0.92,0,H);
+  ground.addColorStop(0,'rgba(20,28,40,0)');
+  ground.addColorStop(1,'rgba(40,55,75,.5)');
+  c.fillStyle = ground; c.fillRect(0,H*0.92,W,H*0.08);
+}
+const windows = [];
+
+/* ---------- Rain drops ---------- */
+class Drop{
+  constructor(){this.reset(true)}
+  reset(initial){
+    this.z = Math.random();                        // depth 0..1
+    this.x = Math.random()*W*1.4 - W*0.2;
+    this.y = initial ? Math.random()*H : -20*DPR;
+    this.len = (8 + this.z*22)*DPR;
+    this.speed = (8 + this.z*22)*DPR;
+    this.thick = (0.4 + this.z*1.4)*DPR;
+    this.alpha = 0.18 + this.z*0.55;
+  }
+  update(dt){
+    const wind = state.wind;
+    this.x += wind * (1+this.z*1.5) * dt * 60;
+    this.y += this.speed * dt * 60;
+    if(this.y > H + this.len){ this.reset(false); }
+    if(this.x > W*1.2){ this.x = -W*0.2; }
+    if(this.x < -W*0.2){ this.x = W*1.2; }
+  }
+  draw(){
+    ctx.strokeStyle = `rgba(170,190,215,${this.alpha})`;
+    ctx.lineWidth = this.thick;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(this.x - state.wind*1.2*(1+this.z), this.y - this.len);
+    ctx.stroke();
+  }
+}
+const drops = [];
+const MAX_DROPS = 900;
+
+/* ---------- Splash particles on ground ---------- */
+const splashes = [];
+function spawnSplash(x){
+  for(let i=0;i<2;i++){
+    splashes.push({
+      x, y: H*0.94 + Math.random()*H*0.05,
+      vx:(Math.random()-0.5)*2*DPR,
+      vy:-(1+Math.random()*2)*DPR,
+      life:1, r:(1+Math.random()*1.5)*DPR
+    });
+  }
+}
+
+/* ---------- Lightning bolt generator ---------- */
+function generateBolt(startX, startY, endX, endY, displace, detail=0){
+  if(displace < detail){
+    return [[startX,startY],[endX,endY]];
+  }
+  const midX = (startX+endX)/2 + (Math.random()-0.5)*displace;
+  const midY = (startY+endY)/2 + (Math.random()-0.5)*displace*0.4;
+  const a = generateBolt(startX,startY,midX,midY, displace*0.55, detail);
+  const b = generateBolt(midX,midY,endX,endY, displace*0.55, detail);
+  return a.concat(b.slice(1));
+}
+
+function spawnLightning(targetX, targetY){
+  // Main bolt
+  const startX = (targetX ?? Math.random()*W);
+  const startY = -20*DPR;
+  const endX   = targetX ?? (startX + (Math.random()-0.5)*W*0.3);
+  const endY   = targetY ?? (H*0.55 + Math.random()*H*0.3);
+
+  const main = generateBolt(startX,startY,endX,endY, 120*DPR, 4*DPR);
+
+  // Branches
+  const branches = [];
+  for(let i=0;i<5;i++){
+    const idx = Math.floor(Math.random()*main.length);
+    if(idx<=0||idx>=main.length-1) continue;
+    const [bx,by] = main[idx];
+    const angle = (Math.random()-0.5)*Math.PI*0.8 + Math.PI/2;
+    const len = (80+Math.random()*200)*DPR;
+    const ex = bx + Math.cos(angle)*len * (Math.random()<0.5?-1:1);
+    const ey = by + Math.sin(angle)*len;
+    branches.push(generateBolt(bx,by,ex,ey, 40*DPR, 3*DPR));
+  }
+
+  state.bolts.push({
+    main, branches,
+    life: 1,
+    flicker: 1,
+    born: performance.now()
+  });
+
+  // Flash
+  state.flashes.push({ life: 1, intensity: 0.85 + Math.random()*0.15 });
+  state.ambientFlash = 1;
+  state.strikeCount++;
+  document.getElementById('strikeCount').textContent = String(state.strikeCount).padStart(3,'0');
+
+  // Thunder
+  if(state.thunderOn) playThunder(performance.now());
+}
+
+/* ---------- Thunder (synthesized) ---------- */
+let audioCtx;
+function ensureAudio(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+}
+function playThunder(strikeTime){
+  ensureAudio();
+  // Delay based on simulated distance
+  const distance = 800 + Math.random()*4000; // meters
+  const delay = distance/340; // seconds
+  const gain = Math.max(0.15, 1 - distance/4500);
+
+  setTimeout(()=>{
+    const now = audioCtx.currentTime;
+    // Low rumble (filtered noise)
+    const bufSize = audioCtx.sampleRate * 3;
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<bufSize;i++){
+      data[i] = (Math.random()*2-1) * Math.pow(1 - i/bufSize, 1.4);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const lp = audioCtx.createBiquadFilter();
+    lp.type='lowpass'; lp.frequency.value = 220;
+    const hp = audioCtx.createBiquadFilter();
+    hp.type='highpass'; hp.frequency.value = 30;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.7*gain, now+0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, now+2.8);
+    src.connect(hp).connect(lp).connect(g).connect(audioCtx.destination);
+    src.start(now);
+
+    // Crack (initial sharper component)
+    if(distance<1500){
+      const crackBuf = audioCtx.createBuffer(1, audioCtx.sampleRate*0.3, audioCtx.sampleRate);
+      const cd = crackBuf.getChannelData(0);
+      for(let i=0;i<cd.length;i++){
+        cd[i] = (Math.random()*2-1) * Math.pow(1 - i/cd.length, 2);
+      }
+      const cs = audioCtx.createBufferSource(); cs.buffer = crackBuf;
+      const cf = audioCtx.createBiquadFilter(); cf.type='bandpass'; cf.frequency.value=900; cf.Q.value=0.8;
+      const cg = audioCtx.createGain();
+      cg.gain.setValueAtTime(0.5*gain, now);
+      cg.gain.exponentialRampToValueAtTime(0.001, now+0.4);
+      cs.connect(cf).connect(cg).connect(audioCtx.destination);
+      cs.start(now);
+    }
+  }, delay*1000);
+}
+
+/* ---------- Render bolts ---------- */
+function drawBolt(bolt){
+  const age = (performance.now() - bolt.born)/1000;
+  // Flicker
+  const flick = 0.6 + Math.random()*0.4;
+
+  // Outer glow
+  ctx.save();
+  ctx.shadowBlur = 40*DPR;
+  ctx.shadowColor = 'rgba(190,210,255,0.9)';
+  ctx.strokeStyle = `rgba(220,230,255,${0.85*flick})`;
+  ctx.lineWidth = 3*DPR;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  bolt.main.forEach(([x,y],i)=> i?ctx.lineTo(x,y):ctx.moveTo(x,y));
+  ctx.stroke();
+
+  // Inner core (white hot)
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = `rgba(255,255,255,${flick})`;
+  ctx.lineWidth = 1.2*DPR;
+  ctx.beginPath();
+  bolt.main.forEach(([x,y],i)=> i?ctx.lineTo(x,y):ctx.moveTo(x,y));
+  ctx.stroke();
+
+  // Branches
+  ctx.shadowBlur = 20*DPR;
+  ctx.shadowColor = 'rgba(170,200,255,0.7)';
+  ctx.strokeStyle = `rgba(200,220,255,${0.6*flick})`;
+  ctx.lineWidth = 1.5*DPR;
+  bolt.branches.forEach(br=>{
+    ctx.beginPath();
+    br.forEach(([x,y],i)=> i?ctx.lineTo(x,y):ctx.moveTo(x,y));
+    ctx.stroke();
+  });
+
+  // Bright core of branches
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = `rgba(255,255,255,${0.7*flick})`;
+  ctx.lineWidth = 0.6*DPR;
+  bolt.branches.forEach(br=>{
+    ctx.beginPath();
+    br.forEach(([x,y],i)=> i?ctx.lineTo(x,y):ctx.moveTo(x,y));
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+/* ---------- Main loop ---------- */
+let last = performance.now();
+let nextStrike = performance.now() + 2500;
+
+function loop(now){
+  const dt = Math.min(0.05, (now-last)/1000);
+  last = now;
+
+  // Wind drift
+  state.windTarget += (Math.random()-0.5)*0.4;
+  state.windTarget = Math.max(-3, Math.min(4, state.windTarget));
+  state.wind += (state.windTarget - state.wind)*0.02;
+  document.getElementById('windVal').textContent = state.wind.toFixed(1);
+
+  /* === BACKGROUND === */
+  ctx.drawImage(bgCanvas, 0, 0);
+
+  /* === Ambient flash (sky brightening) === */
+  if(state.ambientFlash > 0.01){
+    ctx.fillStyle = `rgba(140,160,200,${state.ambientFlash*0.18})`;
+    ctx.fillRect(0,0,W,H);
+    state.ambientFlash *= 0.88;
+  }
+
+  /* === Lit windows (flicker) === */
+  windows.forEach(w=>{
+    const f = 0.5 + Math.sin(now*0.002 + w.flicker)*0.3 + Math.random()*0.1;
+    ctx.fillStyle = `hsla(${w.hue}, 80%, ${50+f*20}%, ${0.35+f*0.4})`;
+    ctx.fillRect(w.x, w.y, w.s, w.s*1.4);
+    // glow
+    ctx.fillStyle = `hsla(${w.hue}, 90%, 60%, ${0.05+f*0.08})`;
+    ctx.beginPath(); ctx.arc(w.x+w.s/2, w.y+w.s/2, w.s*4, 0, Math.PI*2); ctx.fill();
+  });
+
+  /* === Rain === */
+  if(state.rainOn){
+    const target = Math.floor(MAX_DROPS * state.rainDensity);
+    while(drops.length < target) drops.push(new Drop());
+    while(drops.length > target) drops.pop();
+
+    ctx.lineCap = 'round';
+    for(let i=0;i<drops.length;i++){
+      drops[i].update(dt);
+      drops[i].draw();
+      // occasional splash
+      if(drops[i].z > 0.7 && Math.random()<0.002) spawnSplash(drops[i].x);
+    }
+    document.getElementById('dropCount').textContent = drops.length;
+  } else {
+    document.getElementById('dropCount').textContent = '0';
+  }
+
+  /* === Splashes === */
+  for(let i=splashes.length-1;i>=0;i--){
+    const s = splashes[i];
+    s.x += s.vx; s.y += s.vy; s.vy += 0.15*DPR; s.life -= 0.04;
+    if(s.life<=0){ splashes.splice(i,1); continue; }
+    ctx.fillStyle = `rgba(180,200,225,${s.life*0.5})`;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r*s.life,0,Math.PI*2); ctx.fill();
+  }
+
+  /* === Lightning bolts === */
+  for(let i=state.bolts.length-1;i>=0;i--){
+    const b = state.bolts[i];
+    b.life -= dt*4;
+    if(b.life<=0){ state.bolts.splice(i,1); continue; }
+    drawBolt(b);
+  }
+
+  /* === Screen flash overlay === */
+  if(state.flashes.length){
+    let total = 0;
+    for(let i=state.flashes.length-1;i>=0;i--){
+      const f = state.flashes[i];
+      f.life -= dt*2.5;
+      if(f.life<=0){ state.flashes.splice(i,1); continue; }
+      total += f.intensity * Math.max(0,f.life);
+    }
+    flashEl.style.opacity = Math.min(0.7, total*0.5);
+    flashEl.style.background = `rgba(${220+Math.random()*30},${230+Math.random()*20},255,1)`;
+  } else {
+    flashEl.style.opacity = 0;
+  }
+
+  /* === Auto lightning === */
+  if(state.autoLight && now > nextStrike){
+    spawnLightning();
+    nextStrike = now + 1800 + Math.random()*4500;
+  }
+
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Interaction ---------- */
+addEventListener('click', (e)=>{
+  // ignore clicks on buttons
+  if(e.target.tagName==='BUTTON') return;
+  spawnLightning(e.clientX*DPR, e.clientY*DPR);
+});
+
+addEventListener('mousemove', (e)=>{
+  // Subtle wind influence
+  const nx = (e.clientX/innerWidth - 0.5)*2;
+  state.windTarget = nx*3 + (Math.random()-0.5)*0.5;
+});
+
+document.getElementById('btnRain').addEventListener('click', (e)=>{
+  state.rainOn = !state.rainOn;
+  e.currentTarget.classList.toggle('active', state.rainOn);
+  e.currentTarget.textContent = state.rainOn ? 'Rain · Heavy' : 'Rain · Off';
+});
+
+document.getElementById('btnLight').addEventListener('click', (e)=>{
+  state.autoLight = !state.autoLight;
+  e.currentTarget.classList.toggle('active', state.autoLight);
+});
+
+document.getElementById('btnThunder').addEventListener('click', (e)=>{
+  state.thunderOn = !state.thunderOn;
+  e.currentTarget.classList.toggle('active', state.thunderOn);
+  if(state.thunderOn) ensureAudio();
+});
+
+// Keyboard
+addEventListener('keydown', (e)=>{
+  if(e.code==='Space'){ e.preventDefault(); spawnLightning(); }
+});
+
+// Init
+resize();
+requestAnimationFrame(loop);
+// First strike soon
+setTimeout(()=>spawnLightning(), 1200);
+</script>
+</body>
+</html>

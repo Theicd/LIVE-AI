@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>AI LIVE CHANNEL ג€” Local AI Creating Art 24/7</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+	<style>
+		:root {
+			--space-0: #01030a;
+			--space-1: #050b1a;
+			--space-2: #0a1730;
+			--panel: rgba(8, 18, 38, 0.66);
+			--panel-solid: rgba(6, 13, 28, 0.92);
+			--line: rgba(102, 224, 255, 0.22);
+			--amber: #ff9f1c;
+			--gold: #ffc857;
+			--cyan: #66e0ff;
+			--blue: #4ea8ff;
+			--purple: #b58cff;
+			--text: #e6f3ff;
+			--muted: #8fb4d6;
+			--ok: #54f0a8;
+			--warn: #ffce5a;
+			--danger: #ff6b7a;
+			--lcars-h: clamp(48px, 6vh, 70px);
+			--ticker-h: clamp(30px, 4.4vh, 42px);
+			--lower-h: clamp(40px, 6vh, 58px);
+		}
+
+		* { box-sizing: border-box; }
+
+		html, body {
+			margin: 0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+			color: var(--text);
+			font-family: "Orbitron", "Segoe UI", sans-serif;
+			background: radial-gradient(circle at 50% -10%, var(--space-2), var(--space-1) 45%, var(--space-0) 100%);
+		}
+
+		#starfield {
+			position: fixed;
+			inset: 0;
+			z-index: 0;
+		}
+
+		body::after {
+			content: "";
+			position: fixed;
+			inset: 0;
+			z-index: 50;
+			pointer-events: none;
+			background: repeating-linear-gradient(
+				to bottom,
+				rgba(0, 0, 0, 0) 0px,
+				rgba(0, 0, 0, 0) 2px,
+				rgba(0, 0, 0, 0.10) 3px,
+				rgba(0, 0, 0, 0) 4px
+			);
+			mix-blend-mode: overlay;
+			opacity: 0.45;
+		}
+
+		.frame {
+			position: relative;
+			z-index: 2;
+			height: 100vh;
+			height: 100dvh;
+			width: 100%;
+			display: grid;
+			grid-template-rows: var(--lcars-h) var(--ticker-h) minmax(0, 1fr) var(--lower-h);
+			padding: clamp(8px, 1.2vw, 16px);
+			gap: clamp(7px, 1vw, 12px);
+			overflow: hidden;
+		}
+
+		/* ---------------- TOP HEADER ---------------- */
+		.topbar {
+			display: grid;
+			grid-template-columns: auto 1fr auto;
+			align-items: stretch;
+			gap: clamp(8px, 1vw, 14px);
+		}
+
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			background: linear-gradient(120deg, var(--amber), var(--gold));
+			color: #1a1003;
+			border-radius: 6px 6px 6px 20px;
+			padding: 0 clamp(12px, 1.4vw, 22px);
+			min-width: 0;
+		}
+		.brand .sigil {
+			font-size: clamp(1.1rem, 2vw, 1.7rem);
+			line-height: 1;
+		}
+		.brand .name {
+			font-weight: 900;
+			letter-spacing: 0.14em;
+			font-size: clamp(0.85rem, 1.8vw, 1.45rem);
+			white-space: nowrap;
+		}
+
+		.headline {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			gap: 4px;
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: 6px;
+			padding: 6px clamp(12px, 1.6vw, 22px);
+			backdrop-filter: blur(10px);
+			min-width: 0;
+		}
+		.headline .model-line {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			flex-wrap: wrap;
+		}
+		.headline .label {
+			color: var(--cyan);
+			font-size: 0.66rem;
+			letter-spacing: 0.32em;
+			font-weight: 700;
+		}
+		.headline .model-name {
+			font-weight: 900;
+			font-size: clamp(0.95rem, 2vw, 1.5rem);
+			color: var(--gold);
+			letter-spacing: 0.04em;
+			text-shadow: 0 0 18px rgba(255, 159, 28, 0.4);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.headline .strap {
+			color: var(--muted);
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.62rem, 1.1vw, 0.8rem);
+			letter-spacing: 0.06em;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.status-cluster {
+			display: flex;
+			align-items: center;
+			gap: clamp(8px, 1vw, 14px);
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: 6px 20px 6px 6px;
+			padding: 0 clamp(12px, 1.4vw, 20px);
+			backdrop-filter: blur(10px);
+		}
+		.onair {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-weight: 900;
+			letter-spacing: 0.18em;
+			font-size: clamp(0.7rem, 1.3vw, 0.95rem);
+			color: var(--danger);
+		}
+		.onair .dot {
+			width: 12px;
+			height: 12px;
+			border-radius: 50%;
+			background: var(--danger);
+			box-shadow: 0 0 14px var(--danger);
+			animation: blink 1.4s steps(1) infinite;
+		}
+		.onair.live .dot { background: var(--ok); box-shadow: 0 0 14px var(--ok); }
+		.onair.live { color: var(--ok); }
+		@keyframes blink { 50% { opacity: 0.25; } }
+
+		.clock {
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.85rem, 1.6vw, 1.3rem);
+			color: var(--cyan);
+			letter-spacing: 0.08em;
+			min-width: 8ch;
+			text-align: right;
+		}
+
+		/* ---------------- NEWS MARQUEE (TOP) ---------------- */
+		.marquee {
+			position: relative;
+			overflow: hidden;
+			border-radius: 6px;
+			border: 1px solid var(--line);
+			background: linear-gradient(90deg, rgba(255, 159, 28, 0.16), rgba(10, 23, 48, 0.6) 22%);
+			display: flex;
+			align-items: center;
+		}
+		.marquee .tag {
+			flex: 0 0 auto;
+			align-self: stretch;
+			display: flex;
+			align-items: center;
+			padding: 0 clamp(10px, 1.2vw, 18px);
+			background: linear-gradient(120deg, var(--amber), var(--gold));
+			color: #1a1003;
+			font-weight: 900;
+			letter-spacing: 0.16em;
+			font-size: clamp(0.62rem, 1.1vw, 0.82rem);
+			z-index: 2;
+		}
+		.marquee__view { flex: 1 1 auto; overflow: hidden; }
+		.marquee__track {
+			display: inline-flex;
+			white-space: nowrap;
+			will-change: transform;
+			animation: scrollLeft linear infinite;
+		}
+		.marquee__track span {
+			padding: 0 2.4rem;
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.68rem, 1.3vw, 0.92rem);
+			letter-spacing: 0.08em;
+			color: var(--text);
+		}
+		.marquee__track span .pip { color: var(--amber); margin: 0 0.5rem; }
+		@keyframes scrollLeft {
+			from { transform: translateX(0); }
+			to { transform: translateX(-50%); }
+		}
+
+		/* ---------------- MAIN STAGE ---------------- */
+		/* Unified layout for ALL screen sizes: telemetry strip on top, big full-width console below */
+		/* Default (mobile / stacked): resource strip, then creation card, then the big console */
+		.stage {
+			display: grid;
+			grid-template-columns: 1fr;
+			grid-template-rows: auto auto minmax(0, 1fr);
+			gap: clamp(8px, 1vw, 14px);
+			min-height: 0;
+		}
+
+		/* Resource gauges sit in a horizontal strip */
+		.telemetry {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			align-content: start;
+			gap: clamp(7px, 0.9vw, 12px);
+			min-height: 0;
+			overflow: visible;
+		}
+		/* Compact group title so the resource block reads as one tidy unit */
+		/* LCARS / Star Trek-style section header for the local machine resources */
+		.tele-title {
+			grid-column: 1 / -1;
+			display: flex;
+			align-items: center;
+			gap: 7px;
+			padding: 2px 2px 5px;
+			min-width: 0;
+		}
+		.tele-title__tab {
+			flex: 0 0 auto;
+			width: 20px;
+			height: 11px;
+			border-radius: 7px 3px 3px 7px;
+			background: linear-gradient(90deg, var(--cyan), var(--blue));
+			box-shadow: 0 0 10px rgba(102, 224, 255, 0.35);
+		}
+		.tele-title__label {
+			flex: 0 1 auto;
+			font-family: "Orbitron", sans-serif;
+			font-weight: 700;
+			font-size: clamp(0.6rem, 0.85vw, 0.74rem);
+			letter-spacing: 0.12em;
+			color: var(--text);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.tele-title__line {
+			flex: 1 1 auto;
+			height: 1px;
+			min-width: 0;
+			background: linear-gradient(90deg, var(--line), transparent);
+		}
+		.tele-title__badge {
+			flex: 0 0 auto;
+			font-family: "Share Tech Mono", monospace;
+			font-size: 0.5rem;
+			letter-spacing: 0.1em;
+			color: var(--cyan);
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			padding: 2px 7px;
+			white-space: nowrap;
+		}
+		.tpanel {
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: 6px;
+			backdrop-filter: blur(10px);
+			padding: clamp(6px, 0.7vw, 9px);
+		}
+		.tpanel.lcars {
+			border-left: 4px solid var(--cyan);
+			border-radius: 6px 6px 6px 12px;
+		}
+		.tpanel.lcars.gpu { border-left-color: var(--gold); }
+		.tpanel.lcars.ram { border-left-color: var(--purple); }
+		.tpanel.lcars.cpu { border-left-color: var(--cyan); }
+
+		.gauge-head {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			gap: 6px;
+		}
+		.gauge-name {
+			font-weight: 700;
+			letter-spacing: 0.12em;
+			font-size: clamp(0.6rem, 1vw, 0.74rem);
+		}
+		.gauge-sub {
+			font-family: "Share Tech Mono", monospace;
+			font-size: 0.54rem;
+			color: var(--muted);
+			margin-top: 1px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.gauge-pct {
+			font-family: "Share Tech Mono", monospace;
+			font-weight: 700;
+			font-size: clamp(0.82rem, 1.4vw, 1.05rem);
+			color: var(--cyan);
+		}
+		.gpu .gauge-pct { color: var(--gold); }
+		.ram .gauge-pct { color: var(--purple); }
+		.bar {
+			margin-top: 5px;
+			height: 5px;
+			border-radius: 5px;
+			background: rgba(255, 255, 255, 0.06);
+			overflow: hidden;
+		}
+		.bar > span {
+			display: block;
+			height: 100%;
+			width: 0%;
+			border-radius: 5px;
+			background: linear-gradient(90deg, var(--cyan), var(--blue));
+			transition: width 0.6s ease, background 0.4s ease;
+		}
+		.gpu .bar > span { background: linear-gradient(90deg, var(--gold), var(--amber)); }
+		.ram .bar > span { background: linear-gradient(90deg, var(--purple), #6d7bff); }
+		.bar.hot > span { background: linear-gradient(90deg, var(--warn), var(--danger)) !important; }
+		.extra {
+			display: flex;
+			justify-content: space-between;
+			margin-top: 4px;
+			font-family: "Share Tech Mono", monospace;
+			font-size: 0.56rem;
+			color: var(--muted);
+		}
+
+		.engine {
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: clamp(5px, 0.7vw, 9px);
+		}
+		.engine .cell {
+			border: 1px solid var(--line);
+			border-radius: 5px;
+			padding: 5px 7px;
+			background: rgba(255, 255, 255, 0.02);
+		}
+		.engine .k {
+			font-size: 0.52rem;
+			letter-spacing: 0.16em;
+			color: var(--muted);
+		}
+		.engine .v {
+			margin-top: 2px;
+			font-family: "Share Tech Mono", monospace;
+			font-weight: 700;
+			font-size: clamp(0.74rem, 1.3vw, 0.92rem);
+		}
+		#engineStatus { color: var(--ok); }
+
+		.modepanel {
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+			gap: 5px;
+			min-height: 0;
+		}
+		.mode-now {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-weight: 900;
+			letter-spacing: 0.08em;
+			font-size: clamp(0.74rem, 1.3vw, 0.95rem);
+		}
+		.mode-now .ic {
+			width: 9px; height: 9px; border-radius: 50%;
+			background: var(--ok); box-shadow: 0 0 10px var(--ok);
+			flex: 0 0 auto;
+		}
+		.mode-now.archive .ic { background: var(--purple); box-shadow: 0 0 10px var(--purple); }
+		.mode-now.archive { color: var(--purple); }
+		.mode-desc {
+			font-family: "Share Tech Mono", monospace;
+			font-size: 0.58rem;
+			color: var(--muted);
+			line-height: 1.35;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.countdown { color: var(--cyan); white-space: normal; }
+
+		/* Center console ג€” the Star Trek code stream */
+		.console {
+			position: relative;
+			min-height: 0;
+			border: 1px solid var(--line);
+			border-radius: 6px 6px 20px 6px;
+			background: var(--panel-solid);
+			overflow: hidden;
+			display: grid;
+			grid-template-rows: auto 1fr;
+			box-shadow: inset 0 0 60px rgba(8, 40, 70, 0.4);
+		}
+		.console::before {
+			content: "";
+			position: absolute;
+			left: 0; top: 0; bottom: 0;
+			width: 8px;
+			background: linear-gradient(var(--cyan), var(--purple));
+			opacity: 0.6;
+		}
+		.console-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			padding: 8px clamp(12px, 1.4vw, 18px);
+			border-bottom: 1px solid var(--line);
+			background: linear-gradient(90deg, rgba(102, 224, 255, 0.1), transparent);
+		}
+		.console-title {
+			display: flex;
+			align-items: center;
+			gap: 9px;
+			font-weight: 700;
+			letter-spacing: 0.16em;
+			font-size: clamp(0.72rem, 1.4vw, 0.95rem);
+			color: var(--cyan);
+		}
+		.console-title .lamp {
+			width: 10px; height: 10px; border-radius: 50%;
+			background: var(--cyan); box-shadow: 0 0 12px var(--cyan);
+			animation: blink 1.6s steps(1) infinite;
+		}
+		.console-meta {
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.62rem, 1.1vw, 0.8rem);
+			color: var(--muted);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.stream {
+			position: absolute;
+			inset: 0;
+			overflow-y: auto;
+			overflow-x: hidden;
+			padding: clamp(12px, 1.4vw, 20px);
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.72rem, 1.15vw, 0.92rem);
+			line-height: 1.6;
+			color: var(--cyan);
+			white-space: pre-wrap;
+			word-break: break-word;
+			text-shadow: 0 0 8px rgba(102, 224, 255, 0.35);
+			scrollbar-width: thin;
+			scrollbar-color: var(--cyan) transparent;
+		}
+		.stream::-webkit-scrollbar { width: 8px; }
+		.stream::-webkit-scrollbar-thumb { background: rgba(102, 224, 255, 0.4); border-radius: 8px; }
+		.stream.idle { color: var(--muted); font-style: italic; }
+		.stream .cursor {
+			display: inline-block;
+			width: 0.62em;
+			height: 1.05em;
+			margin-left: 2px;
+			vertical-align: text-bottom;
+			background: var(--cyan);
+			box-shadow: 0 0 10px var(--cyan);
+			animation: blink 1s steps(1) infinite;
+		}
+		.console .fade-top, .console .fade-bot {
+			position: absolute; left: 0; right: 0; height: 26px; pointer-events: none; z-index: 3;
+		}
+		.console .fade-top { top: 0; background: linear-gradient(var(--panel-solid), transparent); }
+		.console .fade-bot { bottom: 0; background: linear-gradient(transparent, var(--panel-solid)); }
+
+		/* ---------------- LOWER THIRD CRAWL ---------------- */
+		.lower {
+			position: relative;
+			display: grid;
+			grid-template-columns: auto 1fr auto;
+			align-items: stretch;
+			border-radius: 6px 6px 6px 18px;
+			overflow: hidden;
+			border: 1px solid var(--line);
+			background: rgba(2, 8, 20, 0.72);
+			backdrop-filter: blur(8px);
+		}
+		.lower .badge {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 0 clamp(12px, 1.4vw, 20px);
+			background: linear-gradient(120deg, var(--cyan), var(--blue));
+			color: #04121f;
+			font-weight: 900;
+			letter-spacing: 0.16em;
+			font-size: clamp(0.64rem, 1.2vw, 0.85rem);
+			white-space: nowrap;
+		}
+		.lower__view { overflow: hidden; display: flex; align-items: center; }
+		.lower__track {
+			display: inline-flex;
+			white-space: nowrap;
+			will-change: transform;
+			animation: scrollLeft linear infinite;
+		}
+		.lower__track span {
+			padding: 0 2.2rem;
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.66rem, 1.2vw, 0.88rem);
+			color: var(--text);
+		}
+		.lower__track .sep { color: var(--amber); }
+		.lower__track .tstamp { color: var(--muted); }
+		.lower .right-tag {
+			display: flex; align-items: center;
+			padding: 0 clamp(10px, 1.2vw, 16px);
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.62rem, 1.1vw, 0.8rem);
+			color: var(--muted);
+			border-left: 1px solid var(--line);
+			white-space: nowrap;
+		}
+
+		/* ---------------- ARCHIVE OVERLAY (fullscreen TV) ---------------- */
+		body.archive-mode .frame { visibility: hidden; pointer-events: none; }
+		body.archive-mode .toast-stack,
+		body.archive-mode .promo { display: none; }
+
+		.overlay {
+			position: fixed;
+			inset: 0;
+			z-index: 80;
+			display: flex;
+			flex-direction: column;
+			background: #000;
+			padding: 0;
+			opacity: 0;
+			visibility: hidden;
+			pointer-events: none;
+			transition: opacity 0.45s ease, visibility 0.45s ease;
+		}
+		.overlay.show { opacity: 1; visibility: visible; pointer-events: auto; }
+		.overlayCard {
+			width: 100%;
+			height: 100%;
+			flex: 1;
+			min-height: 0;
+			border: none;
+			border-radius: 0;
+			background: #000;
+			overflow: hidden;
+			display: grid;
+			grid-template-rows: auto minmax(0, 1fr);
+		}
+		.overlayHead {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 10px;
+			padding: 9px clamp(12px, 1.4vw, 18px);
+			border-bottom: 1px solid var(--line);
+			background: linear-gradient(90deg, rgba(181, 140, 255, 0.18), transparent);
+		}
+		.overlayHead .ot-left {
+			display: flex; align-items: center; gap: 10px; min-width: 0;
+		}
+		.overlayHead .pill {
+			background: var(--purple);
+			color: #120a24;
+			font-weight: 900;
+			letter-spacing: 0.14em;
+			font-size: 0.66rem;
+			padding: 4px 10px;
+			border-radius: 999px;
+			white-space: nowrap;
+		}
+		#overlayTitle {
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.66rem, 1.2vw, 0.86rem);
+			color: var(--muted);
+			white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+		}
+		.overlay-countdown {
+			flex: 0 0 auto;
+			text-align: center;
+			padding: 8px 16px;
+			border-radius: 8px;
+			border: 1px solid rgba(181, 140, 255, 0.55);
+			background: rgba(181, 140, 255, 0.12);
+			min-width: 8.5rem;
+			box-shadow: 0 0 20px rgba(181, 140, 255, 0.15);
+		}
+		.overlay-countdown.urgent {
+			border-color: var(--amber);
+			background: rgba(255, 159, 28, 0.14);
+			animation: overlayCdPulse 0.85s ease-in-out infinite;
+		}
+		.overlay-countdown .oc-label {
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.5rem, 1vw, 0.58rem);
+			letter-spacing: 0.2em;
+			color: var(--purple);
+			margin-bottom: 3px;
+			text-transform: uppercase;
+		}
+		.overlay-countdown.urgent .oc-label { color: var(--amber); }
+		.overlay-countdown .oc-time {
+			font-family: "Orbitron", sans-serif;
+			font-weight: 900;
+			font-size: clamp(1.4rem, 3.2vw, 2rem);
+			font-variant-numeric: tabular-nums;
+			line-height: 1;
+			color: var(--text);
+			text-shadow: 0 0 18px rgba(181, 140, 255, 0.45);
+		}
+		.overlay-countdown.urgent .oc-time {
+			color: var(--gold);
+			text-shadow: 0 0 22px rgba(255, 159, 28, 0.55);
+		}
+		@keyframes overlayCdPulse {
+			50% { box-shadow: 0 0 28px rgba(255, 159, 28, 0.35); }
+		}
+		.closeBtn {
+			flex: 0 0 auto;
+			display: none;
+			align-items: center;
+			gap: 7px;
+			border: 1px solid var(--danger);
+			color: var(--danger);
+			background: rgba(255, 107, 122, 0.08);
+			border-radius: 999px;
+			padding: 6px 14px;
+			font-family: "Orbitron", sans-serif;
+			font-weight: 700;
+			letter-spacing: 0.12em;
+			font-size: clamp(0.62rem, 1.1vw, 0.78rem);
+			cursor: pointer;
+			transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+		}
+		.closeBtn .x { font-size: 1.1em; line-height: 1; }
+		.closeBtn:hover { background: var(--danger); color: #1a0408; }
+		.closeBtn:active { transform: scale(0.94); }
+		.overlayBody {
+			position: relative;
+			flex: 1;
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+		}
+		.overlay-prompt {
+			position: absolute;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			z-index: 3;
+			max-height: min(42vh, 320px);
+			overflow-y: auto;
+			padding: 14px clamp(14px, 2vw, 24px) 18px;
+			background: linear-gradient(
+				0deg,
+				rgba(1, 6, 16, 0.97) 0%,
+				rgba(1, 6, 16, 0.88) 70%,
+				transparent 100%
+			);
+			border-top: 1px solid rgba(181, 140, 255, 0.35);
+			transition: opacity 0.65s ease, visibility 0.65s ease;
+			pointer-events: none;
+		}
+		.overlay-prompt.hide {
+			opacity: 0;
+			visibility: hidden;
+		}
+		.overlay-prompt__tag {
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.55rem, 1vw, 0.65rem);
+			letter-spacing: 0.32em;
+			color: var(--purple);
+			margin-bottom: 8px;
+		}
+		.overlay-prompt__text {
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.72rem, 1.35vw, 0.92rem);
+			line-height: 1.45;
+			letter-spacing: 0.04em;
+			color: var(--text);
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+		.overlayFrame { width: 100%; height: 100%; border: 0; background: #000; flex: 1; min-height: 0; }
+
+		/* ---------------- TV TRANSITION WIPE ---------------- */
+		.tvwipe {
+			position: fixed;
+			inset: 0;
+			z-index: 60;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 14px;
+			text-align: center;
+			background: radial-gradient(circle at 50% 50%, rgba(10, 23, 48, 0.97), rgba(1, 6, 16, 0.99));
+			opacity: 0;
+			visibility: hidden;
+			pointer-events: none;
+			transition: opacity 0.55s ease, visibility 0.55s ease;
+		}
+		.tvwipe.show { opacity: 1; visibility: visible; }
+		.tvwipe__kicker {
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.66rem, 1.6vw, 0.95rem);
+			letter-spacing: 0.42em;
+			color: var(--cyan);
+			text-transform: uppercase;
+			opacity: 0.85;
+		}
+		.tvwipe__text {
+			font-family: "Orbitron", sans-serif;
+			font-weight: 900;
+			letter-spacing: 0.16em;
+			font-size: clamp(1.25rem, 5vw, 2.7rem);
+			color: var(--gold);
+			padding: 0 8%;
+			line-height: 1.2;
+			text-shadow: 0 0 34px rgba(255, 159, 28, 0.5);
+			transform: translateY(14px) scale(0.98);
+			opacity: 0;
+			transition: transform 0.55s ease, opacity 0.55s ease;
+		}
+		.tvwipe.show .tvwipe__text { transform: translateY(0) scale(1); opacity: 1; }
+		.tvwipe.archive .tvwipe__text { color: var(--purple); text-shadow: 0 0 34px rgba(181, 140, 255, 0.5); }
+		.tvwipe.archive .tvwipe__kicker { color: var(--purple); }
+		.tvwipe__bar {
+			width: clamp(120px, 30vw, 280px);
+			height: 3px;
+			border-radius: 3px;
+			background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+			animation: wipeScan 1.4s linear infinite;
+		}
+		@keyframes wipeScan { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+		.tvwipe__title {
+			font-family: "Orbitron", sans-serif;
+			font-weight: 900;
+			font-size: clamp(1.5rem, 6vw, 3.2rem);
+			letter-spacing: 0.08em;
+			color: var(--text);
+			padding: 0 6%;
+			line-height: 1.15;
+			text-shadow: 0 0 40px rgba(102, 224, 255, 0.45);
+		}
+		.tvwipe__sub {
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.75rem, 2vw, 1.1rem);
+			letter-spacing: 0.2em;
+			color: var(--muted);
+		}
+		.tvwipe__countdown {
+			margin-top: 8px;
+			padding: 12px 28px;
+			border-radius: 10px;
+			border: 1px solid rgba(102, 224, 255, 0.45);
+			background: rgba(10, 23, 48, 0.85);
+			text-align: center;
+		}
+		.tvwipe__countdown .wc-label {
+			display: block;
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.58rem, 1.4vw, 0.72rem);
+			letter-spacing: 0.28em;
+			color: var(--cyan);
+			margin-bottom: 6px;
+		}
+		.tvwipe__countdown .wc-time {
+			font-family: "Orbitron", sans-serif;
+			font-weight: 900;
+			font-size: clamp(1.6rem, 5vw, 2.8rem);
+			font-variant-numeric: tabular-nums;
+			color: var(--gold);
+			text-shadow: 0 0 24px rgba(255, 159, 28, 0.45);
+		}
+
+		/* ---------------- BROADCAST CHANNEL UI ---------------- */
+		.headline .label { color: var(--danger); }
+		.model-showcase {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+		}
+		.model-showcase .sub {
+			font-size: 0.58rem;
+			letter-spacing: 0.28em;
+			color: var(--cyan);
+		}
+		.model-name.glow {
+			animation: modelGlow 2.4s ease-in-out infinite;
+		}
+		@keyframes modelGlow {
+			50% { text-shadow: 0 0 28px rgba(255, 200, 87, 0.85), 0 0 50px rgba(102, 224, 255, 0.35); }
+		}
+
+		.broadcast-stage {
+			grid-template-columns: clamp(140px, 16vw, 200px) minmax(0, 1fr);
+			grid-template-rows: minmax(0, 1fr);
+		}
+		.hero-rail {
+			display: flex;
+			flex-direction: column;
+			gap: clamp(8px, 1vh, 12px);
+			min-height: 0;
+		}
+		.hero-stat {
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: 8px;
+			padding: clamp(10px, 1.2vw, 16px);
+			text-align: center;
+		}
+		.hero-stat span {
+			display: block;
+			font-weight: 900;
+			font-size: clamp(1.6rem, 4vw, 2.8rem);
+			line-height: 1;
+			color: var(--gold);
+			text-shadow: 0 0 20px rgba(255, 159, 28, 0.35);
+		}
+		.hero-stat label {
+			display: block;
+			margin-top: 6px;
+			font-size: 0.55rem;
+			letter-spacing: 0.22em;
+			color: var(--muted);
+		}
+		.hero-stat.gpu-hero span { font-size: clamp(1.2rem, 3vw, 2rem); color: var(--cyan); }
+		.mini-gpu {
+			font-family: "Share Tech Mono", monospace;
+			font-size: 0.62rem;
+			letter-spacing: 0.1em;
+			color: var(--ok);
+			text-align: center;
+			padding: 6px;
+			border: 1px dashed var(--line);
+			border-radius: 6px;
+		}
+		.telemetry { display: none !important; }
+		.modepanel { display: none !important; }
+
+		.live-stage {
+			min-height: 0;
+			display: grid;
+			grid-template-rows: auto minmax(0, 1fr);
+			gap: 8px;
+		}
+		.air-bar {
+			display: grid;
+			grid-template-columns: 1fr auto;
+			align-items: center;
+			gap: 10px;
+			padding: 8px 10px;
+			background: var(--panel);
+			border: 1px solid var(--line);
+			border-radius: 8px;
+		}
+		.air-bar__left {
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+			min-width: 0;
+		}
+		.live-badge {
+			font-weight: 900;
+			letter-spacing: 0.1em;
+			font-size: clamp(0.62rem, 1.2vw, 0.82rem);
+			color: var(--danger);
+		}
+		.status-punch {
+			font-weight: 900;
+			font-size: clamp(0.95rem, 2.2vw, 1.35rem);
+			letter-spacing: 0.05em;
+			color: var(--ok);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.status-punch.warn { color: var(--warn); }
+		.status-punch.archive { color: var(--purple); }
+
+		.countdown-panel {
+			flex: 0 0 auto;
+			text-align: center;
+			padding: 6px 14px;
+			border-radius: 8px;
+			border: 1px solid rgba(255, 159, 28, 0.45);
+			background: rgba(255, 159, 28, 0.08);
+			min-width: 7.5rem;
+		}
+		.countdown-panel .hc-label {
+			font-size: 0.52rem;
+			letter-spacing: 0.22em;
+			color: var(--amber);
+			margin-bottom: 2px;
+		}
+		.countdown-panel .hc-time {
+			font-weight: 900;
+			font-size: clamp(1.35rem, 3.5vw, 2.1rem);
+			font-variant-numeric: tabular-nums;
+			line-height: 1;
+			color: var(--gold);
+		}
+		.countdown-panel.urgent {
+			border-color: var(--danger);
+			background: rgba(255, 90, 95, 0.12);
+			animation: overlayCdPulse 0.85s ease-in-out infinite;
+		}
+		.countdown-panel.urgent .hc-label { color: var(--danger); }
+		.countdown-panel.urgent .hc-time {
+			color: var(--danger);
+			text-shadow: 0 0 22px rgba(255, 107, 122, 0.75);
+		}
+
+		.tvwipe__countdown.urgent {
+			border-color: var(--danger);
+			background: rgba(60, 8, 16, 0.9);
+			animation: overlayCdPulse 0.85s ease-in-out infinite;
+		}
+		.tvwipe__countdown.urgent .wc-label { color: var(--danger); }
+		.tvwipe__countdown.urgent .wc-time {
+			color: var(--gold);
+			text-shadow: 0 0 28px rgba(255, 107, 122, 0.65);
+		}
+
+		body.segment-urgent .frame {
+			box-shadow: inset 0 0 0 2px rgba(255, 107, 122, 0.35);
+		}
+		body.archive-mode.segment-urgent .overlay {
+			box-shadow: 0 0 0 3px rgba(255, 159, 28, 0.45), 0 0 48px rgba(255, 90, 95, 0.2);
+		}
+
+		.live-stage .console.compact {
+			min-height: 0;
+			display: grid;
+			grid-template-rows: auto minmax(0, 1fr);
+		}
+		.live-stage .console.compact > div:last-child {
+			position: relative;
+			min-height: 0;
+		}
+		.console.compact .console-head { padding: 8px 12px; }
+		.console.compact .console-title { font-size: 0.78rem; }
+		.console.compact .stream {
+			font-size: clamp(0.72rem, 1.1vw, 0.9rem);
+			opacity: 1;
+			line-height: 1.55;
+		}
+
+		.toast-stack {
+			position: fixed;
+			right: clamp(10px, 2vw, 24px);
+			bottom: calc(var(--lower-h) + 20px);
+			z-index: 35;
+			display: flex;
+			flex-direction: column-reverse;
+			gap: 12px;
+			max-width: min(420px, 92vw);
+			pointer-events: none;
+		}
+		.toast {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			background: rgba(2, 12, 28, 0.96);
+			border: 1px solid var(--line);
+			border-left: 5px solid var(--amber);
+			padding: 14px 18px;
+			border-radius: 6px;
+			font-family: "Share Tech Mono", monospace;
+			font-size: clamp(0.82rem, 1.35vw, 1rem);
+			letter-spacing: 0.1em;
+			line-height: 1.35;
+			color: var(--text);
+			box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), 0 0 24px rgba(255, 159, 28, 0.12);
+			animation: toastIn 0.55s ease, toastOut 0.65s ease 8.35s forwards;
+		}
+		.toast__tag {
+			font-size: 0.62rem;
+			letter-spacing: 0.35em;
+			color: var(--danger);
+			font-weight: 700;
+		}
+		.toast__msg {
+			font-weight: 700;
+			text-transform: uppercase;
+		}
+		.toast.breaking {
+			border-left-color: var(--danger);
+			border-color: rgba(255, 90, 95, 0.45);
+			background: linear-gradient(135deg, rgba(40, 8, 12, 0.95), rgba(2, 12, 28, 0.96));
+		}
+		.toast.breaking .toast__msg { color: var(--gold); }
+		@keyframes toastIn {
+			from { opacity: 0; transform: translateX(36px) scale(0.96); }
+			to { opacity: 1; transform: translateX(0) scale(1); }
+		}
+		@keyframes toastOut {
+			to { opacity: 0; transform: translateX(16px) scale(0.98); }
+		}
+
+		.promo {
+			position: fixed;
+			left: clamp(12px, 2vw, 28px);
+			top: calc(var(--lcars-h) + var(--ticker-h) + 20px);
+			z-index: 34;
+			background: linear-gradient(135deg, rgba(255, 159, 28, 0.2), rgba(6, 13, 28, 0.92));
+			border: 1px solid var(--amber);
+			border-radius: 8px;
+			padding: 12px 18px;
+			opacity: 0;
+			visibility: hidden;
+			transform: translateY(-8px);
+			transition: opacity 0.5s ease, transform 0.5s ease, visibility 0.5s;
+			pointer-events: none;
+		}
+		.promo.show { opacity: 1; visibility: visible; transform: translateY(0); }
+		.promo__tag {
+			font-size: 0.62rem;
+			letter-spacing: 0.3em;
+			color: var(--amber);
+			margin-bottom: 6px;
+		}
+		.promo__line {
+			font-weight: 900;
+			font-size: clamp(0.85rem, 2vw, 1.15rem);
+			letter-spacing: 0.06em;
+		}
+
+		.archive-slot-tag {
+			display: none;
+		}
+
+		@media (max-width: 759px) {
+			.frame { padding: 6px; gap: 6px; }
+			.topbar { grid-template-columns: 1fr; }
+			.brand { justify-content: center; }
+			.headline { order: 2; }
+			.status-cluster { order: 1; justify-content: space-between; }
+			.model-name { font-size: 0.85rem !important; white-space: normal; }
+			.broadcast-stage {
+				grid-template-columns: 1fr;
+				grid-template-rows: auto minmax(0, 1fr);
+			}
+			.hero-rail {
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				gap: 6px;
+			}
+			.hero-stat { padding: 6px 4px; }
+			.hero-stat span { font-size: 1.1rem; }
+			.hero-stat label { font-size: 0.45rem; margin-top: 2px; }
+			.mini-gpu { grid-column: 1 / -1; font-size: 0.55rem; }
+			.air-bar {
+				grid-template-columns: 1fr;
+				gap: 8px;
+			}
+			.countdown-panel {
+				width: 100%;
+				min-width: 0;
+			}
+			.live-stage { min-height: 45vh; }
+			.toast-stack {
+				right: 6px;
+				left: 6px;
+				max-width: none;
+				bottom: calc(var(--lower-h) + 8px);
+			}
+			.promo { display: none; }
+			.overlayHead { flex-wrap: wrap; }
+			.overlay-countdown {
+				width: 100%;
+				margin-top: 4px;
+			}
+		}
+
+		/* ============================================================
+		   LAYOUT MODES (breakpoints)
+		   - MOBILE (stacked 9:16):  portrait orientation, OR any screen < 760px wide
+		   - DESKTOP (two columns):  landscape orientation AND width >= 760px
+		   - COMPACT tweaks:         screens <= 620px (true phones)
+		   The 760px width is the divider between mobile and desktop.
+		   ============================================================ */
+
+		/* ---------------- MOBILE / PORTRAIT (stacked) ---------------- */
+		@media (orientation: portrait), (max-width: 759px) {
+			.frame {
+				grid-template-rows: auto var(--ticker-h) minmax(0, 1fr) var(--lower-h);
+			}
+			.topbar { grid-template-columns: 1fr auto; }
+			.brand { border-radius: 6px 6px 6px 16px; }
+			.headline { grid-column: 1 / -1; order: 3; }
+			.broadcast-stage { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+			.telemetry {
+				grid-template-columns: repeat(3, 1fr);
+				overflow: visible;
+			}
+		}
+		@media (max-width: 620px) {
+			/* TikTok 9:16 mobile-first: keep CPU/GPU/RAM + creation info compact, let the live code stream fill the screen */
+			.telemetry { grid-template-columns: repeat(3, 1fr); gap: 5px; }
+			.tpanel { padding: 6px 8px; }
+			.engine .cell { padding: 5px 6px; }
+			.gauge-sub { display: none; }
+			.gauge-name { font-size: 0.6rem; }
+			.gauge-pct { font-size: 1rem; }
+			.brand .name { font-size: 0.78rem; }
+			.clock { display: none; }
+			/* Tighten the creation card on mobile: drop the verbose sentence, keep the live status line + the 4 info cells */
+			#modeDesc { display: none; }
+			.modepanel { gap: 4px; }
+			/* The live console takes the remaining 1fr row and fills the tall screen */
+			.stream { font-size: 0.78rem; line-height: 1.4; }
+			.console-head { padding: 6px 9px; }
+			.overlayCard { width: 100%; height: 100%; }
+		}
+
+		/* ---------------- DESKTOP / LANDSCAPE (two columns) ---------------- */
+		/* Single left column: model-activity card on top, compact resource gauges stacked below it.
+		   The conversation console fills the full height on the right. Mobile/portrait is untouched.
+		   Triggers for ANY landscape screen >= 760px wide (small laptops & resized windows included). */
+		/* Desktop only (>=760px). Mobile rules stay in max-width:759px block above. */
+		@media (min-width: 760px) {
+			/* Header was clamped to ~70px but content is taller — ticker overlapped the title */
+			.frame {
+				grid-template-rows: auto var(--ticker-h) minmax(0, 1fr) var(--lower-h);
+				align-content: start;
+			}
+			.frame > .topbar {
+				grid-row: 1;
+				min-height: 0;
+				max-height: 5.25rem;
+				overflow: hidden;
+				align-items: center;
+			}
+			.frame > .marquee {
+				grid-row: 2;
+				height: var(--ticker-h);
+				min-height: var(--ticker-h);
+				max-height: var(--ticker-h);
+				flex-shrink: 0;
+				align-self: stretch;
+				position: relative;
+				z-index: 1;
+			}
+			.frame > .broadcast-stage {
+				grid-row: 3;
+				min-height: 0;
+			}
+			.frame > .lower {
+				grid-row: 4;
+			}
+			.topbar {
+				grid-template-columns: auto minmax(0, 1fr) auto;
+				gap: 10px;
+			}
+			.brand { padding: 0 14px; }
+			.brand .name { font-size: 0.95rem; }
+			.headline {
+				grid-column: auto;
+				order: unset;
+				padding: 4px 12px;
+				gap: 2px;
+				justify-content: center;
+			}
+			.headline .strap { display: none; }
+			.model-showcase { gap: 1px; }
+			.model-showcase .sub {
+				font-size: 0.48rem;
+				letter-spacing: 0.22em;
+				line-height: 1.1;
+			}
+			.model-showcase .sub:last-of-type { display: none; }
+			.model-name.glow {
+				font-size: clamp(0.9rem, 1.25vw, 1.15rem);
+				line-height: 1.15;
+			}
+			.status-cluster { padding: 0 14px; }
+			.onair { font-size: 0.72rem; }
+			.clock { font-size: 0.95rem; }
+			.marquee__track span {
+				line-height: var(--ticker-h);
+				display: inline-flex;
+				align-items: center;
+				height: var(--ticker-h);
+			}
+			.broadcast-stage {
+				display: grid;
+				grid-template-columns: clamp(150px, 14vw, 220px) minmax(0, 1fr);
+				grid-template-rows: minmax(0, 1fr);
+				gap: clamp(10px, 1vw, 14px);
+				min-height: 0;
+			}
+			.broadcast-stage > .hero-rail {
+				grid-column: 1;
+				grid-row: 1;
+				min-height: 0;
+			}
+			.broadcast-stage > .live-stage {
+				grid-column: 2;
+				grid-row: 1;
+				min-height: 0;
+				min-width: 0;
+			}
+			.broadcast-stage > .telemetry,
+			.broadcast-stage > .modepanel {
+				display: none !important;
+			}
+			/* Undo legacy rule that broke console height on desktop */
+			.broadcast-stage .console.compact {
+				grid-column: unset !important;
+				grid-row: unset !important;
+				min-height: 0;
+				height: 100%;
+			}
+			.broadcast-stage .live-stage .console.compact > div:last-child {
+				position: relative;
+				flex: 1;
+				min-height: 14rem;
+				height: auto;
+			}
+			.broadcast-stage .console.compact .stream {
+				position: absolute;
+				inset: 0;
+			}
+			.marquee { overflow: hidden; min-width: 0; }
+			.marquee__view {
+				min-width: 0;
+				flex: 1 1 auto;
+				display: flex;
+				align-items: center;
+				height: 100%;
+			}
+			.toast-stack {
+				right: 22px;
+				left: auto;
+				bottom: calc(var(--lower-h) + 28px);
+				max-width: min(440px, 38vw);
+			}
+			.toast {
+				padding: 16px 22px;
+				font-size: clamp(0.88rem, 1.1vw, 1.05rem);
+			}
+		}
+
+		@media (min-width: 760px) and (orientation: landscape) {
+			.stage:not(.broadcast-stage) {
+				grid-template-columns: clamp(260px, 26vw, 380px) minmax(0, 1fr);
+				grid-template-rows: auto minmax(0, 1fr);
+			}
+			.modepanel { grid-column: 1; grid-row: 1; }
+			/* Resource block: gauges keep natural height (no clipped bottom line); column scrolls if needed */
+			.telemetry {
+				grid-column: 1; grid-row: 2;
+				display: flex;
+				flex-direction: column;
+				gap: clamp(6px, 0.6vw, 8px);
+				margin-top: 0;
+				min-height: 0;
+				overflow-x: hidden;
+				overflow-y: auto;
+				scrollbar-width: thin;
+				scrollbar-color: var(--cyan) transparent;
+				padding-bottom: 6px;
+			}
+			.telemetry::-webkit-scrollbar { width: 5px; }
+			.telemetry::-webkit-scrollbar-thumb { background: rgba(102, 224, 255, 0.3); border-radius: 5px; }
+			.telemetry .tele-title { flex: 0 0 auto; }
+			/* Each gauge card keeps its natural height ג€” no flex-squeeze that clips the bottom line */
+			.telemetry .tpanel {
+				flex: 0 0 auto;
+				min-height: 0;
+				max-height: none;
+				overflow: visible;
+				display: flex;
+				flex-direction: column;
+				justify-content: flex-start;
+				align-items: stretch;
+				padding: 5px 7px 6px;
+				gap: 0;
+			}
+			.telemetry .gauge-head,
+			.telemetry .gauge-sub,
+			.telemetry .bar,
+			.telemetry .extra { flex-shrink: 0; }
+			.telemetry .gauge-sub {
+				margin-top: 0;
+				line-height: 1.25;
+			}
+			.telemetry .bar { margin-top: 3px; height: 4px; }
+			.telemetry .extra {
+				margin-top: 3px;
+				margin-bottom: 0;
+				line-height: 1.3;
+				padding-bottom: 1px;
+			}
+			.stage:not(.broadcast-stage) > .console { grid-column: 2; grid-row: 1 / -1; }
+			/* 2x2 info grid fits the narrower left column; show the full description */
+			.modepanel .engine { grid-template-columns: 1fr 1fr; }
+			.modepanel .mode-desc { white-space: normal; overflow: visible; text-overflow: clip; }
+		}
+	</style>
+</head>
+<body>
+	<canvas id="starfield"></canvas>
+
+	<div class="frame">
+		<!-- ============ TOP HEADER ============ -->
+		<header class="topbar">
+			<div class="brand">
+				<span class="sigil">&#9650;</span>
+				<span class="name">AI LIVE CHANNEL</span>
+			</div>
+			<div class="headline">
+				<div class="model-showcase">
+					<span class="sub">CURRENT AI</span>
+					<span class="model-name glow" id="modelName">GLM-4.7-FLASH</span>
+					<span class="sub">LOCAL INFERENCE &middot; 100% AUTONOMOUS</span>
+				</div>
+				<div class="strap" id="strapLine">AI IS BUILDING RIGHT NOW &mdash; THIS PC CREATES EVERYTHING ALONE</div>
+			</div>
+			<div class="status-cluster">
+				<div class="onair" id="onAir"><span class="dot"></span><span id="onAirText">ON AIR</span></div>
+				<div class="clock" id="clock">--:--:--</div>
+			</div>
+		</header>
+
+		<!-- ============ TOP NEWS MARQUEE ============ -->
+		<div class="marquee">
+			<div class="tag">BREAKING NEWS</div>
+			<div class="marquee__view">
+				<div class="marquee__track" id="topTrack"></div>
+			</div>
+		</div>
+
+		<!-- ============ MAIN STAGE (BROADCAST) ============ -->
+		<div class="stage broadcast-stage">
+			<aside class="hero-rail">
+				<div class="hero-stat">
+					<span id="heroCreations">0</span>
+					<label>CREATIONS</label>
+				</div>
+				<div class="hero-stat">
+					<span id="heroUptime">0m</span>
+					<label>UPTIME</label>
+				</div>
+				<div class="hero-stat">
+					<span>100%</span>
+					<label>LOCAL</label>
+				</div>
+				<div class="hero-stat gpu-hero">
+					<span>RTX 3050</span>
+					<label>8GB VRAM</label>
+				</div>
+				<div class="mini-gpu" id="gpuMini">GPU IDLE</div>
+			</aside>
+
+			<div class="live-stage" id="liveStage">
+				<div class="air-bar">
+					<div class="air-bar__left">
+						<div class="live-badge" id="liveBadge">AI IS BUILDING RIGHT NOW</div>
+						<div class="status-punch" id="statusPunch">LIVE</div>
+					</div>
+					<div class="countdown-panel" id="heroCountdown">
+						<div class="hc-label" id="countdownLabel">NEXT SHOWCASE IN</div>
+						<div class="hc-time" id="countdownTime">00:30</div>
+					</div>
+				</div>
+				<section class="console compact">
+					<div class="console-head">
+						<div class="console-title"><span class="lamp"></span>CONVERSATION LOG</div>
+						<div class="console-meta" id="streamHint">Live feed</div>
+					</div>
+					<div style="position:relative; min-height:0; flex:1;">
+						<div class="fade-top"></div>
+						<div id="streamOutput" class="stream idle">// Stand by for autonomous generation&hellip;</div>
+						<div class="fade-bot"></div>
+					</div>
+				</section>
+			</div>
+
+			<aside class="telemetry" aria-hidden="true">
+				<div class="tele-title">
+					<span class="tele-title__tab"></span>
+					<span class="tele-title__label">LOCAL MACHINE</span>
+					<span class="tele-title__line"></span>
+					<span class="tele-title__badge">100% ON-DEVICE</span>
+				</div>
+				<div class="tpanel lcars cpu">
+					<div class="gauge-head">
+						<div>
+							<div class="gauge-name">CPU</div>
+							<div class="gauge-sub" id="cpuName">Intel Xeon E5-2680 v4</div>
+						</div>
+						<div class="gauge-pct" id="cpuPct">--%</div>
+					</div>
+					<div class="bar" id="cpuBar"><span></span></div>
+					<div class="extra"><span id="cpuCores">-- threads</span><span id="cpuStateNote">idle</span></div>
+				</div>
+
+				<div class="tpanel lcars gpu">
+					<div class="gauge-head">
+						<div>
+							<div class="gauge-name">GPU</div>
+							<div class="gauge-sub" id="gpuName">NVIDIA RTX 3050 8GB</div>
+						</div>
+						<div class="gauge-pct" id="gpuPct">--%</div>
+					</div>
+					<div class="bar" id="gpuBar"><span></span></div>
+					<div class="extra"><span id="gpuVram">VRAM --</span><span id="gpuTemp">-- &deg;C</span></div>
+				</div>
+
+				<div class="tpanel lcars ram">
+					<div class="gauge-head">
+						<div>
+							<div class="gauge-name">MEMORY</div>
+							<div class="gauge-sub" id="ramName">32 GB System RAM</div>
+						</div>
+						<div class="gauge-pct" id="ramPct">--%</div>
+					</div>
+					<div class="bar" id="ramBar"><span></span></div>
+					<div class="extra"><span id="ramUsed">-- / -- GB</span><span>DDR4</span></div>
+				</div>
+			</aside>
+
+			<!-- Creation status card: full-width on mobile, left column beside the console in landscape -->
+			<div class="tpanel modepanel">
+				<div class="mode-now" id="modeNow"><span class="ic"></span><span id="modeNowText">REAL-TIME GENERATION</span></div>
+				<div class="mode-desc" id="modeDesc">Simulated live coding from archive HTML. External pipeline fills the library.</div>
+				<div class="engine" style="margin-top:6px;">
+					<div class="cell"><div class="k">ENGINE</div><div class="v" id="engineStatus">LINKING</div></div>
+					<div class="cell"><div class="k">CYCLE</div><div class="v" id="cycleStatus">0</div></div>
+					<div class="cell"><div class="k">CHARS</div><div class="v" id="charsStatus">0</div></div>
+					<div class="cell"><div class="k">ELAPSED</div><div class="v" id="timeStatus">--</div></div>
+				</div>
+				<div class="mode-desc countdown" id="nextRun" style="margin-top:6px;">Connecting to broadcast engine&hellip;</div>
+			</div>
+
+		</div>
+
+		<!-- ============ LOWER THIRD CRAWL ============ -->
+		<footer class="lower">
+			<div class="badge"><span id="archiveCount">AUTONOMOUS</span></div>
+			<div class="lower__view">
+				<div class="lower__track" id="lowerTrack"><span>Initializing broadcast systems&hellip;</span></div>
+			</div>
+			<div class="right-tag" id="rightTag">LOCAL &bull; OFFLINE</div>
+		</footer>
+	</div>
+
+	<!-- ============ ARCHIVE OVERLAY ============ -->
+	<div class="overlay" id="overlay">
+		<div class="overlayCard">
+			<div class="overlayHead">
+				<div class="ot-left">
+					<span class="pill">ARCHIVE PLAYBACK</span>
+					<span id="overlayTitle">Previous creation</span>
+				</div>
+				<div class="overlay-countdown" id="overlayCountdown" aria-live="polite">
+					<div class="oc-label" id="overlayCountdownLabel">NEXT SEGMENT IN</div>
+					<div class="oc-time" id="overlayCountdownTime">00:40</div>
+				</div>
+				<button class="closeBtn" id="closeOverlay" type="button" title="Close (Esc)">CLOSE <span class="x">&times;</span></button>
+			</div>
+			<div class="overlayBody">
+				<iframe class="overlayFrame" id="overlayFrame" sandbox="allow-scripts allow-same-origin"></iframe>
+				<div class="overlay-prompt hide" id="overlayPrompt" aria-live="polite">
+					<div class="overlay-prompt__tag">GENERATION PROMPT</div>
+					<div class="overlay-prompt__text" id="overlayPromptText"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="archive-slot-tag" id="archiveSlotTag">ARCHIVE #1</div>
+
+	<div class="toast-stack" id="toastStack"></div>
+
+	<div class="promo" id="promo">
+		<div class="promo__tag">UP NEXT</div>
+		<div class="promo__line" id="promoLine">CYBERPUNK CITY GENERATOR</div>
+	</div>
+
+	<audio id="audioPrime" autoplay muted playsinline loop
+		style="position:fixed;width:0;height:0;opacity:0;pointer-events:none" aria-hidden="true"></audio>
+
+	<!-- ============ TV TRANSITION WIPE ============ -->
+	<div class="tvwipe" id="tvwipe">
+		<div class="tvwipe__kicker" id="tvwipeKicker">COMING UP NEXT</div>
+		<div class="tvwipe__title" id="tvwipeTitle">AUTONOMOUS CREATION</div>
+		<div class="tvwipe__sub" id="tvwipeSub">GENERATED ON THIS MACHINE</div>
+		<div class="tvwipe__countdown" id="tvwipeCountdown" aria-live="polite">
+			<span class="wc-label" id="tvwipeCountLabel">COMING UP IN</span>
+			<span class="wc-time" id="tvwipeCountTime">00:02</span>
+		</div>
+		<div class="tvwipe__text" id="tvwipeText"></div>
+		<div class="tvwipe__bar"></div>
+	</div>
+
+	<script>
+		window.BROADCAST_CONFIG = {
+			displayOnly: true,
+			charsPerSecond: 2,
+			typingTickMs: 100,
+			fileCooldownMs: 60000,
+			liveSegmentMs: 10000,
+			archiveSegmentMs: 40000,
+			archiveSlots: 2,
+			comingUpMs: 1600,
+			eventToastMs: 12000,
+			toastVisibleMs: 9000,
+			sfxEnabled: true,
+			sfxVolume: 1,
+			countdownUrgentMs: 5000,
+			promptRevealMs: 5000,
+			archiveRefreshMs: 30000
+		};
+	</script>
+	<script src="broadcast-channel.js?v=17"></script>
+</body>
+</html>

@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sci-Fi Explorer: The Nebula Tour</title>
+    <style>
+        /* CSS Reset & Base */
+        :root {
+            --primary: #00f3ff;
+            --secondary: #ff0055;
+            --bg: #050510;
+            --glass: rgba(0, 20, 40, 0.7);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--primary);
+            user-select: none;
+        }
+
+        /* 3D Canvas */
+        #world {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* UI Layer */
+        #ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* HUD Elements */
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        .hud-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 4px;
+            background: linear-gradient(90deg, var(--primary), #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hud-timer {
+            font-size: 1.2rem;
+            border: 1px solid var(--primary);
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .status-bar {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .active-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 300px;
+            padding: 20px;
+            border: 2px solid var(--primary);
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+            pointer-events: auto;
+        }
+
+        .active-panel.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .panel-title {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            color: #fff;
+            text-transform: uppercase;
+        }
+
+        .panel-sub {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 243, 255, 0.05) 51%, transparent 51%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        /* Intro Overlay */
+        #intro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1s ease-out;
+            pointer-events: auto;
+        }
+
+        .loader-text {
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            animation: blink 0.5s infinite alternate;
+        }
+
+        @keyframes blink {
+            from { opacity: 0.3; }
+            to { opacity: 1; }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            .hud-title { font-size: 1.2rem; }
+            .active-panel { width: 80%; padding: 10px; }
+        }
+    </style>
+    <!-- Load Three.js via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <!-- Intro Sequence -->
+    <div id="intro-overlay">
+        <div class="loader-text" id="loading-text">INITIALIZING SYSTEMS...</div>
+    </div>
+
+    <!-- 3D Scene Container -->
+    <canvas id="world"></canvas>
+
+    <!-- UI Overlay -->
+    <div class="scan-line"></div>
+    <div id="ui-layer">
+        <div class="hud-header">
+            <div class="hud-title">EXPLORER-Z AI</div>
+            <div class="hud-timer" id="main-timer">00:00</div>
+        </div>
+        
+        <!-- Dynamic Status Text -->
+        <div style="text-align: center;">
+            <div style="font-size: 0.8rem; opacity: 0.8;" id="system-status">SYSTEM STANDBY</div>
+            <div class="status-bar"><div class="status-fill" id="phase-bar"></div></div>
+        </div>
+
+        <!-- Active Module Overlay (Hidden by default) -->
+        <div class="active-panel" id="module-panel">
+            <div class="panel-title" id="mod-title">MODULE</div>
+            <div class="panel-sub" id="mod-desc">Description text here...</div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * SCENE CONFIGURATION & VARIABLES
+         */
+        const CONFIG = {
+            colors: {
+                neonBlue: 0x00f3ff,
+                neonPink: 0xff0055,
+                neonGreen: 0x00ff88,
+                dark: 0x050510,
+                star: 0xffffff
+            },
+            timeline: {
+                intro: 5000,
+                cityDuration: 20000,
+                stationDuration: 25000,
+                orbitDuration: 20000,
+                particleDuration: 25000,
+                total: 110000 // 1m 50s
+            }
+        };
+
+        let state = {
+            currentTime: 0,
+            phase: 'intro',
+            isPlaying: false,
+            camera: new THREE.Vector3(),
+            targetPos: new THREE.Vector3(),
+            cameraTarget: new THREE.Vector3(0,0,0)
+        };
+
+        // Three.js Core
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(CONFIG.colors.dark, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 10);
+
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('world'), antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enablePan = false;
+        controls.maxPolarAngle = Math.PI / 2 - 0.1; // Don't go below ground
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        // Groups
+        const cityGroup = new THREE.Group();
+        const stationGroup = new THREE.Group();
+        const universeGroup = new THREE.Group();
+        
+        scene.add(cityGroup);
+        scene.add(stationGroup);
+        scene.add(universeGroup);
+
+        /**
+         * 3D ASSETS CREATION
+         */
+
+        // --- City Generation ---
+        function createCity() {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            // InstancedMesh would be better for performance, but for this demo standard meshes are fine
+            // Creating ~100 buildings
+            for (let i = 0; i < 80; i++) {
+                const h = Math.random() * 15 + 2;
+                const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+                    color: 0x111111,
+                    roughness: 0.2,
+                    metalness: 0.8,
+                    emissive: Math.random() > 0.5 ? CONFIG.colors.neonBlue : CONFIG.colors.neonPink,
+                    emissiveIntensity: Math.random() * 0.5
+                }));
+                
+                mesh.position.x = (Math.random() - 0.5) * 60;
+                mesh.position.z = (Math.random() - 0.5) * 60 - 20; // Start behind
+                mesh.position.y = h / 2;
+                mesh.scale.set(Math.random() * 3 + 1, h, Math.random() * 3 + 1);
+                cityGroup.add(mesh);
+            }
+            
+            // Traffic Lights (moving points)
+            const lightGeom = new THREE.SphereGeometry(0.1, 8, 8);
+            for(let i=0; i<5; i++) {
+                const light = new THREE.PointLight(CONFIG.colors.neonGreen, 2, 10);
+                light.position.set((Math.random()-0.5)*50, 1, -20 - (i*5));
+                cityGroup.add(light);
+                
+                // Simple animation hook stored in userdata
+                light.userData = { 
+                    speed: 0.05 + Math.random() * 0.05, 
+                    axis: 'z',
+                    dir: 1
+                };
+            }
+        }
+
+        // --- Space Station Generation ---
+        function createStation() {
+            // Core Ring
+            const ringGeo = new THREE.TorusGeometry(4, 0.2, 16, 100);
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.9, roughness: 0.1 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            stationGroup.add(ring);
+
+            // Life Support Module (Left)
+            const mod1 = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), new THREE.MeshStandardMaterial({ color: 0x00ff88 }));
+            mod1.position.set(-3, 0, -4);
+            mod1.rotation.z = 0.2;
+            stationGroup.add(mod1);
+
+            // Docking Module (Right)
+            const mod2 = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 3), new THREE.MeshStandardMaterial({ color: CONFIG.colors.neonPink }));
+            mod2.position.set(3, 0, 3);
+            mod2.rotation.z = 1.57;
+            stationGroup.add(mod2);
+
+            // Comms Array (Top)
+            const mod3 = new THREE.Mesh(new THREE.ConeGeometry(1, 4), new THREE.MeshStandardMaterial({ color: 0xffff00 }));
+            mod3.position.set(0, 4, 0);
+            stationGroup.add(mod3);
+        }
+
+        // --- Particle System (Shape Shifter) ---
+        const particleCount = 1200;
+        const pGeometry = new THREE.BufferGeometry();
+        const pPositions = new Float32Array(particleCount * 3);
+        const pOriginal = new Float32Array(particleCount * 3);
+        const pTargets = new Float32Array(particleCount * 3);
+        
+        // Random distribution
+        for(let i=0; i<particleCount; i++) {
+            const r = 3 + Math.random() * 2;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            
+            const x = r * Math.sin(phi) * Math.cos(theta);
+            const y = r * Math.sin(phi) * Math.sin(theta);
+            const z = r * Math.cos(phi);
+
+            pPositions[i*3] = x;
+            pPositions[i*3+1] = y;
+            pPositions[i*3+2] = z;
+
+            pOriginal[i*3] = x;
+            pOriginal[i*3+1] = y;
+            pOriginal[i*3+2] = z;
+        }
+
+        pGeometry.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+        const pMaterial = new THREE.PointsMaterial({
+            color: 0x00f3ff,
+            size: 0.08,
+            transparent: true,
+            opacity: 0.8
+        });
+        const particleSystem = new THREE.Points(pGeometry, pMaterial);
+        universeGroup.add(particleSystem);
+
+        // Starfield
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 2000;
+        const starPos = new Float32Array(starCount * 3);
+        for(let i=0; i<starCount*3; i++) starPos[i] = (Math.random() - 0.5) * 200;
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const starMat = new THREE.PointsMaterial({color: 0xffffff, size: 0.2});
+        const starField = new THREE.Points(starGeo, starMat);
+        scene.add(starField);
+
+        // Planets
+        const planetGeo = new THREE.SphereGeometry(3, 32, 32);
+        const planetMat1 = new THREE.MeshStandardMaterial({ color: 0xff4400, roughness: 0.4 });
+        const planetMat2 = new THREE.MeshStandardMaterial({ color: 0x0088ff, roughness: 0.8 });
+        
+        const planet1 = new THREE.Mesh(planetGeo, planetMat1);
+        planet1.position.set(-10, 2, -20);
+        scene.add(planet1);
+
+        const planet2 = new THREE.Mesh(planetGeo, planetMat2);
+        planet2.position.set(10, -2, -15);
+        scene.add(planet2);
+
+        /**
+         * DIRECTOR / SCRIPT LOGIC
+         */
+        
+        const uiTitle = document.getElementById('module-title');
+        const uiDesc = document.getElementById('module-desc');
+        const uiPanel = document.getElementById('module-panel');
+        const uiStatus = document.getElementById('system-status');
+        const uiBar = document.getElementById('phase-bar');
+        const timerDisplay = document.getElementById('main-timer');
+        const loadingText = document.getElementById('loading-text');
+
+        // Helper to move camera smoothly
+        function tweenCamera(target, lookAtTarget, duration = 2000) {
+            state.targetPos.copy(target);
+            state.cameraTarget.copy(lookAtTarget);
+        }
+
+        // Shape Logic for Particles
+        const shapes = {
+            sphere: [],
+            cube: [],
+            cross: []
+        };
+
+        // Pre-calculate shapes targets
+        function calculateTargets() {
+            const r = 3;
+            // Sphere
+            for(let i=0; i<particleCount; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                shapes.sphere.push(new THREE.Vector3(
+                    r * Math.sin(phi) * Math.cos(theta),
+                    r * Math.sin(phi) * Math.sin(theta),
+                    r * Math.cos(phi)
+                ));
+            }
+            // Cube
+            const d = 3.5;
+            const countCube = 0;
+            for(let i=0; i<particleCount; i++) {
+                // Simple box packing approximation
+                shapes.cube.push(new THREE.Vector3(
+                    (Math.random()-0.5) * d,
+                    (Math.random()-0.5) * d,
+                    (Math.random()-0.5) * d
+                ));
+            }
+            // Cross
+            for(let i=0; i<particleCount; i++) {
+                const len = 4;
+                const y = (Math.random()-0.5) * len;
+                const x = (Math.random() > 0.5) ? (Math.random()-0.5)*len : 0;
+                const z = (Math.random() > 0.5) ? (Math.random()-0.5)*len : 0;
+                shapes.cross.push(new THREE.Vector3(x, y, z));
+            }
+        }
+        calculateTargets();
+
+        function updateParticles(mode, progress) {
+            const positions = particleSystem.geometry.attributes.position.array;
+            const t = Math.min(progress / 1000, 1); // Normalize to 0-1
+            
+            let targetSet = shapes.cube;
+            if(mode === 'sphere') targetSet = shapes.sphere;
+            if(mode === 'cross') targetSet = shapes.cross;
+
+            for(let i=0; i<particleCount; i++) {
+                // Lerp from current position to target
+                const tx = targetSet[i].x;
+                const ty = targetSet[i].y;
+                const tz = targetSet[i].z;
+
+                positions[i*3] += (tx - positions[i*3]) * 0.05;
+                positions[i*3+1] += (ty - positions[i*3+1]) * 0.05;
+                positions[i*3+2] += (tz - positions[i*3+2]) * 0.05;
+            }
+            particleSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
+        function setSceneVisibility(sceneName, visible) {
+            if(sceneName === 'city') cityGroup.visible = visible;
+            if(sceneName === 'station') stationGroup.visible = visible;
+            if(sceneName === 'orbit') {
+                planet1.visible = visible;
+                planet2.visible = visible;
+                starField.visible = visible;
+            }
+            if(sceneName === 'universe') universeGroup.visible = visible;
+            // Hide all else
+            if(sceneName !== 'city') cityGroup.visible = false;
+            if(sceneName !== 'station') stationGroup.visible = false;
+            if(sceneName !== 'orbit') { planet1.visible = false; planet2.visible = false; starField.visible = false; }
+            if(sceneName !== 'universe') universeGroup.visible = false;
+        }
+
+        // MAIN SCRIPT MANAGER
+        function runScript(elapsedTime) {
+            const t = elapsedTime; // in ms
+            const d = CONFIG.timeline;
+
+            // --- INTRO ---
+            if (t < d.intro) {
+                setSceneVisibility('intro', true); // Just logic placeholder
+                uiStatus.innerText = "BOOT SEQUENCE...";
+                uiBar.style.width = (t/d.intro * 100) + "%";
+                return;
+            }
+
+            // --- PHASE 1: CITY (0s - 20s) ---
+            if (t >= d.intro && t < d.intro + d.cityDuration) {
+                setSceneVisibility('city', true);
+                uiStatus.innerText = "NAVIGATING SECTOR 7G";
+                uiBar.style.width = ((t - d.intro) / d.cityDuration * 100) + "%";
+                
+                // Fly through effect
+                const flyTime = (t - d.intro) / d.cityDuration;
+                camera.position.z = -20 - (flyTime * 100); // Move away
+                camera.position.x = Math.sin(flyTime * Math.PI * 4) * 5;
+                camera.position.y = 3 + Math.sin(flyTime * 10) * 1;
+                
+                // Check traffic light logic
+                cityGroup.children.forEach(child => {
+                    if(child.isPointLight) {
+                        if(child.userData.axis === 'z') {
+                            child.position.z += child.userData.speed * child.userData.dir;
+                            if(child.position.z > 20) child.userData.dir = -1;
+                            if(child.position.z < -30) child.userData.dir = 1;
+                        }
+                    }
+                });
+
+                if (t > d.intro + 10000) {
+                    uiPanel.classList.add('visible');
+                    uiTitle.innerText = "NEON DISTRICT";
+                    uiDesc.innerText = "High density residential zone. Atmospheric density nominal.";
+                } else {
+                    uiPanel.classList.remove('visible');
+                }
+                
+                if (t > d.intro + d.cityDuration) {
+                    // Transition to station
+                    setSceneVisibility('city', false);
+                    setSceneVisibility('station', true);
+                    tweenCamera(new THREE.Vector3(0, 8, 0), new THREE.Vector3(0, 0, 0), 1000);
+                }
+            }
+
+            // --- PHASE 2: STATION TOUR (20s - 45s) ---
+            else if (t >= d.intro + d.cityDuration && t < d.intro + d.cityDuration + d.stationDuration) {
+                uiStatus.innerText = "ORBITAL STATION INSPECTION";
+                uiBar.style.width = ((t - (d.intro + d.cityDuration)) / d.stationDuration * 100) + "%";
+                
+                // Auto rotation
+                stationGroup.rotation.y += 0.01;
+
+                // Tour Logic
+                const tourTime = t - (d.intro + d.cityDuration);
+                const modDuration = d.stationDuration / 3;
+
+                if (tourTime < modDuration) {
+                    // Life Support
+                    tweenCamera(new THREE.Vector3(-3, 1, 5), new THREE.Vector3(-3, 0, -4), 500);
+                    uiPanel.classList.add('visible');
+                    uiTitle.innerText = "LIFE SUPPORT";
+                    uiDesc.innerText = "Atmospheric recycler online. Oxygen levels: 98%.";
+                } else if (tourTime < modDuration * 2) {
+                    // Dock
+                    tweenCamera(new THREE.Vector3(5, 2, 0), new THREE.Vector3(3, 0, 3), 500);
+                    uiPanel.classList.add('visible');
+                    uiTitle.innerText = "DOCKING BAY";
+                    uiDesc.innerText = "Shuttle Bay A cleared. Gravity generator active.";
+                } else {
+                    // Comms
+                    tweenCamera(new THREE.Vector3(0, 6, 6), new THREE.Vector3(0, 4, 0), 500);
+                    uiPanel.classList.add('visible');
+                    uiTitle.innerText = "COMMS ARRAY";
+                    uiDesc.innerText = "Uplink established with Central Command.";
+                }
+
+                if (t > d.intro + d.cityDuration + d.stationDuration) {
+                    setSceneVisibility('station', false);
+                    setSceneVisibility('orbit', true);
+                    tweenCamera(new THREE.Vector3(0, 20, 15), new THREE.Vector3(0, 0, 0), 1000);
+                }
+            }
+
+            // --- PHASE 3: ORBIT & JUMP (45s - 65s) ---
+            else if (t >= d.intro + d.cityDuration + d.stationDuration && t < d.intro + d.cityDuration + d.stationDuration + d.orbitDuration) {
+                uiStatus.innerText = "INTERPLANETARY SCANNING";
+                uiBar.style.width = ((t - (d.intro + d.cityDuration + d.stationDuration)) / d.orbitDuration * 100) + "%";
+
+                // Rotate camera around center
+                const rotTime = t - (d.intro + d.cityDuration + d.stationDuration);
+                const radius = 15;
+                const angle = (rotTime / d.orbitDuration) * Math.PI * 4;
+                
+                camera.position.x = Math.cos(angle) * radius;
+                camera.position.z = Math.sin(angle) * radius;
+                camera.lookAt(0, 0, 0);
+
+                if (rotTime > 4000) {
+                    // Hyperspace Effect (Starfield moves fast)
+                    starField.visible = true;
+                    starField.rotation.z += 0.02;
+                    starField.scale.x = 2;
+                    starField.scale.z = 2;
+                    uiPanel.classList.remove('visible');
+                } else {
+                    // Normal orbit
+                    planet1.rotation.y += 0.005;
+                    planet2.rotation.y += 0.003;
+                }
+
+                if (t > d.intro + d.cityDuration + d.stationDuration + d.orbitDuration) {
+                    setSceneVisibility('orbit', false);
+                    setSceneVisibility('universe', true);
+                    tweenCamera(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), 500);
+                }
+            }
+
+            // --- PHASE 4: PARTICLE UNIVERSE (65s - 95s) ---
+            else if (t >= d.intro + d.cityDuration + d.stationDuration + d.orbitDuration && t < d.intro + d.cityDuration + d.stationDuration + d.orbitDuration + d.particleDuration) {
+                uiStatus.innerText = "QUANTUM PARTICLE SWARM";
+                uiBar.style.width = ((t - (d.intro + d.cityDuration + d.stationDuration + d.orbitDuration)) / d.particleDuration * 100) + "%";
+                
+                // Logic to cycle shapes
+                const pTime = t - (d.intro + d.cityDuration + d.stationDuration + d.orbitDuration);
+                const cycle = pTime / 5000; // Change every 5s
+                
+                if (cycle < 1) {
+                    // Forming Cube
+                    updateParticles('cube', 0); // In a real app we'd tween the transition smoothly
+                    // Force targets instantly for demo effect or lerp handled in updateParticles
+                    uiPanel.classList.add('visible');
+                    uiTitle.innerText = "STRUCTURAL COGNITION";
+                    uiDesc.innerText = "Matter re-assembly in progress...";
+                } else if (cycle < 2) {
+                    // Forming Sphere
+                    uiPanel.classList.add('visible');
+                    uiTitle.innerText = "SOLAR FORMATION";
+                    uiDesc.innerText = "Gravitational binding simulation.";
+                } else if (cycle < 3) {
+                    // Forming Cross (Logo)
+                    uiPanel.classList.add('visible');
+                    uiTitle.innerText = "CORE IDENTIFIED";
+                    uiDesc.innerText = "AI Signature Detected.";
+                } else {
+                    // Disperse
+                    uiPanel.classList.remove('visible');
+                    uiStatus.innerText = "DISSIPATION SEQUENCE";
+                    uiTitle.innerText = "VOID";
+                    uiDesc.innerText = "Returning to null state...";
+                }
+                
+                updateParticles('cross', 0);
+            }
+        }
+
+        /**
+         * RENDER LOOP
+         */
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (state.isPlaying) {
+                const delta = clock.getDelta();
+                // Simple time tracking (1 real sec = 1 virtual sec approx for this demo)
+                state.currentTime += (delta * 1000); 
+                
+                // Update Timer UI
+                const seconds = Math.floor(state.currentTime / 1000);
+                const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const s = (seconds % 60).toString().padStart(2, '0');
+                timerDisplay.innerText = `${m}:${s}`;
+
+                runScript(state.currentTime);
+            }
+
+            // Smooth Camera Movement
+            camera.position.lerp(state.targetPos, 0.05);
+            camera.lookAt(state.cameraTarget);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        /**
+         * INITIALIZATION
+         */
+        function init() {
+            createCity();
+            createStation();
+
+            // Intro
+            setTimeout(() => {
+                loadingText.innerText = "SYSTEMS ONLINE";
+            }, 1500);
+
+            setTimeout(() => {
+                loadingText.innerText = "LAUNCHING EXPLORER";
+            }, 3500);
+
+            setTimeout(() => {
+                const overlay = document.getElementById('intro-overlay');
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.remove(), 1000);
+                
+                state.isPlaying = true;
+                state.currentTime = CONFIG.timeline.intro; // Start after intro
+                animate();
+            }, 5500);
+        }
+
+        // Resize Handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>

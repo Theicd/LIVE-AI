@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Neural Void | Interactive Experience</title>
+    <style>
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bd00ff;
+            --bg: #050508;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: white;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden; /* Prevent scrolling, handle in 3D */
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* 3D Canvas Container */
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            outline: none;
+        }
+
+        /* UI Overlay Layer */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: auto;
+        }
+
+        .brand {
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 300;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, var(--primary), white);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+        }
+
+        .subtitle {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 0.5rem;
+            letter-spacing: 2px;
+        }
+
+        /* Status Indicators */
+        .status-panel {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            color: var(--primary);
+            background: var(--glass);
+            padding: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            backdrop-filter: blur(10px);
+        }
+
+        .status-line {
+            margin-bottom: 4px;
+        }
+
+        .pulse-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 10px var(--primary);
+            animation: blink 2s infinite;
+        }
+
+        /* Footer / Controls */
+        footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            pointer-events: auto;
+        }
+
+        .instructions {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            max-width: 300px;
+            line-height: 1.5;
+        }
+
+        .interactive-btn {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 1rem 2rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(5px);
+        }
+
+        .interactive-btn:hover {
+            background: var(--primary);
+            color: var(--bg);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.4);
+        }
+
+        /* Scanline Effect Overlay */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        /* Animations */
+        @keyframes blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            #ui-layer {
+                padding: 1.5rem;
+            }
+            h1 { font-size: 1.2rem; }
+            .status-panel { display: none; } /* Hide complex status on small screens */
+            .interactive-btn { padding: 0.8rem 1.5rem; font-size: 0.8rem; }
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1s ease;
+        }
+        .loader-text {
+            font-family: 'Courier New', monospace;
+            color: var(--primary);
+            animation: blink 1s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="loader-text">INITIALIZING NEURAL CORE...</div>
+    </div>
+
+    <!-- Retro Overlay -->
+    <div class="scanlines"></div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <header>
+            <div class="brand">
+                <h1>Neural Void</h1>
+                <div class="subtitle">System Online // v.2.0.4</div>
+            </div>
+            <div class="status-panel">
+                <div class="status-line"><span class="pulse-indicator"></span>CPU: <span id="cpu-stat">12</span>%</div>
+                <div class="status-line">LATENCY: <span id="latency-stat">4</span>ms</div>
+                <div class="status-line">NODES: <span id="nodes-stat">4000</span></div>
+            </div>
+        </header>
+
+        <footer>
+            <div class="instructions">
+                <p>DRAG TO ROTATE VIEW</p>
+                <p>SCROLL TO ZOOM</p>
+                <p>CLICK TO PULSE</p>
+            </div>
+            <button class="interactive-btn" id="pulse-btn">Trigger Pulse</button>
+        </footer>
+    </div>
+
+    <!-- 3D Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Three.js Library (Loaded from CDN as standard for single-file demos) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        /**
+         * THE NEURAL VOID
+         * A custom WebGL experience built with Three.js
+         * 
+         * Concepts:
+         * 1. Procedural Geometry: The core is not a static mesh, but a calculated point cloud.
+         * 2. Custom Shaders: We use GLSL within the JS to animate vertices for maximum performance.
+         * 3. Interactive Physics: The scene responds to mouse/touch inputs.
+         */
+
+        class NeuralCore {
+            constructor() {
+                this.container = document.getElementById('canvas-container');
+                this.width = window.innerWidth;
+                this.height = window.innerHeight;
+                
+                // State
+                this.pulseActive = false;
+                this.pulseTime = 0;
+                this.mouse = new THREE.Vector2();
+                this.targetRotation = new THREE.Vector2();
+                this.currentRotation = new THREE.Vector2();
+                this.isDragging = false;
+                this.previousMousePosition = { x: 0, y: 0 };
+                
+                // Setup
+                this.initScene();
+                this.initCamera();
+                this.initRenderer();
+                this.createCore();
+                this.createStarfield();
+                this.initEvents();
+                
+                // Start Loop
+                this.clock = new THREE.Clock();
+                this.animate();
+
+                // Hide Loader
+                setTimeout(() => {
+                    document.getElementById('loader').style.opacity = '0';
+                    setTimeout(() => document.getElementById('loader').remove(), 1000);
+                }, 1000);
+            }
+
+            initScene() {
+                this.scene = new THREE.Scene();
+                // Fog for depth fading
+                this.scene.fog = new THREE.FogExp2(0x050508, 0.002);
+            }
+
+            initCamera() {
+                this.camera = new THREE.PerspectiveCamera(60, this.width / this.height, 0.1, 1000);
+                this.camera.position.z = 40;
+            }
+
+            initRenderer() {
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(this.width, this.height);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimize for mobile
+                this.container.appendChild(this.renderer.domElement);
+            }
+
+            createCore() {
+                // Using BufferGeometry for high performance with many particles
+                const particleCount = 4000;
+                this.geometry = new THREE.BufferGeometry();
+                this.positions = new Float32Array(particleCount * 3);
+                this.originalPositions = new Float32Array(particleCount * 3);
+                this.colors = new Float32Array(particleCount * 3);
+
+                const color1 = new THREE.Color(0x00f3ff); // Cyan
+                const color2 = new THREE.Color(0xbd00ff); // Purple
+
+                for (let i = 0; i < particleCount; i++) {
+                    // Create a spherical distribution
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos((Math.random() * 2) - 1);
+                    const radius = 10 + (Math.random() * 2); // Radius variation
+
+                    const x = radius * Math.sin(phi) * Math.cos(theta);
+                    const y = radius * Math.sin(phi) * Math.sin(theta);
+                    const z = radius * Math.cos(phi);
+
+                    this.positions[i * 3] = x;
+                    this.positions[i * 3 + 1] = y;
+                    this.positions[i * 3 + 2] = z;
+
+                    this.originalPositions[i * 3] = x;
+                    this.originalPositions[i * 3 + 1] = y;
+                    this.originalPositions[i * 3 + 2] = z;
+
+                    // Mix colors based on position
+                    const mixedColor = color1.clone().lerp(color2, Math.random());
+                    this.colors[i * 3] = mixedColor.r;
+                    this.colors[i * 3 + 1] = mixedColor.g;
+                    this.colors[i * 3 + 2] = mixedColor.b;
+                }
+
+                this.geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
+                this.geometry.setAttribute('color', new THREE.BufferAttribute(this.colors, 3));
+
+                // Custom Shader Material for the particles
+                // This allows us to animate vertices efficiently on the GPU
+                const material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        time: { value: 0 },
+                        pulseStrength: { value: 0 },
+                        color: { value: new THREE.Color(0xffffff) }
+                    },
+                    vertexShader: `
+                        uniform float time;
+                        uniform float pulseStrength;
+                        attribute vec3 color;
+                        varying vec3 vColor;
+                        
+                        void main() {
+                            vColor = color;
+                            vec3 pos = position;
+                            
+                            // Breathing effect
+                            float breath = sin(time * 2.0 + pos.x * 0.5) * 0.5;
+                            
+                            // Pulse effect
+                            float pulse = sin(time * 10.0) * pulseStrength;
+                            
+                            // Apply displacement
+                            pos += normal * (breath + pulse);
+                            
+                            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                            gl_PointSize = (4.0 * (1.0 + pulseStrength)) * (30.0 / -mvPosition.z);
+                            gl_Position = projectionMatrix * mvPosition;
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vColor;
+                        
+                        void main() {
+                            // Create a soft circle
+                            float r = distance(gl_PointCoord, vec2(0.5));
+                            if (r > 0.5) discard;
+                            
+                            // Soft edge glow
+                            float glow = 1.0 - (r * 2.0);
+                            glow = pow(glow, 1.5);
+                            
+                            gl_FragColor = vec4(vColor, glow);
+                        }
+                    `,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+
+                this.coreMesh = new THREE.Points(this.geometry, material);
+                this.scene.add(this.coreMesh);
+
+                // Add an inner glowing nucleus
+                const sphereGeo = new THREE.SphereGeometry(4, 32, 32);
+                const sphereMat = new THREE.MeshBasicMaterial({ 
+                    color: 0x00f3ff, 
+                    transparent: true, 
+                    opacity: 0.1,
+                    wireframe: true 
+                });
+                this.nucleus = new THREE.Mesh(sphereGeo, sphereMat);
+                this.scene.add(this.nucleus);
+            }
+
+            createStarfield() {
+                const starsGeometry = new THREE.BufferGeometry();
+                const starsCount = 2000;
+                const posArray = new Float32Array(starsCount * 3);
+
+                for(let i = 0; i < starsCount * 3; i++) {
+                    // Spread stars far out
+                    posArray[i] = (Math.random() - 0.5) * 300; 
+                }
+
+                starsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+                
+                const starsMaterial = new THREE.PointsMaterial({
+                    size: 0.2,
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.6
+                });
+
+                this.starfield = new THREE.Points(starsGeometry, starsMaterial);
+                this.scene.add(this.starfield);
+            }
+
+            triggerPulse() {
+                if (this.pulseActive) return;
+                this.pulseActive = true;
+                this.pulseTime = 0;
+                
+                // UI Feedback
+                const btn = document.getElementById('pulse-btn');
+                btn.textContent = "PULSE ACTIVE";
+                btn.style.borderColor = "#bd00ff";
+                btn.style.color = "#bd00ff";
+                
+                // Stats update
+                document.getElementById('cpu-stat').innerText = Math.floor(Math.random() * 30 + 60);
+            }
+
+            initEvents() {
+                // Resize
+                window.addEventListener('resize', () => {
+                    this.width = window.innerWidth;
+                    this.height = window.innerHeight;
+                    this.camera.aspect = this.width / this.height;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(this.width, this.height);
+                });
+
+                // Mouse / Touch Rotation
+                const onStart = (x, y) => {
+                    this.isDragging = true;
+                    this.previousMousePosition = { x, y };
+                };
+
+                const onMove = (x, y) => {
+                    if (this.isDragging) {
+                        const deltaMove = {
+                            x: x - this.previousMousePosition.x,
+                            y: y - this.previousMousePosition.y
+                        };
+
+                        this.targetRotation.y += deltaMove.x * 0.005;
+                        this.targetRotation.x += deltaMove.y * 0.005;
+
+                        this.previousMousePosition = { x, y };
+                    }
+                };
+
+                const onEnd = () => {
+                    this.isDragging = false;
+                };
+
+                // Mouse Events
+                document.addEventListener('mousedown', e => onStart(e.clientX, e.clientY));
+                document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+                document.addEventListener('mouseup', onEnd);
+
+                // Touch Events
+                document.addEventListener('touchstart', e => onStart(e.touches[0].clientX, e.touches[0].clientY), {passive: false});
+                document.addEventListener('touchmove', e => onMove(e.touches[0].clientX, e.touches[0].clientY), {passive: false});
+                document.addEventListener('touchend', onEnd);
+
+                // Scroll to Zoom
+                document.addEventListener('wheel', (e) => {
+                    this.camera.position.z += e.deltaY * 0.05;
+                    this.camera.position.z = Math.max(15, Math.min(60, this.camera.position.z));
+                });
+
+                // Click to Pulse
+                document.addEventListener('click', () => {
+                    // Only trigger if not dragging
+                    if (!this.isDragging) {
+                        this.triggerPulse();
+                    }
+                });
+
+                // Button
+                document.getElementById('pulse-btn').addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent triggering core click
+                    this.triggerPulse();
+                });
+            }
+
+            animate() {
+                requestAnimationFrame(this.animate.bind(this));
+
+                const time = this.clock.getElapsedTime();
+
+                // Smooth Rotation Interpolation
+                this.currentRotation.x += (this.targetRotation.x - this.currentRotation.x) * 0.05;
+                this.currentRotation.y += (this.targetRotation.y - this.currentRotation.y) * 0.05;
+
+                // Rotate Core
+                this.coreMesh.rotation.y = this.currentRotation.y;
+                this.coreMesh.rotation.x = this.currentRotation.x;
+                
+                // Rotate Nucleus (Counter-rotation for visual complexity)
+                this.nucleus.rotation.y -= 0.02;
+                this.nucleus.rotation.z += 0.01;
+
+                // Update Shader Uniforms
+                this.coreMesh.material.uniforms.time.value = time;
+
+                // Handle Pulse Logic
+                if (this.pulseActive) {
+                    this.pulseTime += 0.1;
+                    // Decay pulse strength
+                    const strength = Math.exp(-this.pulseTime * 2); // Exponential decay
+                    
+                    this.coreMesh.material.uniforms.pulseStrength.value = strength;
+
+                    // Nucleus flash
+                    this.nucleus.material.opacity = 0.1 + (strength * 0.5);
+
+                    if (strength < 0.01) {
+                        this.pulseActive = false;
+                        this.coreMesh.material.uniforms.pulseStrength.value = 0;
+                        this.nucleus.material.opacity = 0.1;
+                        
+                        // Reset Button
+                        const btn = document.getElementById('pulse-btn');
+                        btn.textContent = "TRIGGER PULSE";
+                        btn.style.borderColor = "";
+                        btn.style.color = "";
+                    }
+                }
+
+                // Rotate Starfield slowly
+                this.starfield.rotation.y = time * 0.05;
+
+                // Animate Stats (Simulated)
+                if (Math.random() > 0.95) {
+                    document.getElementById('cpu-stat').innerText = Math.floor(Math.random() * 20 + 10);
+                    document.getElementById('latency-stat').innerText = Math.floor(Math.random() * 5 + 2);
+                }
+
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // Initialize Experience when DOM is ready
+        window.addEventListener('DOMContentLoaded', () => {
+            new NeuralCore();
+        });
+
+    </script>
+</body>
+</html>

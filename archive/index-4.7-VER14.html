@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Flap</title>
+    <style>
+        /* CSS Reset and Basic Styling */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none; /* Prevent text selection on mobile */
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Courier New', Courier, monospace; /* Pixel font fallback */
+            overflow: hidden;
+        }
+
+        /* Game Container */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 480px; /* Mobile-friendly max width */
+            height: 100%;
+            max-height: 800px;
+            background-color: #70c5ce; /* Sky blue */
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            /* Force crisp pixel art rendering */
+            image-rendering: pixelated; 
+        }
+
+        /* UI Overlays */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas when playing */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Score HUD */
+        #score-hud {
+            position: absolute;
+            top: 10%;
+            width: 100%;
+            text-align: center;
+            font-size: 3rem;
+            font-weight: bold;
+            color: white;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Screens (Start / Game Over) */
+        .screen {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 20px;
+            border-radius: 8px;
+            pointer-events: auto; /* Re-enable clicks for buttons */
+            transition: opacity 0.3s;
+        }
+
+        h1 {
+            color: #f4d03f;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        p {
+            color: white;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+
+        .score-display {
+            font-size: 1.5rem;
+            margin: 10px 0;
+        }
+
+        /* Buttons */
+        .btn {
+            background-color: #e67e22;
+            border: 2px solid #fff;
+            color: white;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 4px 0 #d35400;
+            transition: transform 0.1s;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #d35400;
+        }
+
+        .btn:hover {
+            background-color: #f39c12;
+        }
+
+        /* Flash effect overlay */
+        #flash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="flash"></div>
+        
+        <!-- Score HUD -->
+        <div id="score-hud">0</div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="ui-layer">
+            <div class="screen">
+                <h1>Pixel Flap</h1>
+                <p>Tap or Space to Fly</p>
+                <button class="btn" id="start-btn">Start Game</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="ui-layer hidden">
+            <div class="screen">
+                <h1>Game Over</h1>
+                <div class="score-display">Score: <span id="final-score">0</span></div>
+                <div class="score-display">Best: <span id="best-score">0</span></div>
+                <button class="btn" id="restart-btn">Try Again</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+/**
+ * Game Configuration & Constants
+ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Logical resolution (internal resolution for pixel art)
+const GAME_WIDTH = 320;
+const GAME_HEIGHT = 480;
+
+// Game State
+let frames = 0;
+let score = 0;
+let highScore = localStorage.getItem('pixelFlapHighScore') || 0;
+let gameState = 'START'; // START, PLAYING, GAMEOVER
+let gameSpeed = 2; // Horizontal scrolling speed
+
+// Physics Constants
+const GRAVITY = 0.25;
+const JUMP_STRENGTH = -4.5;
+const PIPE_SPAWN_RATE = 100; // Frames between pipes
+const PIPE_GAP = 100; // Vertical space between pipes
+const PIPE_WIDTH = 50;
+
+/**
+ * Responsive Scaling
+ * Ensures the canvas fits the container while maintaining aspect ratio
+ */
+function resizeCanvas() {
+    const container = document.getElementById('game-container');
+    const aspectRatio = GAME_WIDTH / GAME_HEIGHT;
+    
+    // Set internal resolution
+    canvas.width = GAME_WIDTH;
+    canvas.height = GAME_HEIGHT;
+
+    // CSS handles the visual scaling to fit the screen
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+/**
+ * Input Handling
+ */
+function handleInput(e) {
+    if (e.type === 'keydown' && e.code !== 'Space' && e.code !== 'ArrowUp') return;
+    if (e.type !== 'keydown') e.preventDefault(); // Stop scrolling on touch
+
+    switch (gameState) {
+        case 'START':
+            startGame();
+            break;
+        case 'PLAYING':
+            bird.flap();
+            break;
+        case 'GAMEOVER':
+            // Prevent accidental restarts immediately after death
+            break;
+    }
+}
+
+window.addEventListener('keydown', handleInput);
+window.addEventListener('touchstart', handleInput, {passive: false});
+canvas.addEventListener('mousedown', handleInput);
+
+// Button Listeners
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', resetGame);
+
+/**
+ * Game Objects
+ */
+
+// Particle System for explosions
+const particles = [];
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.size = Math.random() * 5 + 2;
+        this.speedX = Math.random() * 4 - 2;
+        this.speedY = Math.random() * 4 - 2;
+        this.color = color;
+        this.life = 1.0; // Opacity
+    }
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life -= 0.02;
+    }
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillRect(this.x, this.y, this.size, this.size);
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+function createExplosion(x, y, color) {
+    for (let i = 0; i < 15; i++) {
+        particles.push(new Particle(x, y, color));
+    }
+}
+
+// The Bird
+const bird = {
+    x: 50,
+    y: 150,
+    w: 34,
+    h: 24,
+    velocity: 0,
+    radius: 12,
+    rotation: 0,
+    
+    draw: function() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        // Rotation based on velocity
+        this.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (this.velocity * 0.1)));
+        ctx.rotate(this.rotation);
+
+        // Pixel Art Bird Drawing (Procedural)
+        // Body
+        ctx.fillStyle = '#f4d03f'; // Yellow
+        ctx.fillRect(-17, -12, 34, 24);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-17, -12, 34, 24);
+
+        // Wing
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-5, 2, 14, 8);
+        ctx.strokeRect(-5, 2, 14, 8);
+
+        // Eye
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(5, -10, 10, 10);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(10, -5, 4, 4);
+
+        // Beak
+        ctx.fillStyle = '#e67e22';
+        ctx.fillRect(10, 4, 10, 6);
+        ctx.strokeRect(10, 4, 10, 6);
+
+        ctx.restore();
+    },
+    
+    update: function() {
+        this.velocity += GRAVITY;
+        this.y += this.velocity;
+
+        // Floor Collision
+        if (this.y + this.h/2 >= GAME_HEIGHT) {
+            this.y = GAME_HEIGHT - this.h/2;
+            gameOver();
+        }
+        
+        // Ceiling Collision
+        if (this.y - this.h/2 <= 0) {
+            this.y = this.h/2;
+            this.velocity = 0;
+        }
+    },
+    
+    flap: function() {
+        this.velocity = JUMP_STRENGTH;
+    },
+    
+    reset: function() {
+        this.y = 150;
+        this.velocity = 0;
+        this.rotation = 0;
+    }
+};
+
+// Pipe Manager
+const pipes = {
+    items: [],
+    
+    reset: function() {
+        this.items = [];
+    },
+    
+    update: function() {
+        // Add new pipe
+        if (frames % PIPE_SPAWN_RATE === 0) {
+            // Random position for the gap
+            // Gap must be within playable area
+            const minY = 50;
+            const maxY = GAME_HEIGHT - PIPE_GAP - 50;
+            const topHeight = Math.floor(Math.random() * (maxY - minY + 1) + minY);
+            
+            this.items.push({
+                x: GAME_WIDTH,
+                y: topHeight,
+                passed: false
+            });
+        }
+        
+        // Move pipes
+        for (let i = 0; i < this.items.length; i++) {
+            let p = this.items[i];
+            p.x -= gameSpeed;
+            
+            // Collision Detection
+            // Horizontal overlap
+            if (bird.x + bird.w/2 > p.x && bird.x - bird.w/2 < p.x + PIPE_WIDTH) {
+                // Vertical overlap (hit top pipe OR hit bottom pipe)
+                if (bird.y - bird.h/2 < p.y || bird.y + bird.h/2 > p.y + PIPE_GAP) {
+                    gameOver();
+                }
+            }
+            
+            // Score update
+            if (p.x + PIPE_WIDTH < bird.x && !p.passed) {
+                score++;
+                p.passed = true;
+                document.getElementById('score-hud').innerText = score;
+                // Speed up slightly every 10 points
+                if(score % 10 === 0) gameSpeed += 0.2;
+            }
+            
+            // Remove off-screen pipes
+            if (p.x + PIPE_WIDTH < 0) {
+                this.items.shift();
+                i--;
+            }
+        }
+    },
+    
+    draw: function() {
+        for (let i = 0; i < this.items.length; i++) {
+            let p = this.items[i];
+            
+            // Draw Top Pipe
+            ctx.fillStyle = '#73bf2e';
+            ctx.fillRect(p.x, 0, PIPE_WIDTH, p.y);
+            ctx.strokeRect(p.x, 0, PIPE_WIDTH, p.y);
+            
+            // Pipe Cap (Top)
+            ctx.fillStyle = '#558c22';
+            ctx.fillRect(p.x - 2, p.y - 20, PIPE_WIDTH + 4, 20);
+            ctx.strokeRect(p.x - 2, p.y - 20, PIPE_WIDTH + 4, 20);
+
+            // Draw Bottom Pipe
+            ctx.fillStyle = '#73bf2e';
+            let bottomY = p.y + PIPE_GAP;
+            let bottomHeight = GAME_HEIGHT - bottomY;
+            ctx.fillRect(p.x, bottomY, PIPE_WIDTH, bottomHeight);
+            ctx.strokeRect(p.x, bottomY, PIPE_WIDTH, bottomHeight);
+
+            // Pipe Cap (Bottom)
+            ctx.fillStyle = '#558c22';
+            ctx.fillRect(p.x - 2, bottomY, PIPE_WIDTH + 4, 20);
+            ctx.strokeRect(p.x - 2, bottomY, PIPE_WIDTH + 4, 20);
+        }
+    }
+};
+
+// Background / Foreground
+const background = {
+    draw: function() {
+        // Draw Clouds (Simple shapes)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        let cloudX = (frames * 0.5) % (GAME_WIDTH + 100);
+        ctx.fillRect(GAME_WIDTH - cloudX, 100, 60, 30);
+        ctx.fillRect(GAME_WIDTH - cloudX + 20, 90, 40, 20);
+
+        // Draw Ground
+        ctx.fillStyle = '#ded895';
+        ctx.fillRect(0, GAME_HEIGHT - 20, GAME_WIDTH, 20);
+        ctx.strokeStyle = '#555';
+        ctx.beginPath();
+        ctx.moveTo(0, GAME_HEIGHT - 20);
+        ctx.lineTo(GAME_WIDTH, GAME_HEIGHT - 20);
+        ctx.stroke();
+        
+        // Ground details
+        ctx.fillStyle = '#d0c874';
+        let offset = (frames * gameSpeed) % 20;
+        for(let i = -20; i < GAME_WIDTH; i+=20) {
+            ctx.fillRect(i - offset, GAME_HEIGHT - 20, 10, 4);
+        }
+    }
+};
+
+/**
+ * Game Logic Functions
+ */
+
+function startGame() {
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('game-over-screen').classList.add('hidden');
+    document.getElementById('score-hud').classList.remove('hidden');
+    
+    gameState = 'PLAYING';
+    bird.reset();
+    pipes.reset();
+    score = 0;
+    frames = 0;
+    gameSpeed = 2;
+    document.getElementById('score-hud').innerText = score;
+}
+
+function gameOver() {
+    if (gameState === 'GAMEOVER') return;
+    gameState = 'GAMEOVER';
+    
+    // Flash Effect
+    const flash = document.getElementById('flash');
+    flash.style.transition = 'none';
+    flash.style.opacity = 1;
+    setTimeout(() => {
+        flash.style.transition = 'opacity 0.5s';
+        flash.style.opacity = 0;
+    }, 50);
+
+    // Particle Explosion
+    createExplosion(bird.x, bird.y, '#e67e22');
+
+    // Update High Score
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('pixelFlapHighScore', highScore);
+    }
+
+    // Show UI
+    document.getElementById('final-score').innerText = score;
+    document.getElementById('best-score').innerText = highScore;
+    document.getElementById('score-hud').classList.add('hidden');
+    document.getElementById('game-over-screen').classList.remove('hidden');
+}
+
+function resetGame() {
+    startGame();
+}
+
+function drawBackground() {
+    // Sky gradient
+    let gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+    gradient.addColorStop(0, '#4ec0ca');
+    gradient.addColorStop(1, '#a2d9ff');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+}
+
+/**
+ * Main Game Loop
+ */
+function loop() {
+    // Clear screen
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    drawBackground();
+
+    if (gameState === 'PLAYING') {
+        pipes.update();
+        pipes.draw();
+        
+        bird.update();
+        bird.draw();
+        
+        frames++;
+    } else if (gameState === 'START') {
+        // Animate bird hovering on start screen
+        bird.y = 150 + Math.sin(Date.now() / 200) * 10;
+        bird.draw();
+        pipes.draw(); // Draw pipes in background
+    } else if (gameState === 'GAMEOVER') {
+        pipes.draw();
+        bird.draw(); // Draw bird in position where it died
+    }
+
+    // Always draw particles (even on game over)
+    for (let i = 0; i < particles.length; i++) {
+        particles[i].update();
+        particles[i].draw();
+        if (particles[i].life <= 0) {
+            particles.splice(i, 1);
+            i--;
+        }
+    }
+
+    background.draw();
+
+    requestAnimationFrame(loop);
+}
+
+// Start the loop
+loop();
+
+</script>
+</body>
+</html>

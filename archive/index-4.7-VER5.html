@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Midnight Jazz - Generative Flow</title>
+    <style>
+        :root {
+            --bg-color: #050510;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-color: #e0e0e0;
+            --accent-color: #ffd700;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Georgia', 'Times New Roman', serif;
+            color: var(--text-color);
+        }
+
+        /* The Canvas */
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            z-index: 10;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            opacity: 0;
+            animation: fadeIn 2s ease-out forwards;
+        }
+
+        h1 {
+            font-weight: 300;
+            font-style: italic;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-size: 1.5rem;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .subtitle {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 0.5rem;
+            font-style: normal;
+        }
+
+        /* Controls Panel */
+        .controls {
+            pointer-events: auto; /* Re-enable clicks for buttons */
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 320px;
+            margin: 0 auto 2rem auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .controls.hidden {
+            transform: translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .control-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        label {
+            font-weight: 400;
+            letter-spacing: 0.05em;
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 60%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 0.5rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: var(--accent-color);
+        }
+
+        button.active {
+            background: var(--accent-color);
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* Toggle UI Button (Bottom Right) */
+        .toggle-ui {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            pointer-events: auto;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .toggle-ui:hover {
+            color: white;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.2rem; }
+            .controls { padding: 1rem; }
+            #ui-layer { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Canvas Layer -->
+    <canvas id="artCanvas"></canvas>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <header>
+            <h1>MIDNIGHT SOLO</h1>
+            <div class="subtitle">Generative Ambient Flow</div>
+        </header>
+
+        <div class="controls" id="controlsPanel">
+            <div class="control-group">
+                <label for="speedRange">Flow Speed</label>
+                <input type="range" id="speedRange" min="1" max="10" value="3">
+            </div>
+            <div class="control-group">
+                <label for="densityRange">Particle Density</label>
+                <input type="range" id="densityRange" min="50" max="300" value="150">
+            </div>
+            <div class="control-group">
+                <label for="hueRange">Mood Color</label>
+                <input type="range" id="hueRange" min="0" max="360" value="240">
+            </div>
+            
+            <div class="btn-group">
+                <button id="playPauseBtn">Pause</button>
+                <button id="regenerateBtn">New Theme</button>
+            </div>
+        </div>
+
+        <button class="toggle-ui" id="uiToggle" aria-label="Toggle UI">⚙️</button>
+    </div>
+
+    <script>
+        /**
+         * MIDNIGHT SOLO
+         * A generative flow field simulation inspired by jazz improvisation.
+         * Uses trigonometric noise for organic vector fields.
+         */
+
+        const canvas = document.getElementById('artCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on base
+        
+        // State Management
+        const state = {
+            width: 0,
+            height: 0,
+            particles: [],
+            zOff: 0, // Time dimension for noise
+            isPlaying: true,
+            speed: 0.003,
+            baseHue: 240,
+            particleCount: 150,
+            frame: 0,
+            mouse: { x: -1000, y: -1000, active: false }
+        };
+
+        // UI Elements
+        const ui = {
+            speed: document.getElementById('speedRange'),
+            density: document.getElementById('densityRange'),
+            hue: document.getElementById('hueRange'),
+            playBtn: document.getElementById('playPauseBtn'),
+            regenBtn: document.getElementById('regenerateBtn'),
+            panel: document.getElementById('controlsPanel'),
+            toggle: document.getElementById('uiToggle')
+        };
+
+        // --- Core Logic ---
+
+        class Particle {
+            constructor() {
+                this.reset(true);
+            }
+
+            reset(randomizeStart = false) {
+                this.x = randomizeStart ? Math.random() * state.width : Math.random() * state.width;
+                this.y = randomizeStart ? Math.random() * state.height : Math.random() * state.height;
+                this.vx = 0;
+                this.vy = 0;
+                this.history = []; // For smooth trailing
+                this.maxHistory = Math.floor(Math.random() * 10) + 5;
+                this.life = Math.random() * 100 + 100;
+                this.age = 0;
+                
+                // Individual variation
+                this.speedVar = Math.random() * 0.5 + 0.5;
+                this.size = Math.random() * 2 + 0.5;
+                
+                // Color shift based on global hue + individual variance
+                this.hue = state.baseHue + (Math.random() * 60 - 30); 
+                this.lightness = 50 + (Math.random() * 30);
+            }
+
+            update() {
+                // Calculate vector field angle based on position and time
+                // Using superposition of sine waves to mimic Perlin-like noise without heavy library
+                const scale = 0.002;
+                const x = this.x * scale;
+                const y = this.y * scale;
+                const z = state.zOff;
+
+                // The "Jazz" Logic: Smooth, flowing noise
+                const angle = 
+                    Math.sin(x + z) * 2 + 
+                    Math.cos(y + z) * 2 + 
+                    Math.sin((x + y) * 0.5 + z);
+
+                // Apply force
+                this.vx += Math.cos(angle) * 0.1 * this.speedVar;
+                this.vy += Math.sin(angle) * 0.1 * this.speedVar;
+
+                // Friction to prevent infinite acceleration
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Boundary handling (Wrap around)
+                if (this.x < 0) this.x = state.width;
+                if (this.x > state.width) this.x = 0;
+                if (this.y < 0) this.y = state.height;
+                if (this.y > state.height) this.y = 0;
+
+                // Mouse interaction (Repel)
+                if (state.mouse.active) {
+                    const dx = this.x - state.mouse.x;
+                    const dy = this.y - state.mouse.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 200) {
+                        const force = (200 - dist) / 200;
+                        this.vx += (dx / dist) * force * 2;
+                        this.vy += (dy / dist) * force * 2;
+                    }
+                }
+
+                // Age and reset
+                this.age++;
+                if (this.age > this.life) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                // Draw a smooth curve through history
+                ctx.beginPath();
+                // Start from current pos
+                ctx.moveTo(this.x, this.y);
+                
+                // If we had history, we could draw lines, but for this style,
+                // drawing directly with a glow effect is more performant and looks like "smoke"
+                ctx.fillStyle = `hsla(${this.hue}, 80%, ${this.lightness}%, ${1 - this.age/this.life})`;
+                
+                // Draw a small circle for the "head"
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // --- System Functions ---
+
+        function init() {
+            resize();
+            createParticles();
+            animate();
+            
+            // Event Listeners
+            window.addEventListener('resize', resize);
+            
+            // Mouse/Touch
+            canvas.addEventListener('mousemove', e => {
+                state.mouse.x = e.clientX;
+                state.mouse.y = e.clientY;
+                state.mouse.active = true;
+            });
+            
+            canvas.addEventListener('mouseleave', () => state.mouse.active = false);
+            
+            canvas.addEventListener('touchstart', e => {
+                state.mouse.x = e.touches[0].clientX;
+                state.mouse.y = e.touches[0].clientY;
+                state.mouse.active = true;
+            }, {passive: true});
+
+            canvas.addEventListener('touchend', () => state.mouse.active = false);
+
+            // UI Controls
+            ui.speed.addEventListener('input', (e) => {
+                state.speed = e.target.value * 0.001;
+            });
+
+            ui.density.addEventListener('input', (e) => {
+                state.particleCount = parseInt(e.target.value);
+                createParticles();
+            });
+
+            ui.hue.addEventListener('input', (e) => {
+                state.baseHue = parseInt(e.target.value);
+                // Update existing particles immediately
+                state.particles.forEach(p => p.hue = state.baseHue + (Math.random() * 60 - 30));
+            });
+
+            ui.playBtn.addEventListener('click', () => {
+                state.isPlaying = !state.isPlaying;
+                ui.playBtn.textContent = state.isPlaying ? "Pause" : "Play";
+                ui.playBtn.classList.toggle('active', !state.isPlaying);
+                if (state.isPlaying) animate();
+            });
+
+            ui.regenBtn.addEventListener('click', () => {
+                state.zOff = Math.random() * 100; // Jump in time
+                state.baseHue = Math.random() * 360;
+                ui.hue.value = state.baseHue;
+                createParticles();
+            });
+
+            ui.toggle.addEventListener('click', () => {
+                ui.panel.classList.toggle('hidden');
+            });
+        }
+
+        function resize() {
+            state.width = window.innerWidth;
+            state.height = window.innerHeight;
+            canvas.width = state.width;
+            canvas.height = state.height;
+            // Fill background initially
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, state.width, state.height);
+        }
+
+        function createParticles() {
+            state.particles = [];
+            for (let i = 0; i < state.particleCount; i++) {
+                state.particles.push(new Particle());
+            }
+        }
+
+        function animate() {
+            if (!state.isPlaying) return;
+
+            // Fade effect for trails
+            // Instead of clearing, we draw a semi-transparent black rectangle
+            // This creates the "trails" behind the particles
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.08)'; // Adjust alpha for trail length
+            ctx.fillRect(0, 0, state.width, state.height);
+
+            // Add glow effect
+            ctx.globalCompositeOperation = 'lighter'; // Makes overlapping particles glow
+
+            state.zOff += state.speed;
+            state.frame++;
+
+            // Smoothly update global hue over time if desired, but we keep it reactive to slider
+            // Optional: Slight color drift
+            // state.baseHue = (state.baseHue + 0.1) % 360;
+
+            for (let p of state.particles) {
+                p.update();
+                p.draw();
+            }
+
+            ctx.globalCompositeOperation = 'source-over'; // Reset for fade rect
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>
