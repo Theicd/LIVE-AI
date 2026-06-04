@@ -24,14 +24,13 @@ index.html                  ← מפנה ל-broadcast.html
    או: `python scripts/update_archive_manifest.py`
 3. `git add archive/` → `commit` → `push`
 
-ב-push ל-`main`, GitHub Actions מריץ שוב את סקריפט ה-manifest ומפרסם Pages.
+## הפעלת GitHub Pages (פעם אחת — חובה)
 
-## הפעלת GitHub Pages (פעם אחת)
-
-1. Repo ב-GitHub → **Settings** → **Pages**
-2. Source: **GitHub Actions**
-3. אחרי deploy מוצלח, הכתובת:
-   `https://<USER>.github.io/<REPO>/broadcast.html`
+1. https://github.com/Theicd/LIVE-AI → **Settings** → **Pages**
+2. **Build and deployment** → Source: **Deploy from a branch**
+3. Branch: **main** | Folder: **/ (root)**
+4. Save — אחרי 1–3 דקות:
+   **https://theicd.github.io/LIVE-AI/broadcast.html**
 
 ## OBS
 
