@@ -1,5 +1,7 @@
 # AI Live Channel — Broadcast UI (GitHub Pages)
 
+LIVE LINK - https://theicd.github.io/LIVE-AI/broadcast.html
+
 TV-style OBS overlay: simulated live code, archive rotation, SFX, countdowns.  
 **No AI model in this repo** — external tools generate HTML; you upload files to `archive/`.
 
